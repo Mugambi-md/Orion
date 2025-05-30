@@ -167,7 +167,7 @@ def create_tables():
                            total_amount DECIMAL(10, 2) NOT NULL,
                            paid_amount DECIMAL(10, 2) NOT NULL,
                            balance DECIMAL(10, 2) NOT NULL,
-                           method ENUM('cash', 'mpesa') DEFAULT NULL,
+                           method VARCHAR(40) NULL,
                            FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE
                            );
                         """)
