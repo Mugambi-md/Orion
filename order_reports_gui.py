@@ -2,19 +2,18 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import tkinter.font as tkFont
 from connect_to_db import connect_db
+from base_window import BaseWindow
 from report_preview import ReportPreviewer
 from working_on_orders import fetch_all_orders, fetch_all_order_items, fetch_all_orders_logs, order_items_history
 conn = connect_db()
-class ReportsWindow:
+class ReportsWindow(BaseWindow):
     def __init__(self, parent, conn, user):
-        self.parent = parent
         self.master = tk.Toplevel(parent)
         self.master.title("Order Reports")
-        # self.master.geometry("850x550")
+        self.center_window(self.master, 900, 600)
         self.master.transient(parent)
         self.master.configure(bg="lightblue")
         self.master.grab_set()
-        self.center_popup()
 
         self.user = user
         self.conn = conn
@@ -22,7 +21,7 @@ class ReportsWindow:
 
     def create_widgets(self):
         top_frame = tk.Frame(self.master, bg="lightgreen")
-        top_frame.pack(fill="x", pady=5)
+        top_frame.pack(fill="x", padx=5)
         btn_orders = tk.Button(top_frame, text="Orders History", command=self.show_orders_history)
         btn_items = tk.Button(top_frame, text="Ordered Items", command=self.show_ordered_items)
         btn_logs = tk.Button(top_frame, text="View Order Logs", command=self.show_order_logs)
@@ -34,7 +33,7 @@ class ReportsWindow:
         btn_ordered.pack(side="left", padx=5)
         btn_export_all.pack(side="right", padx=10)
         self.table_frame = tk.Frame(self.master, bg="lightblue")
-        self.table_frame.pack(fill="both")
+        self.table_frame.pack(fill="both", expand=True, pady=(0, 7))
         self.show_orders_history()
     def clear_table(self):
         for widget in self.table_frame.winfo_children():
@@ -48,8 +47,8 @@ class ReportsWindow:
             "rows": data or []
         }
 
-        title = tk.Label(self.table_frame, text=title_text, font=("Arial", 12, "bold"), bg="lightblue")
-        title.grid(row=0, column=1, pady=5)
+        title = tk.Label(self.table_frame, text=title_text, font=("Arial", 13, "bold"), bg="lightblue")
+        title.grid(row=0, column=1, padx=5)
         export_btn = tk.Button(self.table_frame, text="Export Report", command=self.export_current_report)
         export_btn.grid(row=0, column=2, sticky="e", padx=5)
         # Allow the table frame to expand
@@ -58,13 +57,13 @@ class ReportsWindow:
         self.table_frame.columnconfigure(1, weight=1)
         self.table_frame.columnconfigure(2, weight=1)
         tree_frame = tk.Frame(self.table_frame)
-        tree_frame.grid(row=1, column=0, columnspan=3, padx=3, pady=3, sticky="nsew")
+        tree_frame.grid(row=1, column=0, columnspan=3, padx=3, sticky="nsew")
         tree_frame.rowconfigure(0, weight=1)
         tree_frame.columnconfigure(0, weight=1)
         tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=20)
         for col in columns:
             tree.heading(col, text=col)
-            tree.column(col, anchor="center")
+            tree.column(col, anchor="center", stretch=True)
         tree.grid(row=0, column=0, sticky="nsew")
         vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
         vsb.grid(row=0, column=1, sticky="ns")
@@ -76,6 +75,9 @@ class ReportsWindow:
             for row in data:
                 tree.insert("", "end", values=row)
         self.auto_adjust_column_widths(tree)
+        def on_resize(event):
+            self.auto_adjust_column_widths(tree)
+        tree_frame.bind("<Configure>", on_resize)
 
         return tree
     def show_orders_history(self):
@@ -113,7 +115,7 @@ class ReportsWindow:
         self.build_table("Ordered Items History", cols, rows)
 
     def show_order_logs(self):
-        cols = ("Date", "Order ID", "User", "Action", "Amount")
+        cols = ("No.", "Date", "Order ID", "User", "Action", "Amount")
         logs = fetch_all_orders_logs(self.conn)
         rows = [
             (
@@ -144,8 +146,9 @@ class ReportsWindow:
         ]
         self.build_table("Most Ordered Items", cols, rows)
     def auto_adjust_column_widths(self, tree):
+        font = tkFont.Font()
         for col in tree["columns"]:
-            max_width = max([tk.font.Font().measure(str(tree.set(child, col))) for child in tree.get_children()] + [tk.font.Font().measure(col)])
+            max_width = max([font.measure(str(tree.set(child, col))) for child in tree.get_children()] + [font.measure(col)])
             tree.column(col, width=max_width + 40)
 
     
@@ -165,17 +168,6 @@ class ReportsWindow:
         items_in_pending_orders = fetch_all_order_items(self.conn)
         previewer = ReportPreviewer(user=self.user)
         previewer.show(orders=orders, items_in_pending_orders=items_in_pending_orders)
-    def center_popup(self):
-        self.parent.update_idletasks()
-        px = self.parent.winfo_x()
-        py = self.parent.winfo_y()
-        pw = self.parent.winfo_width()
-        ph = self.parent.winfo_height()
-        width, height = 850, 550
-        x = px + (pw - width) // 2
-        y = py + (ph - height) // 2
-        self.master.geometry(f"{width}x{height}+{x}+{y}")
-
 
 # if __name__ == "__main__":
 #     root = tk.Tk()

@@ -1,11 +1,11 @@
 import tkinter as tk
 from tkinter import messagebox
 from base_window import BaseWindow
-from working_on_orders import fetch_order_product, add_order_item, update_order_item
+from windows_utils import to_uppercase
+from working_on_orders import fetch_order_product, add_order_item, update_order_item, search_product_codes
 
 class AddItemWindow(BaseWindow):
     def __init__(self, parent, conn, order_id, refresh_callback, user):
-        #self.parent = parent
         self.order_id = order_id
         self.conn = conn
         self.user = user
@@ -14,33 +14,64 @@ class AddItemWindow(BaseWindow):
         self.top = tk.Toplevel(parent)
         self.top.title("Add Item To Order")
         self.top.configure(bg="lightblue")
-        self.center_window(self.top, 350, 200)
-        self.top.grab_set()
+        self.center_window(self.top, 300, 200)
         self.top.transient(parent)
-
-        #self.center_popup()
+        self.top.grab_set()
 
         # Grid Layout
         tk.Label(self.top, text="Enter Product Code:", bg="lightblue").grid(row=0, column=0, sticky="e", pady=5, padx=5)
         self.code_entry = tk.Entry(self.top)
+        self.code_entry.focus_set()
         self.code_entry.grid(row=0, column=1, pady=5, padx=5)
+        self.suggestions_listbox = tk.Listbox(self.top, height=5, bg="lightgray")
+        self.suggestions_listbox.grid(row=1, column=1, sticky="we", padx=5)
+        self.suggestions_listbox.bind("<<ListboxSelect>>", self.fill_selected_code)
+        self.suggestions_listbox.grid_remove()
+        self.code_entry.bind("<KeyRelease>", lambda e: to_uppercase(self.code_entry))
+        self.code_entry.bind("<KeyRelease>", self.update_suggestions)
+        self.code_entry.bind("<Return>", lambda e: self.search_btn.focus_set())
         self.search_btn = tk.Button(self.top, text="Search", command=self.search_product)
         self.search_btn.grid(row=1, column=0, columnspan=2, pady=5)
+        self.search_btn.bind("<Return>", lambda e: self.search_product())
         tk.Label(self.top, text="Enter Product Quantity:", bg="lightblue").grid(row=2, column=0, sticky="e", padx=5, pady=5)
         self.qty_entry = tk.Entry(self.top)
         self.qty_entry.grid(row=2, column=1, padx=5, pady=5)
+        self.qty_entry.bind("<Return>", lambda e: self.add_button.focus_set())
         self.add_button = tk.Button(self.top, text="Add to Order", command=self.add_to_order)
         self.add_button.grid(row=3, column=0, columnspan=2, pady=10)
-    # def center_popup(self):
-    #     self.parent.update_idletasks()
-    #     px = self.parent.winfo_x()
-    #     py = self.parent.winfo_y()
-    #     pw = self.parent.winfo_width()
-    #     ph = self.parent.winfo_height()
-    #     width, height = 350, 200
-    #     x = px + (pw - width) // 2
-    #     y = py + (ph - height) // 2
-    #     self.top.geometry(f"{width}x{height}+{x}+{y}")
+        self.add_button.bind("<Return>", lambda e: self.add_to_order())
+    
+    def update_suggestions(self, event=None):
+        text = self.code_entry.get().strip().upper()
+        self.code_entry.delete(0, tk.END)
+        self.code_entry.insert(0, text)
+        if not text:
+            self.suggestions_listbox.grid_remove()
+            return
+        results = search_product_codes(self.conn, text)
+        self.suggestions_listbox.delete(0, tk.END)
+        if results:
+            for item in results:
+                display = f"{item['product_code']} - {item['product_name']}"
+                self.suggestions_listbox.insert(tk.END, display)
+            self.search_btn.grid_remove()
+            self.suggestions_listbox.grid(row=1, column=1, sticky="we", padx=5)
+        else:
+            self.search_btn.grid(row=1, column=0, columnspan=2, pady=5)
+            self.suggestions_listbox.grid_remove()
+    def fill_selected_code(self, event=None):
+        try:
+            selection = self.suggestions_listbox.get(self.suggestions_listbox.curselection())
+            code = selection.split(" - ")[0]
+            self.code_entry.delete(0, tk.END)
+            self.code_entry.insert(0, code)
+            self.suggestions_listbox.delete(0, tk.END)
+            self.suggestions_listbox.grid_remove()
+            self.search_btn.grid(row=1, column=0, columnspan=2, pady=5)
+            self.search_btn.focus_set()
+        except:
+            pass
+
     def search_product(self):
         self.code = self.code_entry.get().strip().upper()
         if not self.code:
@@ -85,14 +116,12 @@ class AddItemWindow(BaseWindow):
 
 class EditQuantityWindow(BaseWindow):
     def __init__(self, parent, conn, item_data, refresh_items_callback, user):
-        #self.parent = parent
         self.top = tk.Toplevel(parent)
         self.top.title("Edit Order Item Quantity")
         self.top.configure(bg="lightblue")
-        self.center_window(self.top, 400, 300)
-        self.top.grab_set()
+        self.center_window(self.top, 300, 200)
         self.top.transient(parent)
-        #self.center_popup()
+        self.top.grab_set()
 
         self.conn = conn
         self.item_data = item_data
@@ -102,6 +131,7 @@ class EditQuantityWindow(BaseWindow):
         tk.Label(self.top, text="Product Code:").pack(pady=(10, 0))
         self.product_code_entry = tk.Entry(self.top)
         self.product_code_entry.pack()
+        self.product_code_entry.bind("<KeyRelease>", lambda e: to_uppercase(self.product_code_entry))
         self.product_code_entry.insert(0, item_data["code"])
         self.search_button = tk.Button(self.top, text="Search", command=self.search_product) # Search Button (can be expanded later)
         self.search_button.pack(pady=5)
@@ -111,18 +141,11 @@ class EditQuantityWindow(BaseWindow):
         self.quantity_entry = tk.Entry(self.top)
         self.quantity_entry.pack()
         self.quantity_entry.insert(0, str(item_data["quantity"]))
+        self.quantity_entry.bind("<Return>", lambda e: self.post_btn.focus_set())
         # Update Button
-        tk.Button(self.top, text="Update Order", command=self.update_order).pack(pady=5)
-    # def center_popup(self):
-    #     self.parent.update_idletasks()
-    #     px = self.parent.winfo_x()
-    #     py = self.parent.winfo_y()
-    #     pw = self.parent.winfo_width()
-    #     ph = self.parent.winfo_height()
-    #     width, height = 400, 300
-    #     x = px + (pw - width) // 2
-    #     y = py + (ph - height) // 2
-    #     self.top.geometry(f"{width}x{height}+{x}+{y}")
+        self.post_btn = tk.Button(self.top, text="Update Order", command=self.update_order)
+        self.post_btn.pack(pady=5)
+    
     def search_product(self):
         self.code = self.product_code_entry.get().strip().upper()
         result = fetch_order_product(self.code)
@@ -138,6 +161,7 @@ class EditQuantityWindow(BaseWindow):
                 self.search_button.focus_set()
         else:
             messagebox.showinfo("Not Found", f"No Product Found With Code: {self.code}")
+            self.product_code_entry.focus_set()
     def update_order(self):
         try:
             new_quantity = int(self.quantity_entry.get())
@@ -149,9 +173,17 @@ class EditQuantityWindow(BaseWindow):
             unit_price = self.wholesale_price if new_quantity >= 10 else self.retail_price
             new_total_price = unit_price * new_quantity
             adjustment = new_total_price - current_total_price
-            update_order_item(self.conn, order_id, product_code, new_quantity, unit_price, new_total_price, adjustment, self.user)
-            self.refresh_items_callback()
-            self.top.destroy()
+            answer = messagebox.askyesno("Confirm", f"Post '{self.product_name}' to order?")
+            if answer:
+                result = update_order_item(self.conn, order_id, product_code, new_quantity, unit_price, new_total_price, adjustment, self.user)
+                if result:
+                    messagebox.showinfo("Success", result)
+                    self.refresh_items_callback()
+                    self.top.destroy()
+                else:
+                    messagebox.showerror("Error", result)
+            else:
+                self.quantity_entry.focus_set()
         except ValueError as e:
             messagebox.showerror("Invalid Input", str(e))
         except Exception as e:

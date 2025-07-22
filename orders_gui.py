@@ -7,6 +7,7 @@ from new_order_gui import NewOrderWindow
 from order_payment_gui import UnpaidOrdersWindow
 from order_reports_gui import ReportsWindow
 from base_window import BaseWindow
+from order_documentation_gui import OrdersDocumentationWindow
 from report_preview import ReportPreviewer
 from working_on_orders import *
 from connect_to_db import connect_db
@@ -18,6 +19,7 @@ class OrdersWindow(BaseWindow):
         self.window.title("Orders Management")
         self.center_window(self.window, 1200, 600)
         self.window.configure(bg="blue")
+        self.window.transient(parent)
         self.window.grab_set()
 
         self.conn = conn
@@ -160,11 +162,13 @@ class OrdersWindow(BaseWindow):
                 log["action"],
                 log["total_amount"]
             ))
-        self.window.after(100, lambda: self.autosize_columns(self.logs_tree))
+        self.window.after(100, lambda: self.trigger_autosize(self.logs_tree))
         if logs:
             self.logs_view_button.config(state="normal")
         else:
             self.logs_view_button.config(state="disabled")
+    def trigger_autosize(self, treeview):
+        self.autosize_columns(treeview)
     def view_orders_report(self):
         orders = fetch_all_orders(self.conn)
         data = []
@@ -217,7 +221,7 @@ class OrdersWindow(BaseWindow):
                 })
         preview = ReportPreviewer(self.user)
         preview.show(Order_Items=order_items)
-    def autosize_columns(self, treeview):
+    def autosize_columns(self, treeview, *args):
         font = tkFont.Font()
         for col in treeview["columns"]:
             max_width = font.measure(col)
@@ -240,8 +244,7 @@ class OrdersWindow(BaseWindow):
     def view_logs(self):
         ReportsWindow(self.window, self.conn, self.user)
     def work_on_orders(self):
-        messagebox.showinfo("Coming Soon", "window coming soon.")
-
+        OrdersDocumentationWindow(self.window, conn, self.user)
 if __name__ == "__main__":
     conn = connect_db()
     root = tk.Tk()

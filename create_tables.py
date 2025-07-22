@@ -19,6 +19,24 @@ def create_tables():
             print(f"Error creating stock table: {e}")
 
         try:
+            cursor.execute("""CREATE TABLE IF NOT EXISTS product_control_logs (
+                           id INT AUTO_INCREMENT PRIMARY KEY,
+                           log_date DATE NOT NULL,
+                           product_code VARCHAR(50) NOT NULL,
+                           product_name VARCHAR(50) NOT NULL,
+                           description VARCHAR(100) NOT NULL,
+                           quantity INT,
+                           total INT,
+                           user VARCHAR(50) NOT NULL,
+                           FOREIGN KEY (product_code) REFERENCES products(product_code)
+                           );
+                        """)
+            conn.commit()
+            print("Product Control Logs table created successfully.")
+        except Exception as e:
+            print(f"Error creating Product Control Logs table: {e}")
+
+        try:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS products (
                            id INT PRIMARY KEY AUTO_INCREMENT,
@@ -39,24 +57,6 @@ def create_tables():
             print("Products table created successfully.")
         except Exception as e:
             print(f"Error creating products table: {e}")
-
-        try:
-            cursor.execute("""CREATE TABLE IF NOT EXISTS product_control_logs (
-                           id INT AUTO_INCREMENT PRIMARY KEY,
-                           log_date DATE,
-                           product_code VARCHAR(50),
-                           product_name VARCHAR(50),
-                           description ENUM('sold', 'replenished', 'returned'),
-                           quantity INT,
-                           total INT,
-                           user VARCHAR(50),
-                           FOREIGN KEY (product_code) REFERENCES products(product_code)
-                           );
-                        """)
-            conn.commit()
-            print("Product Control Logs table created successfully.")
-        except Exception as e:
-            print(f"Error creating Product Control Logs table: {e}")
 
         try:
             cursor.execute("""CREATE TABLE IF NOT EXISTS replenishments (
@@ -82,6 +82,7 @@ def create_tables():
                            id INT AUTO_INCREMENT PRIMARY KEY,
                            receipt_no VARCHAR(50) UNIQUE NOT NULL,
                            sale_date DATE NOT NULL,
+                           sale_time TIME NOT NULL,
                            total_amount DECIMAL(10,2) NOT NULL,
                            user VARCHAR(50) NOT NULL
                            );
@@ -94,6 +95,8 @@ def create_tables():
         try:
             cursor.execute("""CREATE TABLE IF NOT EXISTS sale_items (
                            id INT AUTO_INCREMENT PRIMARY KEY,
+                           date DATE NOT NULL,
+                           time TIME NOT NULL,
                            receipt_no VARCHAR(50),
                            product_code VARCHAR(50),
                            product_name VARCHAR(50) NOT NULL,
@@ -111,13 +114,30 @@ def create_tables():
             print(f"Error creating sale items table: {e}")
 
         try:
+            cursor.execute("""CREATE TABLE IF NOT EXISTS sales_control (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            date DATE NOT NULL,
+                            receipt_no VARCHAR(50),
+                            description VARCHAR(30) NOT NULL,
+                            user VARCHAR(20) NOT NULL,
+                            amount DECIMAL(10, 2) NOT NULL,
+                            cumulative_total DECIMAL(10, 2) NOT NULL,
+                            FOREIGN KEY (receipt_no) REFERENCES sales(receipt_no)
+                            );
+                            """)
+            conn.commit()
+            print("Sale control table created successfully.")
+        except Exception as e:
+            print(f"Error creating sale control table: {e}")
+
+        try:
             cursor.execute("""CREATE TABLE IF NOT EXISTS payments (
                            id INT AUTO_INCREMENT PRIMARY KEY,
                            user VARCHAR(50) NOT NULL,
                            receipt_no VARCHAR(50) NOT NULL,
                            payment_date DATE NOT NULL,
                            amount_paid DECIMAL(10, 2) NOT NULL,
-                           payment_method ENUM('Cash', 'Mpesa') NOT NULL,
+                           payment_method SET('Cash', 'Mpesa') NOT NULL,
                            FOREIGN KEY (receipt_no) REFERENCES sales(receipt_no)
                            );
                         """)

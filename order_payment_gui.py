@@ -2,18 +2,20 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from connect_to_db import connect_db
+from base_window import BaseWindow
 from working_on_orders import fetch_unpaid_orders, receive_order_payment
 conn = connect_db()
 
-class UnpaidOrdersWindow:
+class UnpaidOrdersWindow(BaseWindow):
     def __init__(self, parent, user):
         self.master = tk.Toplevel(parent)
         self.master.title("Orders Payment")
-        self.master.geometry("1000x600")
+        self.center_window(self.master, 1000, 600)
         self.master.configure(bg="lightgreen")
+        self.master.transient(parent)
         self.master.grab_set()
-        self.user = user
         
+        self.user = user        
         self.conn = connect_db()
         title_label = tk.Label(self.master, text="CURRENT UNPAID ORDERS", font=("Arial", 12, "bold"), bg="lightgreen")
         title_label.pack(pady=4) # Title

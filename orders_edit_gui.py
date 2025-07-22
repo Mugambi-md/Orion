@@ -2,22 +2,26 @@ import tkinter as tk
 from tkinter import ttk
 import tkinter.font as tkFont
 from tkinter import messagebox
-from utils import capitalize_customer_name
+from windows_utils import capitalize_customer_name
 from connect_to_db import connect_db
+from base_window import BaseWindow
 from order_add_item_gui import AddItemWindow, EditQuantityWindow
-from working_on_orders import fetch_pendind_orders, fetch_orders_logs_by_order_id, fetch_order_items_by_order_id, update_order_details
+from working_on_orders import fetch_pendind_orders, fetch_orders_logs_by_order_id, fetch_order_items_by_order_id, delete_order_item, update_order_details, delete_order
 
-class EditOrdersWindow:
+class EditOrdersWindow(BaseWindow):
     def __init__(self, parent, user):
         self.master = tk.Toplevel(parent)
         self.master.title("Edit Pending Orders")
-        self.master.geometry("1200x700")
+        self.center_window(self.master, 1200, 700)
         self.master.configure(bg="lightgreen")
         self.master.grab_set()
+        self.master.transient(parent)
 
         self.conn = connect_db()
         self.user = user
         self.selected_order_id = None
+        self.selected_product_code = None
+        self.selected_product_amount = None
         # Layout frames
         main_frame = tk.Frame(self.master, bg="lightgreen")
         main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
@@ -27,7 +31,6 @@ class EditOrdersWindow:
         # Right container (Order Items)
         self.right_frame = tk.Frame(main_frame, bg="lightyellow", width=400)
         self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=2, pady=2)
-        #self.right_frame.pack_propagate(False)
         # Top-left (Pending Orders)
         self.orders_frame = tk.LabelFrame(left_container, text="Current Pending Orders", bg="white", font=("Arial", 11, "bold"))
         self.orders_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
@@ -37,11 +40,14 @@ class EditOrdersWindow:
         self.logs_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
         self.setup_logs_table()
     def setup_pending_orders_table(self):
+        for widget in self.orders_frame.winfo_children():
+            widget.destroy()
         top = tk.Frame(self.orders_frame, bg="white")
         top.pack(side=tk.TOP, fill=tk.X, padx=5, pady=3)
         # Buttons  (initially hidden)
         self.edit_details_btn = tk.Button(top, text="Edit Order Details", command=self.edit_order_details)
         self.edit_items_btn = tk.Button(top, text="Edit Order Items", command=self.show_order_items)
+        self.delete_order_btn = tk.Button(top, text="Delete Order", command=self.order_delete)
         # Orders Treeview
         columns = ("Order ID", "Customer Name", "Contact", "Date Placed", "Deadline", "Amount", "Status")
         self.orders_tree = ttk.Treeview(self.orders_frame, columns=columns, show="headings", height=10)
@@ -83,6 +89,8 @@ class EditOrdersWindow:
                 self.edit_details_btn.pack(side=tk.LEFT, padx=5)
             if not self.edit_items_btn.winfo_ismapped():
                 self.edit_items_btn.pack(side=tk.LEFT, padx=5)
+            if not self.delete_order_btn.winfo_ismapped():
+                self.delete_order_btn.pack(side=tk.RIGHT, padx=3)
             # Fetch and populate logs for selected order
             self.populate_logs()
     def populate_logs(self):
@@ -114,7 +122,10 @@ class EditOrdersWindow:
         self.add_item_btn = tk.Button(btn_frame, text="Add Item", command=self.add_another_item)
         self.add_item_btn.pack(side=tk.LEFT, padx=2)
         self.edit_quantity_btn = tk.Button(btn_frame, text="Edit Quantity", bg="red", command=self.edit_item_quantity)
+        self.delete_item_btn = tk.Button(btn_frame, text="Delete Item", bg="blue", command=self.delete_order_product)
         self.edit_quantity_btn.pack(side=tk.LEFT, padx=5)
+        self.delete_item_btn.pack(side="left", padx=5)
+        self.delete_item_btn.pack_forget()
         self.edit_quantity_btn.pack_forget()
         table_frame = tk.Frame(container, bg="lightyellow")
         table_frame.pack(anchor="w", fill=tk.BOTH, expand=True)
@@ -144,6 +155,37 @@ class EditOrdersWindow:
         # Bottom label for total cost
         self.total_label = tk.Label(container, text=f"Total Cost: {self.total_cost}", bg="lightyellow", font=("Arial", 10, "bold"))
         self.total_label.pack(side=tk.BOTTOM, anchor="e", pady=3)
+    
+    def order_delete(self):
+        if not self.selected_order_id:
+            messagebox.showwarning("No Order", "Select an order first.")
+            return
+        confirm = messagebox.askyesno("Confirm Deletion", f"Are you sure you want to DELETE Order: {self.selected_order_id}?")
+        if confirm:
+            try:
+                result = delete_order(self.conn, self.selected_order_id, self.user)
+                messagebox.showinfo("Success", result)
+                self.setup_pending_orders_table()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to Delete order: {e}")
+        else:
+            messagebox.showinfo("Cancelled", "Order Deletion Cancelled.")
+
+    def delete_order_product(self):
+        if not self.selected_order_id and not self.selected_product_code and not self.selected_product_amount:
+            messagebox.showwarning("No Selection", "Select Order Item First.")
+            return
+        confirm = messagebox.askyesno("Confirm Deletion", f"Are you sure you want to DELETE product#{self.selected_product_code} for Order #{self.selected_order_id}?")
+        if confirm:
+            try:
+                result = delete_order_item(self.conn, self.selected_order_id, self.selected_product_code, self.selected_product_amount, self.user)
+                messagebox.showinfo("Success", result)
+                self.show_order_items()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delete Product #{self.selected_product_code} for Order #{self.selected_order_id}.")
+        else:
+            messagebox.showinfo("Cancelled", "Order Item Deletion Cancelled.")
+
     def add_another_item(self):
         if not self.selected_order_id:
             messagebox.showwarning("No Order", "Select an order first.")
@@ -165,9 +207,13 @@ class EditOrdersWindow:
     def on_item_selected(self, event):
         selected = self.items_tree.focus()
         if selected:
+            self.selected_product_code = str(self.items_tree.item(selected)["values"][1])
+            self.selected_product_amount = float(self.items_tree.item(selected)["values"][5])
             self.add_item_btn.pack_forget()
             self.edit_quantity_btn.pack(side=tk.LEFT, padx=5)
+            self.delete_item_btn.pack(side=tk.LEFT, padx=5)
         else:
+            self.delete_item_btn.pack_forget()
             self.edit_quantity_btn.pack_forget()
             self.add_item_btn.pack(side=tk.LEFT, padx=5)
     def edit_order_details(self):
@@ -185,6 +231,7 @@ class EditOrdersWindow:
         edit_win.title("Edit Order Information")
         edit_win.configure(bg="lightblue")
         edit_win.geometry("300x250")
+        edit_win.transient(self.master)
         edit_win.grab_set()
         # Labels and Entry widgets
         tk.Label(edit_win, text=f"Update details of order: {order_id}.", bg="lightblue", font=("Arial", 12, "bold")).grid(row=0, column=0, columnspan=2, pady=5)
@@ -215,8 +262,9 @@ class EditOrdersWindow:
         tk.Button(edit_win, text="Post Update", command=post_update).grid(row=4, column=0, columnspan=2, pady=10)
     
     def auto_adjust_column_widths(self, tree):
+        font = tkFont.Font()
         for col in tree["columns"]:
-            max_width = max([tk.font.Font().measure(str(tree.set(child, col))) for child in tree.get_children()] + [tk.font.Font().measure(col)])
+            max_width = max([font.measure(str(tree.set(child, col))) for child in tree.get_children()] + [font.measure(col)])
             tree.column(col, width=max_width + 2)
     def refresh_orders_table(self):
         self.show_order_items()
@@ -239,6 +287,6 @@ class EditOrdersWindow:
 
 # if __name__ == "__main__":
 #     root = tk.Tk()
-#     root.withdraw()
+#     #root.withdraw()
 #     app = EditOrdersWindow(root, "Sniffy")
 #     root.mainloop()
