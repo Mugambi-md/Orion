@@ -17,8 +17,9 @@ def get_stock_table():
 
 def get_products_table():
     from working_on_stock2 import view_all_products
-    title = "Products details"
-    columns = ("No", "Code", "Name", "Desciption", "Quantity", "Cost", "Wholesale Price", "Retail Price", "Min Stock Level")
+    title = "Products Details"
+    columns = ("No", "Code", "Name", "Description", "Quantity", "Cost",
+               "Wholesale Price", "Retail Price", "Min Stock Level")
     data = view_all_products()
     rows = [
         (
@@ -38,7 +39,7 @@ def get_products_table():
 def get_replenishments_table():
     from working_on_stock2 import view_replenishments
     title = "Replenishments"
-    columns = ("No", "Product Code", "Product Name", "Availabe Stock", "Cost Per Unit", "Total Cost", "Last Replenishment")
+    columns = ("No", "Product Code", "Product Name", "Available Stock", "Cost Per Unit", "Total Cost", "Last Replenishment")
     data = view_replenishments()
     rows = [
         (
@@ -57,7 +58,7 @@ def products_report_table():
     from working_on_stock2 import view_all_products
     conn = connect_db()
     cursor = conn.cursor()
-    columns = ("No", "Code", "Name", "Desciption", "Quantity", "Cost", "Wholesale Price", "Retail Price", "Min Stock Level")
+    columns = ("No", "Code", "Name", "Description", "Quantity", "Cost", "Wholesale Price", "Retail Price", "Min Stock Level")
     data = view_all_products()
     rows = []
     for i, row in enumerate(data, start=1):

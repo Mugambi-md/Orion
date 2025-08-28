@@ -1,10 +1,14 @@
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import inch
+from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from openpyxl import Workbook
 from openpyxl.styles import Font
+import platform
 import datetime
+import os
 class ExportReports:
     def export_reports_to_pdf(self, filepath, **sections):
         doc = SimpleDocTemplate(filepath, pagesize=A4)
@@ -72,3 +76,56 @@ class ExportReportToExcel:
             ws.append([])
             ws.append([])
         wb.save(filepath)
+
+class DeliveryExporter:
+    def __init__(self, order_id, table_date, status, save_path=None):
+        self.order_id = order_id
+        self.status = status
+        self.table_data = table_date
+        self.save_path = save_path or f"Delivery Note Order {self.order_id}.pdf"
+
+    def export_to_pdf(self):
+        c = canvas.Canvas(self.save_path, pagesize=A4)
+        width, height = A4
+        y = height - 50
+        c.setFont("Helvetica-Bold", 15)
+        c.drawCentredString(width / 2, y, "DELIVERY NOTE.")
+        y -= 30
+        c.setFont("Helvetica", 12)
+        c.drawString(50, y, f"Order No. {self.order_id}. {self.status}")
+        y -= 20
+        c.drawString(50, y, "-----------------------------------------")
+        y -= 20
+        headers = ["No.", "Product Code", "Product Name", "Quantity", "Unit Price", "Total Price"]
+        col_widths = [40, 80, 150, 60, 70, 80]
+        y = height - 130
+        c.setFont("Helvetica-Bold", 11)
+        for i, header in enumerate(headers):
+            c.drawString(50 + sum(col_widths[:i]), y, header)
+        y -= 20
+        c.setFont("Helvetica", 10)
+        for row in self.table_data:
+            for i, cell in enumerate(row):
+                c.drawString(50 + sum(col_widths[:i]), y, str(cell))
+            y -= 20
+            if y < 100:
+                c.showPage()
+                y = height - 50
+        c.save()
+        return self.save_path
+    def print_note(self):
+        pdf_path = self.export_to_pdf()
+        try:
+            system_name = platform.system()
+            if system_name == "Windows":
+                os.startfile(pdf_path, "print")
+            elif system_name == "Darwin": # macOS
+                os.system(f"lpr {pdf_path}")
+            elif system_name == "Linux":
+                os.system(f"lp {pdf_path}")
+            else:
+                return f"Unsupported Os: {system_name}"
+            return "Report sent to printer successfully."
+        except Exception as e:
+            return f"Printing failed: {e}"
+        

@@ -19,9 +19,10 @@ class ReportPreviewer(BaseWindow):
         self.sections = sections
         self.preview_window = tk.Toplevel()
         self.preview_window.title("Report Preview")
-        self.center_window(self.preview_window, 1300, 600)
-        self.preview_window.state('zoomed') # Maximize (windows)
-        self.preview_window.lift()
+        self.center_window(self.preview_window, 1200, 600)
+        # self.preview_window.state('zoomed') # Maximize (windows)
+        # self.preview_window.lift()
+        self.preview_window.update_idletasks()
         self.preview_window.focus_force()
         self.preview_window.grab_set()
         #self.preview_window.update_idletasks()
@@ -37,8 +38,11 @@ class ReportPreviewer(BaseWindow):
         self.text_area = scrolledtext.ScrolledText(self.preview_window, wrap=tk.WORD, font=("Courier New", 12))
         self.text_area.pack(expand=True, fill='both', pady=(5, 10))
 
+        self.text_area.config(state="disabled")
+
         self.generate_preview_text()
     def generate_preview_text(self):
+        self.text_area.config(state="normal")
         self.text_area.delete('1.0', tk.END)
         self.text_area.insert(tk.END, self.center_text_line(f"REPORT PREVIEW", 120) + "\n")
         self.text_area.insert(tk.END, self.center_text_line(f"Exported by: {self.user}", 120) + "\n\n")
@@ -57,6 +61,7 @@ class ReportPreviewer(BaseWindow):
                     line = ''.join(str(row.get(col, '')).ljust(col_widths[col]) for col in headers)
                     self.text_area.insert(tk.END, self.center_text_line(line, 120) + "\n")
                 self.text_area.insert(tk.END, "\n\n")
+        self.text_area.config(state="disabled")
     
     def center_text_line(self, text, total_width=120):
         """Pad the text with spaces to center it within total width characters."""
@@ -74,7 +79,7 @@ class ReportPreviewer(BaseWindow):
             filetypes=[("PDF files", "*.pdf")],
             initialfile=default_name,
             title="Save Report As"
-        )
+            )
         if not filepath:
             return
         exporter.export_reports_to_pdf(filepath, **self.sections)

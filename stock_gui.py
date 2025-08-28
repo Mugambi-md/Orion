@@ -2,20 +2,26 @@ import tkinter as tk
 from tkinter import ttk
 import tkinter.font as tkFont
 from tkinter import messagebox
-from stock_details_window import open_products_details_window
-from table_actions import quantity_update_popup, delete_product_popup
-from stock_popups1 import open_add_stock_popup,delete_product_popup
-from stock_popups import open_update_quantity_window, open_new_product_popup, show_update_popup
+from authentication import VerifyPrivilegePopup
+from base_window import BaseWindow
+from stock_details_window import ProductsDetailsWindow
+from stock_popups1 import AddStockPopup, DeleteProductPopup
+from stock_popups import UpdateQuantityWindow, NewProductPopup, ReconciliationWindow
 from stock_access_tables import get_products_table, get_replenishments_table, get_stock_table
 
-class OrionStock:
-    def __init__(self, parent):
+class OrionStock(BaseWindow):
+    def __init__(self, parent, user, conn):
         self.master = tk.Toplevel(parent)
         self.master.title("ORION STOCK")
-        self.master.geometry("1300x700")
+        self.center_window(self.master, 1300, 600,parent)
         self.master.minsize(900, 500)
         self.master.configure(bg="white")
+        self.master.transient(parent)
         self.master.grab_set()
+        self.conn = conn
+        self.user = user
+        self.current_data = None
+        self.current_section = None
 
         self.top_frame = tk.Frame(self.master, bg="#007BFF", height=50) # Blue top frame for navigation buttons
         self.top_frame.pack(side="top", fill="x")
@@ -25,57 +31,61 @@ class OrionStock:
         self.section_buttons = ["Stock", "Products", "Replenishments", "Products Report"]
         for section in self.section_buttons:
             if section == "Products Report":
-                btn = tk.Button(self.top_frame,text=section, font=("Arial", 12, "bold"), command=open_products_details_window)
+                btn = tk.Button(self.top_frame,text=section, font=("Arial", 12, "bold"), command=self.open_product_detail_window)
             else:
                 btn = tk.Button(self.top_frame, text=section, font=("Arial", 12, "bold"),
                                 command=lambda s=section: self.update_table(s),
                                 bg="white", fg="black")
-            btn.pack(side="left", padx=10, pady=10)
+            btn.pack(side="left", padx=10)
             self.section_button_widgets[section] = btn
         
-        button_actions = {"New Product": open_new_product_popup,
-                          "Add Stock": open_add_stock_popup,
-                          "Update Quantity": open_update_quantity_window,
-                          "Update Details": show_update_popup,
-                          "Delete Product": delete_product_popup
+        button_actions = {"New Product": self.open_new_product_popup,
+                          "Add Stock": self.open_add_stock_popup,
+                          "Update Quantity": self.open_update_quantity_window,
+                          "Delete Product": self.delete_product,
+                          "Stock Reconciliation": self.open_reconciliation
                           }
-        self.right_frame = tk.Frame(self.master, bg="#28A745", width=150) # Right green frame for actions
+        self.right_frame = tk.Frame(self.master, bg="#28A745", width=220) # Right green frame for actions
         self.right_frame.pack(side="right", fill="y")
         for text, action in button_actions.items():
             btn = tk.Button(self.right_frame, text=text, font=("Arial", 11),
                             bg="white", fg="black", width=15, command=action)
-            btn.pack(pady=7, padx=6)
+            btn.pack(pady=5)
         
         self.center_frame = tk.Frame(self.master, bg="white") # Center frame for table and tittle
         self.center_frame.pack(side="left", fill="both", expand=True)
+        self.table_title = tk.Label(self.center_frame, text="", font=("Arial", 16, "bold"), bg="white")
+        self.table_title.pack(padx=5)
         self.top_control_frame = tk.Frame(self.center_frame, bg="skyblue")
-        self.top_control_frame.pack(fill="x", padx=10, pady=5)
+        self.top_control_frame.pack(fill="x")
         self.search_frame = tk.Frame(self.top_control_frame, bg="skyblue")
         self.search_frame.pack(side="left")
         self.search_type = tk.StringVar(value="Name")
+        tk.Label(self.search_frame, bg="skyblue", text="Search By:").pack(side="left", padx=5)
         self.search_option = ttk.Combobox(self.search_frame, textvariable=self.search_type, values=["Name", "Code"], state="readonly", width=10)
         self.search_var = tk.StringVar()
         self.search_entry = tk.Entry(self.search_frame, textvariable=self.search_var, width=30)
         search_btn = tk.Button(self.search_frame, text="Search", command=self.perform_search)
-        reset_btn = tk.Button(self.search_frame, text="Reset", command=lambda: self.update_table(self.current_section))
-        self.search_option.pack(side="left", padx=5, pady=4)
-        self.search_entry.pack(side="left", padx=5, pady=4)
+        reset_btn = tk.Button(self.search_frame, text="Refresh", command=lambda: self.refresh_table())
+        self.search_option.pack(side="left", padx=5)
+        tk.Label(self.search_frame, bg="skyblue", text="Search Item:").pack(side="left", padx=5)
+        self.search_entry.pack(side="left", padx=5)
         self.search_entry.bind("<KeyRelease>", lambda e: self.perform_search())
-        search_btn.pack(side="left", padx=5, pady=4)
-        reset_btn.pack(side="left", padx=5, pady=4)
-        self.action_button_container = tk.Frame(self.top_control_frame, bg="skyblue")
-        self.action_button_container.pack(side="right")
-        self.table_title = tk.Label(self.center_frame, text="", font=("Arial", 14, "bold"), bg="white")
-        self.table_title.pack(pady=4)
+        search_btn.pack(side="left", padx=5)
+        reset_btn.pack(side="left", padx=5)
+
         self.tree_frame = tk.Frame(self.center_frame)
-        self.tree_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        self.tree_frame.pack(fill="both", expand=True, padx=5)
 
         self.tree_scroll = ttk.Scrollbar(self.tree_frame, orient="vertical")
         self.tree_scroll.pack(side="right", fill="y")
-
+        style = ttk.Style()
+        style.configure("Treeview", rowheight=30)
         self.tree = ttk.Treeview(self.tree_frame, yscrollcommand=self.tree_scroll.set)
         self.tree.pack(side="left", fill="both", expand=True)
-        self.tree.bind("<<TreeviewSelect>>", self.on_select_item)
+        self.tree.bind("<MouseWheel>", lambda e: self.tree.yview_scroll(int(-1*(e.delta/120)), "units"))
+        self.tree.bind("<Button-4>", lambda e: self.tree.yview_scroll(-1, "units"))
+        self.tree.bind("<Button-5>", lambda e: self.tree.yview_scroll(1, "units"))
         self.selected_product_code = None # Initialize
         self.tree_scroll.config(command=self.tree.yview)
         self.tree.tag_configure("row1", background="#d1ecf1") # Cyan tint # Define alternating row styles
@@ -93,21 +103,6 @@ class OrionStock:
                 if width > max_width:
                     max_width = width
             self.tree.column(col, width=max_width) # Add padding
-
-    def update_action_buttons(self, section):
-        for widget in self.action_button_container.winfo_children():
-            widget.destroy()
-        if section in ["Stock", "Products", "Replenishments"]:
-            def with_selected_code(action_func):
-                return lambda: action_func() if self.selected_product_code else messagebox.showwarning("No Selection", "Please Select a Product First.")
-            button_actions = {
-                "Update Quantity": with_selected_code(quantity_update_popup),
-                "Update Details": with_selected_code(show_update_popup)
-            }
-            for text, action in button_actions.items():
-                btn = tk.Button(self.action_button_container, text=text, font=("Arial", 10), bg="lightgrey", fg="black", width=15, command=action)
-                btn.pack(side="left", padx=4)
-            
 
     def update_table(self, section):
         self.current_section = section
@@ -134,14 +129,12 @@ class OrionStock:
         self.tree["columns"] = columns
         self.tree.column('#0', width=0, stretch=tk.NO)
         for col in columns:
-            self.tree.column(col, anchor=tk.W, width=100)
-            self.tree.heading(col, text=col, anchor=tk.W)
+            self.tree.column(col, anchor="center", width=50)
+            self.tree.heading(col, text=col, anchor="center")
 
         for i, row in enumerate(rows, start=1):
             tag = f"row{(i % 3) + 1}"
             self.tree.insert("", "end", values=row, tags=(tag,))
-        if section in ["Stock", "Products", "Replenishments"]:
-            self.update_action_buttons(section)
         self.autosize_columns()
 
     def perform_search(self):
@@ -155,7 +148,7 @@ class OrionStock:
         for i, row in enumerate(self.current_data, start=1):
             if search_by == "Name":
                 name = (row.get("name") or row.get("product_name") or "")
-                if query.lower() in name.lower(): # Case- insensitive match for names
+                if query.lower() in name.lower(): # Case: insensitive match for names
                     filtered_data.append((i, row))
             elif search_by == "Code":
                 code = (row.get("code") or row.get("product_code") or "")
@@ -195,18 +188,56 @@ class OrionStock:
                 ), tags=(tag,))
             
             self.autosize_columns()
-    def on_select_item(self, event):
-        selected_item = self.tree.focus()
-        if selected_item:
-            values = self.tree.item(selected_item, "values")
-            if values:
-                self.selected_product_code = values[1] #2nd column (index 1)
-            else:
-                self.selected_product_code = None
+    def refresh_table(self):
+        self.update_table(self.current_section)
+    def open_new_product_popup(self):
+        priv = "Add New Product"
+        verify_dialog = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
+        if verify_dialog.result != "granted":
+            messagebox.showwarning("Access Denied", f"You do not have permission to {priv}.")
+            return
+        NewProductPopup(self.master, self.conn, self.refresh_table)
+    def open_reconciliation(self):
+        priv = "Manage Stock"
+        verify_dialog = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
+        if verify_dialog.result != "granted":
+            messagebox.showwarning("Access Denied", f"You do not have permission to {priv}.")
+            return
+        ReconciliationWindow(self.master, self.conn)
+    def open_product_detail_window(self):
+        priv = "View Products"
+        verify_dialog = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
+        if verify_dialog.result != "granted":
+            messagebox.showwarning("Access Denied", f"You do not have permission to {priv}.")
+            return
+        ProductsDetailsWindow(self.master, self.user, self.conn)
+    def open_update_quantity_window(self):
+        priv = "Change Product Quantity"
+        verify_dialog = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
+        if verify_dialog.result != "granted":
+            messagebox.showwarning("Access Denied", f"You do not have permission to {priv}.")
+            return
+        UpdateQuantityWindow(self.master)
+
+    def open_add_stock_popup(self):
+        priv = "Add Stock"
+        verify_dialog = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
+        if verify_dialog.result != "granted":
+            messagebox.showwarning("Access Denied", f"You do not have permission to {priv}.")
+            return
+        AddStockPopup(self.master, self.conn, self.refresh_table)
+    def delete_product(self):
+        priv = "Delete Product"
+        verify_dialog = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
+        if verify_dialog.result != "granted":
+            messagebox.showwarning("Access Denied", f"You do not have permission to {priv}.")
+            return
+        DeleteProductPopup(self.master, self.conn, self.refresh_table)
 
 
 if __name__ == "__main__":
+    from connect_to_db import connect_db
+    conn = connect_db()
     root = tk.Tk()
-    root.withdraw()
-    app=OrionStock(root)
+    app=OrionStock(root, "sniffy", conn)
     root.mainloop()

@@ -171,13 +171,13 @@ def fetch_all_order_items(conn):
             return raw_items
     except Exception as e:
         return f"Error fetching order items: {e}"
-def fetch_all_orders_payments(conn):
+def fetch_order_payment_by_id(conn, order_id):
     try:
         with conn.cursor(dictionary=True)as cursor:
-            cursor.execute("SELECT * FROM orders_payments")
-            return cursor.fetchall()
+            cursor.execute("SELECT balance FROM orders_payments WHERE order_id=%s", (order_id,))
+            return cursor.fetchone()
     except Exception as e:
-        return f"Error feching payments: {e}"
+        return f"Error fetching payments: {e}"
 def fetch_all_orders_logs(conn):
     try:
         with conn.cursor(dictionary=True) as cursor:
@@ -287,5 +287,60 @@ def order_items_history(conn):
     except Exception as e:
         return f"Error fetching Order Items: {e}"
 
-# message = fetch_unpaid_orders(conn)
-# print(message)
+def mark_order_as_delivered(conn, order_id):
+    """Mark the order as delivered for the given order ID."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""UPDATE orders
+                           SET status = 'Delivered'
+                           WHERE order_id=%s
+                           """, (order_id,))
+            conn.commit()
+            return f"Order {order_id} marked delivered."
+    except Exception as e:
+        conn.rollback()
+        raise
+
+def delete_order(conn, order_id, user):
+    """Delete the order with the given order ID."""
+    try:
+        log_order_action(conn, order_id, 0, user, "Edited Order")
+        with conn.cursor() as cursor:
+            cursor.execute("""DELETE FROM orders
+                           WHERE order_id=%s
+                           """, (order_id,))
+        conn.commit()
+        return f"Order #{order_id} deleted successfully."
+    except Exception as e:
+        conn.rollback()
+        raise
+def delete_order_item(conn, order_id, product_code, amount, user):
+    """Delete order item and ajust orders total amount."""
+    try:
+        log_order_action(conn, order_id, amount, user, "Edited Order")
+        with conn.cursor() as cursor:
+            cursor.execute("""DELETE FROM order_items
+                           WHERE order_id=%s AND product_code=%s
+                           """, (order_id, product_code))
+        adjustment = (0 - amount)
+        adjust_order_amount(conn, order_id, adjustment)
+        conn.commit()
+        return f"Order Item {product_code} of Order {order_id} deleted successfully."
+    except Exception as e:
+        conn.rollback()
+        return f"Failed to delete item: {e}"
+
+def search_product_codes(conn, keyword):
+    try:
+        pattern = f"{keyword}%"
+        with conn.cursor(dictionary=True) as cursor:
+            cursor.execute("""SELECT product_code, product_name
+                           FROM products
+                           WHERE product_code LIKE %s
+                           ORDER BY product_code
+                           LIMIT 10
+                           """, (pattern,))
+            return cursor.fetchall()
+    except Exception as e:
+        return f"Error searching product codes: {e}"
+

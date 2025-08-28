@@ -1,7 +1,7 @@
+import tkinter as tk
 def auto_manage_focus(parent):
     """Automatically sets focus to the first Entry in a parent widget. Shift focus to the next Entry on Enter.
     Invokes the first Button on Enter at the last Entry."""
-    import tkinter as tk
     entries = [child for child in parent.winfo_children() if isinstance(child, tk.Entry)] # Collect Entry in creation order
     buttons = [child for child in parent.winfo_children() if isinstance(child, tk.Button)]
     if not entries:
