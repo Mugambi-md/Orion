@@ -1,6 +1,7 @@
-from connect_to_db import connect_db
 from datetime import datetime, date
 from decimal import Decimal
+
+
 class SalesManager:
     def __init__(self, conn):
         self.conn = conn
@@ -212,18 +213,30 @@ def fetch_sales_last_24_hours(conn, username):
             return cursor.fetchall(), None
     except Exception as e:
         return [], str(e)
-def fetch_sales_by_month_and_user(conn, year, month, username):
+def fetch_sales_by_month_and_user(conn, year, month, user=None):
+    """Fetch total sales grouped by day for given month/ year.
+    Optionally filter by user."""
     try:
         with conn.cursor(dictionary=True) as cursor:
-            cursor.execute("""
-                    SELECT date, receipt_no, description, amount
-                    FROM sales_control
-                    WHERE YEAR(date) = %s AND MONTH(date) = %s AND user = %s
-                    ORDER BY date ASC
-                    """, (year, month, username))
-            return cursor.fetchall(), None
+            query ="""
+                SELECT
+                    sale_date,
+                    SUM(total_amount) AS daily_total
+                FROM sales
+                WHERE YEAR(sale_date) = %s
+                    AND MONTH(sale_date) = %s
+                """
+            params = [year, month]
+            # Optional filter
+            if user:
+                query += " AND user = %s"
+                params.append(user)
+            query += " GROUP BY sale_date ORDER BY sale_date ASC"
+            cursor.execute(query, tuple(params))
+            rows = cursor.fetchall()
+            return rows, None
     except Exception as e:
-        return None, f"Error fetching data: {str(e)}"
+        return [], str(e)
 
 def fetch_all_sales_users(conn):
     try:
@@ -251,36 +264,29 @@ def fetch_receipt_data(conn, receipt_no):
     except Exception as e:
         raise e
 
-def fetch_sales_by_year(conn, year, month=None, product_name=None, user=None):
-    """Fetch sales data for a given year, with option to filter by month,
-    user and product name."""
+def fetch_sale_by_year(conn, year, month=None, user=None):
+    """Fetch sales data for a given year, with option to filter by month and
+    user."""
     try:
         with conn.cursor(dictionary=True) as cursor:
             query = """
                 SELECT
-                    user,
-                    date,
+                    sale_date,
                     receipt_no,
-                    product_code,
-                    product_name,
-                    quantity,
-                    unit_price,
+                    user,
                     total_amount
-                FROM sale_items
-                WHERE YEAR(date) = %s
+                FROM sales
+                WHERE YEAR(sale_date) = %s
             """
             params = [year]
             # Optional filters
             if month:
-                query += " AND MONTH(date) = %s"
+                query += " AND MONTH(sale_date) = %s"
                 params.append(month)
-            if product_name:
-                query += " AND product_name = %s"
-                params.append(product_name)
             if user:
                 query += " AND user = %s"
                 params.append(user)
-            query += " ORDER BY date ASC"
+            query += " ORDER BY sale_date ASC"
             cursor.execute(query, tuple(params))
             rows = cursor.fetchall()
             return rows, None
@@ -291,12 +297,6 @@ def fetch_filter_values(conn):
     """Fetch distinct product names and users from sales table."""
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT DISTINCT product_name
-                FROM sale_items
-                ORDER BY product_name
-            """)
-            product_names = [row[0] for row in cursor.fetchall()]
             cursor.execute("""
                 SELECT DISTINCT user
                 FROM sale_items
@@ -310,6 +310,85 @@ def fetch_filter_values(conn):
                 ORDER BY year DESC
             """)
             years = [row[0] for row in cursor.fetchall()]
-        return product_names, users, years, None
+        return users, years, None
     except Exception as e:
-        return [], [], [], str(e)
+        return [], [], str(e)
+
+def fetch_sales_summary_by_year(conn, year, month=None, user=None):
+    """Fetch sales summary data for a given year, with option to filter
+    by month and user. Group by product_code and product_name. Return
+    total quantity, unit cost and total amount for each product."""
+    try:
+        with conn.cursor(dictionary=True) as cursor:
+            query = """
+                SELECT
+                    si.product_code,
+                    si.product_name,
+                    SUM(si.quantity) AS total_quantity,
+                    SUM(si.total_amount) AS total_amount,
+                    p.cost AS unit_cost
+                FROM sale_items si
+                JOIN products p ON si.product_code = p.product_code
+                WHERE YEAR(date) = %s
+            """
+            params = [year]
+            # Optional filters
+            if month:
+                query += " AND MONTH(si.date) = %s"
+                params.append(month)
+            if user:
+                query += " AND si.user = %s"
+                params.append(user)
+            query += """
+                GROUP BY si.product_code, si.product_name, p.cost
+                ORDER BY total_amount DESC"""
+            cursor.execute(query, tuple(params))
+            rows = cursor.fetchall()
+            return rows, None
+    except Exception as e:
+        return [], str(e)
+
+def fetch_sales_items(conn, year, month=None, day=None, user=None):
+    """Fetch sales items details by year with filters for: month, day
+    and user. Returns a list of dicts."""
+    try:
+        with conn.cursor(dictionary=True) as cursor:
+            query = """
+                SELECT
+                    date,
+                    user,
+                    receipt_no,
+                    product_code,
+                    product_name,
+                    quantity,
+                    unit_price,
+                    total_amount
+                FROM sale_items
+                WHERE YEAR(date) = %s
+            """
+            params = [year]
+            if month:
+                query += " AND MONTH(date) = %s"
+                params.append(month)
+            if day:
+                query += " AND DAY(date) = %s"
+                params.append(day)
+            if user:
+                query += " AND user = %s"
+                params.append(user)
+            query += " ORDER BY date DESC, time DESC"
+
+            cursor.execute(query, tuple(params))
+            rows = cursor.fetchall()
+            return rows, None
+    except Exception as e:
+        return [], str(e)
+
+# from connect_to_db import connect_db
+# conn=connect_db()
+# data, err = fetch_sales_items(conn, 2025, None, None, "sniffy")
+# if not err:
+#     for r in data:
+#         print(r)
+# else:
+#     print(err)

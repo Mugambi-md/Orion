@@ -5,14 +5,15 @@ from window_functionality import to_uppercase
 from working_sales import fetch_sales_product, SalesManager
 from receipt_gui_and_print import ReceiptPrinter
 from lookup_gui import ProductSearchWindow
+from sales_popup import Last24HoursSalesWindow
 from base_window import BaseWindow
 
 class MakeSaleWindow(BaseWindow):
     def __init__(self, parent, conn, user):
         self.sale_win = tk.Toplevel(parent)
         self.sale_win.title("Make Sales")
-        self.center_window(self.sale_win, 1000, 600)
-        self.sale_win.configure(bg="Lightblue")
+        self.center_window(self.sale_win, 1000, 600, parent)
+        self.sale_win.configure(bg="lightblue")
         self.sale_win.grab_set()
         self.sale_win.transient(parent)
 
@@ -20,48 +21,100 @@ class MakeSaleWindow(BaseWindow):
         self.user = user
         self.sale_items = []  # Keep track of sales list
         self.payment_list = []  # Keep track of payments
+        self.columns = [
+            "No", "Product Code", "Product Name", "Quantity", "Price",
+            "Total"
+        ]
         self.total_cost_var = tk.StringVar(value="0.00")
         self.sales_manager = SalesManager(self.conn)
-        self.left_frame = tk.Frame(self.sale_win, bg="blue", width=400)
-        self.add_frame = tk.LabelFrame(self.left_frame, text="Add To Sales List", bg="white")
-        self.search_entry = tk.Entry(self.add_frame, width=25)
-        self.search_button = tk.Button(self.add_frame, text="Search", width=25, command=self.search_product)
-        self.quantity_label = tk.Label(self.add_frame, text="Enter Product Quantity:", bg="white")
-        self.quantity_entry = tk.Entry(self.add_frame, width=25)
-        self.add_button = tk.Button(self.add_frame, text="Add To List", width=25, command=self.add_to_list)
-        self.post_sale_button = tk.Button(self.add_frame, text="Post Sale", width=25, command=self.show_payment_popup)
+        self.left_frame = tk.Frame(self.sale_win, bg="lightblue", width=300)
+        self.add_frame = tk.LabelFrame(self.left_frame, bg="white",
+                                       text="Add To Sales List")
+        self.right_frame = tk.Frame(self.sale_win, bg="white")
+        self.sale_list = ttk.Treeview(
+            self.right_frame, columns=self.columns, show="headings"
+        )
+        self.search_entry = tk.Entry(self.add_frame, width=20)
+        self.quantity_entry = tk.Entry(self.add_frame, width=20, state="disabled")
+        self.add_button = tk.Button(
+            self.add_frame, text="Add To List", width=20, state="disabled",
+            command=self.add_to_list
+        )
+        self.post_sale_button = tk.Button(
+            self.add_frame, text="Post Sale", width=20, state="disabled",
+            command=self.show_payment_popup
+        )
+        (self.product_code, self.product_name, self.available_quantity,
+         self.wholesale_price, self.retail_price) = None, None, None, None, None
 
 
         self.create_widgets()
 
     def create_widgets(self):
         # Lef Frame
-        self.left_frame.pack(side="left", fill="y", padx=5, pady=5)
+        self.left_frame.pack(side="left", fill="y", padx=(5, 0), pady=5)
         # Right Frame
-        right_frame = tk.Frame(self.sale_win, bg="white")
-        right_frame.pack(side="right", expand=True,fill="both", padx=5, pady=5)        
+        self.right_frame.pack(
+            side="right", expand=True, fill="both", padx=(0, 5), pady=5
+        )
         # Add to sales list section
-        self.add_frame.pack(fill="x", padx=5, pady=5)
-        tk.Label(self.add_frame, text="Enter Product Code:", bg="white").pack(padx=5, pady=(5, 2), anchor="w")
+        self.add_frame.pack(fill="x", pady=(0, 5))
+        tk.Label(
+            self.add_frame, text="Enter Product Code:", bg="white",
+            font=("Arial", 11)
+        ).pack(padx=5, pady=(5, 2), anchor="w")
         self.search_entry.pack(padx=5, pady=(2, 5))
         self.search_entry.focus_set()
-        self.search_entry.bind("<KeyRelease>", lambda event: to_uppercase(self.search_entry))
+        self.search_entry.bind(
+            "<KeyRelease>", lambda event: to_uppercase(self.search_entry)
+        )
         self.search_entry.bind("<Return>", lambda e: self.search_product())
-        self.search_button.pack(padx=5, pady=(0, 10))
-        lookup_btn = tk.Button(self.left_frame, text="Look Up Items", bg="green", fg="white", command=self.lookup_product)
-        lookup_btn.pack(pady=3)
+        tk.Button(
+            self.add_frame, text="Search", width=20,
+            command=self.search_product
+        ).pack(padx=5, pady=(0, 10))
+        tk.Label(
+            self.add_frame, text="Enter Product Quantity:", bg="white",
+            font=("Arial", 11)
+        ).pack(padx=5, pady=(5, 2), anchor="w")
+        self.quantity_entry.pack(padx=5, pady=(2, 5))
+        self.quantity_entry.bind("<Return>", lambda e: self.add_to_list())
+        self.add_button.pack(padx=5, pady=(0, 10))
+        self.post_sale_button.pack(padx=5, pady=5)
+        tk.Button(
+            self.add_frame, text="Look Up Items", bg="green", fg="white",
+            command=self.lookup_product
+        ).pack(pady=3)
+        tk.Button(
+            self.left_frame, text="View Logs", width=20, bg="blue",
+            fg="white", command=self.logs_window, bd=4, relief="solid"
+        ).pack(padx=5)
+        style = ttk.Style(self.sale_win)
+        style.configure("Treeview", rowheight=30, font=("Arial", 10))
+        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
+        btn_frame = tk.Frame(self.right_frame, bg="white")
+        btn_frame.pack(side="top", fill="x", padx=5)
+        tk.Button(
+            btn_frame, text="Remove Item", bg="red", fg="white", bd=4,
+            relief="solid", command=self.remove_selected
+        ).pack(side="right", padx=5)
+        tk.Label(
+            btn_frame, text="Sale List", bg="white",
+            font=("Arial", 14, "bold")
+        ).pack(anchor="center", padx=5)
+        vsb = ttk.Scrollbar(self.right_frame, orient="vertical",
+                            command=self.sale_list.yview)
+        self.sale_list.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
         # Sales List Table
-        self.sale_list = ttk.Treeview(right_frame, columns=("No", "Product Code", "Product Name", "Quantity", "Price", "Total"), show="headings")
-        for col in ["No", "Product Code", "Product Name", "Quantity", "Price", "Total"]:
+        for col in self.columns:
             self.sale_list.heading(col, text=col)
             self.sale_list.column(col, anchor="center", width=50)
         self.sale_list.pack(fill="both", expand=True, pady=(5, 0))
-        # Total Cost Section
-        total_frame = tk.Frame(right_frame, bg="lightblue")
-        total_frame.pack(fill="x",padx=2, pady=2)
-        total_cost_label = tk.Label(total_frame, textvariable=self.total_cost_var, bg="white", font=("Arial", 12, "bold"))
-        total_cost_label.pack(side="right")
-        tk.Label(total_frame, text="Total Cost:", bg="lightblue", font=("Arial", 12, "bold")).pack(side="right", padx=5)
+        self.sale_list.tag_configure(
+            "total", font=("Arial", 12, "bold", "underline")
+        )
+
     def search_product(self):
         code = self.search_entry.get().strip().upper()
         if not code:
@@ -70,19 +123,21 @@ class MakeSaleWindow(BaseWindow):
         result = fetch_sales_product(code)
         if isinstance(result, tuple):
             self.product_code, self.product_name, self.available_quantity, self.wholesale_price, self.retail_price = result
-            answer = messagebox.askyesno("Add Product", f"Do you want to add '{self.product_name}' to the sales list?")
+            answer = messagebox.askyesno(
+                "Add Product", f"Add '{self.product_name}' to Sales list?"
+            )
             if answer:
-                self.quantity_label.pack(padx=5, pady=(5, 2))
-                self.quantity_entry.pack(padx=5, pady=(2, 5))
-                self.quantity_entry.bind("<Return>", lambda e: self.add_to_list())
-                self.add_button.pack(padx=5, pady=(0, 10))
+                self.quantity_entry.configure(state="normal")
+                self.add_button.configure(state="normal")
+                self.post_sale_button.configure(state="normal")
                 self.quantity_entry.focus_set()
         else:
             messagebox.showerror("Not Found", result)
     def add_to_list(self):
         qty_str = self.quantity_entry.get().strip()
         if not qty_str.isdigit():
-            messagebox.showerror("Invalid Input", "Please enter a valid quantity.")
+            messagebox.showerror("Invalid Input",
+                                 "Please enter a valid quantity.")
             return
         qty = int(qty_str)
         if qty > self.available_quantity:
@@ -116,26 +171,56 @@ class MakeSaleWindow(BaseWindow):
             self.sale_items.append((no, self.product_code, self.product_name, qty, f"{price:,.2f}", f"{total:,.2f}"))
         self.refresh_sale_list()
         # Update total cost
-        total_cost = sum(float(str(item[5]).replace(",", "")) for item in self.sale_items)
+        total_cost = sum(float(
+            str(item[5]).replace(",", "")
+        ) for item in self.sale_items)
         self.total_cost_var.set(f"{total_cost:,.2f}")
         another = messagebox.askyesno("Continue?", "Do you want to enter another product?")
         if another:
             self.search_entry.delete(0, tk.END)
             self.quantity_entry.delete(0, tk.END)
-            self.quantity_label.pack_forget()
-            self.quantity_entry.pack_forget()
-            self.add_button.pack_forget()
+            self.quantity_entry.configure(state="disabled")
+            self.add_button.configure(state="disabled")
             self.search_entry.focus_set()
         else:
-            self.post_sale_button.pack(padx=5, pady=5)
             self.post_sale_button.bind("<Return>", lambda e: self.show_payment_popup())
             self.post_sale_button.focus_set()
+
+    def remove_selected(self):
+        """Remove selected item from sale list and update totals."""
+        selected = self.sale_list.selection()
+        if not selected:
+            messagebox.showwarning("No Selection",
+                                   "Please select item to Remove.")
+            return
+        item_id = selected[0]
+        values = self.sale_list.item(item_id, "values")
+        if values and values[3] == "Total Cost":
+            messagebox.showwarning("Invalid", "You Can't Remove Total Row.")
+            return
+        if values: # Remove from internal list
+            product_code = values[1]
+            self.sale_items = [
+                item for item in self.sale_items if item[1] != product_code
+            ]
+        self.refresh_sale_list() # Refresh Treeview
+
     def refresh_sale_list(self):
-        for row in self.sale_list.get_children():
-            self.sale_list.delete(row)
-        for item in self.sale_items:
-            self.sale_list.insert("", "end", values=item)
-        self.autosize_columns(self.sale_list)        
+        self.sale_list.delete(*self.sale_list.get_children()) # Clear old rows
+        for idx, item in enumerate(self.sale_items, start=1):
+            new_item = (idx,) + item[1:] # Replace No with new index
+            self.sale_items[idx-1] = new_item
+            self.sale_list.insert("", "end", values=new_item) # Reinsert all items
+        total_cost = sum(float(
+            str(item[5]).replace(",", "")
+        ) for item in self.sale_items) # Calculate Total
+        self.total_cost_var.set(f"{total_cost:,.2f}")
+        if self.sale_items:
+            self.sale_list.insert("", "end", values=("", "", "", "", "", ""))
+            self.sale_list.insert("", "end", values=(
+                "", "", "", "Total Cost", "", f"{total_cost:,.2f}"
+            ), tags=("total",))
+        self.autosize_columns()
     def show_payment_popup(self):
         if not self.sale_items:
             messagebox.showwarning("No Items", "No items in sales list.")
@@ -143,7 +228,7 @@ class MakeSaleWindow(BaseWindow):
         popup = tk.Toplevel(self.sale_win)
         popup.title("Payments")
         popup.resizable(False, False)
-        self.center_window(popup, 300, 250)
+        self.center_window(popup, 300, 250, self.sale_win)
         popup.transient(self.sale_win)
         popup.grab_set()
         tk.Label(popup, text="Payment Method", font=("Arial", 12, "bold")).pack(pady=5)
@@ -212,10 +297,9 @@ class MakeSaleWindow(BaseWindow):
                     self.total_cost_var.set("0.00")
                     self.search_entry.delete(0, tk.END)
                     self.quantity_entry.delete(0, tk.END)
-                    self.quantity_label.pack_forget()
-                    self.quantity_entry.pack_forget()
-                    self.add_button.pack_forget()
-                    self.post_sale_button.pack_forget()
+                    self.quantity_entry.configure(state="disabled")
+                    self.add_button.configure(state="disabled")
+                    self.post_sale_button.configure(state="disabled")
                     popup.destroy()
                 else:
                     messagebox.showerror("Error", result)
@@ -223,23 +307,25 @@ class MakeSaleWindow(BaseWindow):
                 messagebox.showerror("Error", str(e))
         cash_entry.bind("<KeyRelease>", update_button_state)
         mpesa_entry.bind("<KeyRelease>", update_button_state)
-    def autosize_columns(self, treeview):
+    def autosize_columns(self):
         font = tkFont.Font()
-        for col in treeview["columns"]:
+        for col in self.columns:
             max_width = font.measure(col)
-            for item in treeview.get_children():
-                cell_value = str(treeview.set(item, col))
+            for item in self.sale_list.get_children():
+                cell_value = str(self.sale_list.set(item, col))
                 cell_width = font.measure(cell_value)
                 if cell_width > max_width:
                     max_width = cell_width
-            treeview.column(col, width=max_width + 2)
+            self.sale_list.column(col, width=max_width + 5)
     def lookup_product(self):
-        ProductSearchWindow(self.sale_win, self.conn)
         messagebox.showinfo("Info", "Look up products with code or name.")
+        ProductSearchWindow(self.sale_win, self.conn)
+    def logs_window(self):
+        Last24HoursSalesWindow(self.sale_win, self.conn, self.user)
 
 if __name__ == "__main__":
     from connect_to_db import connect_db
     conn = connect_db()
     root = tk.Tk()
-    app=MakeSaleWindow(root, conn, "johnie")
+    app=MakeSaleWindow(root, conn, "sniffy")
     root.mainloop()

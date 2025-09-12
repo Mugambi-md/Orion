@@ -27,7 +27,7 @@ class NewOrderWindow(BaseWindow):
     def create_left_frame(self):
         self.left_frame = tk.Frame(self.master, bg="blue", padx=5, pady=5)
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y)
-        tk.Label(self.left_frame, text="Custormer Name:", bg="lightblue").grid(row=0, column=0, padx=5, pady=(5, 2)) # Customer Info (2 - columns: label top, entry below)
+        tk.Label(self.left_frame, text="Customer Name:", bg="lightblue").grid(row=0, column=0, padx=5, pady=(5, 2)) # Customer Info (2 - columns: label top, entry below)
         self.customer_name_entry = tk.Entry(self.left_frame)
         self.customer_name_entry.grid(row=1, column=0, padx=5, pady=2)
         self.customer_name_entry.focus_set()
@@ -187,7 +187,7 @@ class NewOrderWindow(BaseWindow):
             for item in results:
                 display = f"{item['product_code']} - {item['product_name']}"
                 self.suggestions_listbox.insert(tk.END, display)
-            height = min(len(results), 10) # Set min and max heigt for usability
+            height = min(len(results), 10) # Set min and max height for usability
             self.suggestions_listbox.configure(height=height)
             self.search_button.grid_remove()
             self.suggestions_listbox.grid(row=2, column=0, sticky="we", padx=5)

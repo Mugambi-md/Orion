@@ -7,7 +7,7 @@ from working_on_stock2 import view_all_products
 from base_window import BaseWindow
 from authentication import VerifyPrivilegePopup
 from accounting_export import ReportExporter
-from lookup_gui import ProductSearchWindow
+from sales_popup import SalesControlReportWindow, MonthlySalesSummary, YearlySalesWindow, YearlyProductSales
 
 class SalesGUI(BaseWindow):
     def __init__(self, parent, conn, user):
@@ -28,7 +28,6 @@ class SalesGUI(BaseWindow):
         ]
         # Left Frame Nav Buttons
         self.left_frame = tk.Frame(self.master, bg="blue")
-
         self.center_frame = tk.Frame(self.master, bg="blue")
         # Top Frame search and sort controls
         self.top_controls = tk.Frame(self.center_frame, bg="blue")
@@ -64,11 +63,12 @@ class SalesGUI(BaseWindow):
         self.left_frame.pack(padx=5, side="top", fill="x")
         buttons = {
             "Sell": self.open_sell_window,
-            "Look Up Product": self.lookup_product,
+            "Monthly Summary": self.monthly_summary,
             "Sales Records": self.sales_records,
+            "Product Impact": self.sales_analysis,
+            "Monthly Sales": self.monthly_report,
             "Orders": self.orders,
             "Invoices": self.invoices,
-            "Sales Analysis": self.sales_analysis,
             "Update Products": self.update_product
         }
         for text, command in buttons.items():
@@ -321,8 +321,14 @@ class SalesGUI(BaseWindow):
             )
             return
         MakeSaleWindow(self.master, self.conn, self.user)
-    def lookup_product(self):
-        ProductSearchWindow(self.master, self.conn)
+    def monthly_summary(self):
+        if not self._check_privilege("Sales Report"):
+            messagebox.showwarning(
+                "Access Denied", "You don't have permission to View Report."
+            )
+            return
+        MonthlySalesSummary(self.master, self.conn)
+
     def sales_records(self):
         if not self._check_privilege("View Sales Records"):
             messagebox.showwarning(
@@ -330,13 +336,28 @@ class SalesGUI(BaseWindow):
                 "You do not permission to View Sales Records."
             )
             return
-        messagebox.showinfo("Coming Soon", "Sale Records window coming soon!")    
+        YearlySalesWindow(self.master, self.conn, self.user)
+    def sales_analysis(self):
+        if not self._check_privilege("Sales Report"):
+            messagebox.showwarning(
+                "Access Denied", "You don't have permission to View Report."
+            )
+            return
+        YearlyProductSales(self.master, self.conn, self.user)
+
+    def monthly_report(self):
+        if not self._check_privilege("Sales Report"):
+            messagebox.showwarning(
+                "Access Denied", "You don't have permission to View Report."
+            )
+            return
+        SalesControlReportWindow(self.master, self.conn, self.user)
+
     def orders(self):
         messagebox.showinfo("Coming Soon", "Orders window coming soon!")
     def invoices(self):
         messagebox.showinfo("Coming Soon", "Invoices window coming soon!")
-    def sales_analysis(self):
-        messagebox.showinfo("Coming Soon", "Sales Analysis window coming soon!")
+
     def update_product(self):
         messagebox.showinfo("Coming Soon", "Product update window coming soon!")
 
@@ -345,5 +366,5 @@ if __name__ == "__main__":
     conn = connect_db()
     root = tk.Tk()
     # root.withdraw()
-    app=SalesGUI(root, conn, "johnie")
+    app=SalesGUI(root, conn, "sniffy")
     root.mainloop()

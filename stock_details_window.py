@@ -65,6 +65,9 @@ class ProductsDetailsWindow(BaseWindow):
         for col in self.columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor="center", width=50)
+        self.tree.tag_configure("totalrow", font=("Arial", 11, "bold", "underline"))
+        self.tree.tag_configure("grandtotalrow", background="#c5cae9",
+                                font=("Arial", 12, "bold", "underline"))
         self.tree.bind(
             "<MouseWheel>", lambda e:
             self.tree.yview_scroll(int(-1 * (e.delta / 120)), "units")
@@ -100,35 +103,34 @@ class ProductsDetailsWindow(BaseWindow):
             total_wholesale += product["wholesale_price"]
             total_retail += product["retail_price"]
         # Insert totals row
-        total_values = [
-            "",
-            "",
-            "",
-            "TOTAL",
-            f"{total_qty:,}",
-            f"{total_cost:,.2f}",
-            f"{total_wholesale:,.2f}",
-            f"{total_retail:,.2f}",
-            ""
-        ]
-        self.tree.insert("", "end", values=total_values, tags=("totalrow",))
-        self.tree.tag_configure("totalrow", font=("Arial", 11, "bold", "underline"))
-        grand_total_cost = total_cost * total_qty
-        grand_total_wholesale = total_wholesale * total_qty
-        grand_total_retail = total_retail * total_qty
-        self.tree.insert("", "end", values=(
-            "",
-            "",
-            "",
-            "GRAND TOTAL",
-            "",
-            f"{grand_total_cost:,.2f}",
-            f"{grand_total_wholesale:,.2f}",
-            f"{grand_total_retail:,.2f}",
-            ""
-        ), tags=("grandtotalrow",))
-        self.tree.tag_configure("grandtotalrow", background="#c5cae9",
-                                font=("Arial", 12, "bold", "underline"))
+        if products:
+            total_values = [
+                "",
+                "",
+                "",
+                "TOTAL",
+                f"{total_qty:,}",
+                f"{total_cost:,.2f}",
+                f"{total_wholesale:,.2f}",
+                f"{total_retail:,.2f}",
+                ""
+            ]
+            self.tree.insert("", "end", values=total_values, tags=("totalrow",))
+            grand_total_cost = total_cost * total_qty
+            grand_total_wholesale = total_wholesale * total_qty
+            grand_total_retail = total_retail * total_qty
+            self.tree.insert("", "end", values=(
+                "",
+                "",
+                "",
+                "GRAND TOTAL",
+                "",
+                f"{grand_total_cost:,.2f}",
+                f"{grand_total_wholesale:,.2f}",
+                f"{grand_total_retail:,.2f}",
+                ""
+            ), tags=("grandtotalrow",))
+
         self.resize_columns()
 
     def resize_columns(self):
