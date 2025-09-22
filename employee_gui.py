@@ -61,31 +61,40 @@ class EmployeeManagementWindow(BaseWindow):
             ("Reset User Password", self.reset_pass)
         ]
         for text, command in actions:
-            btn = tk.Button(left_frame, text=text, width=15, command=command)
-            btn.pack(pady=3, padx=5)
+            tk.Button(
+                left_frame, text=text, width=17, command=command, bd=4,
+                relief="solid", height=2
+            ).pack(padx=(5, 0))
         # Right Frame
         self.right_frame.pack(side="right", expand=True, fill="both", padx=(0, 5), pady=5)
         self.top_frame.pack(fill="x") # Top Title Frame
-        title = tk.Label(self.top_frame, text="Current Employees Information", font=("Arial", 15, "bold"),
-                         bg="lightgreen")
-        title.pack(side="left", padx=5)
+        tk.Label(
+            self.top_frame, text="Current Employees Information", bg="lightgreen",
+            font=("Arial", 15, "bold")
+        ).pack(side="left", padx=5)
         # Top Button Frame
-        self.btn_frame.pack(side="right")
-        tk.Label(self.btn_frame, text="Search by:", font=("Arial", 10, "bold"), bg="lightgreen").pack(side="left", padx=(5, 0))
+        self.btn_frame.pack(side="right", padx=5)
+        tk.Label(
+            self.btn_frame, text="Search by:", font=("Arial", 10, "bold"),
+            bg="lightgreen"
+        ).pack(side="left", padx=(5, 0))
         search_combo = ttk.Combobox(self.btn_frame, textvariable=self.search_option, state="readonly", width=15,
                                     values=self.search_fields)
         search_combo.pack(side="left", padx=(0, 5))
         search_combo.bind("<<ComboboxSelected>>", lambda e: self.update_search_label())
         self.search_label.pack(side="left", padx=(5, 0))
-        self.search_entry.pack(side="left", padx=(0, 5))
+        self.search_entry.pack(side="left", padx=(0, 10))
         self.search_entry.bind("<KeyRelease>", self.filter_table)
-        export_btn = tk.Button(self.btn_frame, text="Export Excel", command=self.export_excel)
-        export_btn.pack(side="left", padx=5)
-        export_pdf_btn = tk.Button(self.btn_frame, text="Export PDF", command=self.export_pdf)
-        export_pdf_btn.pack(side="left", padx=5)
-        print_btn = tk.Button(self.btn_frame, text="Print Data", command=self.print_data)
-        print_btn.pack(side="left", padx=5)
-        # Table Frame
+        btn_action =[
+            ("Export Excel", self.export_excel),
+            ("Export PDF", self.export_pdf),
+            ("Print Data", self.print_data)
+        ]
+        for text, command in btn_action:
+            tk.Button(
+                self.btn_frame, text=text, command=command, bd=2,
+                relief="ridge"
+            ).pack(side="left")
         self.table_frame.pack(fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
         for col in self.columns:

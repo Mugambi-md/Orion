@@ -7,7 +7,10 @@ from working_on_stock2 import view_all_products
 from base_window import BaseWindow
 from authentication import VerifyPrivilegePopup
 from accounting_export import ReportExporter
-from sales_popup import SalesControlReportWindow, MonthlySalesSummary, YearlySalesWindow, YearlyProductSales
+from sales_popup import (
+    SalesControlReportWindow, MonthlySalesSummary, SalesReversalWindow,
+    YearlySalesWindow, YearlyProductSales, MonthlyReversalLogs
+)
 
 class SalesGUI(BaseWindow):
     def __init__(self, parent, conn, user):
@@ -66,14 +69,13 @@ class SalesGUI(BaseWindow):
             "Monthly Summary": self.monthly_summary,
             "Sales Records": self.sales_records,
             "Product Impact": self.sales_analysis,
-            "Monthly Sales": self.monthly_report,
-            "Orders": self.orders,
-            "Invoices": self.invoices,
-            "Update Products": self.update_product
+            "Tag Sale Reversal": self.monthly_report,
+            "Reversal Posting": self.reversal_authorization,
+            "Reversal Logs": self.reversal_logs
         }
         for text, command in buttons.items():
             tk.Button(
-                self.left_frame, text=text, width=20, command=command, bd=6,
+                self.left_frame, text=text, command=command, bd=6, width=len(text),
                 relief="ridge", bg="lightblue"
             ).pack(side="left")
         self.center_frame.pack(padx=5, pady=(0, 5), expand=True, fill="both")
@@ -346,25 +348,32 @@ class SalesGUI(BaseWindow):
         YearlyProductSales(self.master, self.conn, self.user)
 
     def monthly_report(self):
-        if not self._check_privilege("Sales Report"):
+        if not self._check_privilege("Tag Reversal"):
             messagebox.showwarning(
                 "Access Denied", "You don't have permission to View Report."
             )
             return
         SalesControlReportWindow(self.master, self.conn, self.user)
 
-    def orders(self):
-        messagebox.showinfo("Coming Soon", "Orders window coming soon!")
-    def invoices(self):
-        messagebox.showinfo("Coming Soon", "Invoices window coming soon!")
-
-    def update_product(self):
-        messagebox.showinfo("Coming Soon", "Product update window coming soon!")
+    def reversal_authorization(self):
+        if not self._check_privilege("Work on Sales"):
+            messagebox.showwarning(
+                "Access Denied", "You do not permission to work on sales."
+            )
+            return
+        SalesReversalWindow(self.master, self.conn, self.user)
+    def reversal_logs(self):
+        if not self._check_privilege("Work on Sales"):
+            messagebox.showwarning(
+                "Access Denied", "You do not permission to Work On Sales."
+            )
+            return
+        MonthlyReversalLogs(self.master, self.conn, self.user)
 
 if __name__ == "__main__":
     from connect_to_db import connect_db
     conn = connect_db()
     root = tk.Tk()
     # root.withdraw()
-    app=SalesGUI(root, conn, "sniffy")
+    app=SalesGUI(root, conn, "Johnie")
     root.mainloop()

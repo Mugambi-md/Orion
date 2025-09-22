@@ -4,19 +4,22 @@ from base_window import BaseWindow
 from working_sales import search_product
 from working_on_stock2 import add_to_existing_product
 from window_functionality import to_uppercase, only_digits, auto_manage_focus
-from connect_to_db import connect_db
-from working_on_stock import delete_product
+from working_on_stock import (delete_product, search_product_codes,
+                              search_product_details)
 
 class AddStockPopup(BaseWindow):
-    def __init__(self, master, conn, refresh_callback):
+    def __init__(self, master, conn, refresh_callback=None):
         self.window = tk.Toplevel(master)
         self.window.title("Add Stock To Products")
-        self.center_window(self.window, 300, 200)
+        self.center_window(self.window, 300, 200, master)
         self.window.configure(bg="skyblue")
         self.window.transient(master)
         self.window.grab_set()
         self.conn = conn
-        self.refresh_callback = refresh_callback
+        if refresh_callback:
+            self.refresh_callback = refresh_callback
+        else:
+            self.refresh_callback = None
 
         self.labels = ["Product Code", "Quantity","New Cost", "New Wholesale Price", "New Retail Price", "New Min Stock Level"]
         self.entries = {}
@@ -76,7 +79,8 @@ class DeleteProductPopup(BaseWindow):
         self.conn = conn
         self.entry = None
         self.delete_btn = None
-        self.listbox = None
+        self.listbox = tk.Listbox(self.window, bg="lightgray", width=25)
+
         self.products = None
 
         self.setup_widgets()
@@ -94,7 +98,6 @@ class DeleteProductPopup(BaseWindow):
         self.entry.focus_set()
         self.entry.bind("<KeyRelease>", self.uppercase_and_search)
         # Listbox
-        self.listbox =tk.Listbox(self.window, bg="lightgray", width=25)
         self.listbox.bind("<<ListboxSelect>>", self.on_select)
         self.listbox.pack(padx=3)
         self.listbox.pack_forget()
@@ -157,9 +160,189 @@ class DeleteProductPopup(BaseWindow):
             except Exception as err:
                 messagebox.showerror("Database Error", str(err))
 
-# if __name__ == "__main__":
-#         conn = connect_db()
-#         root = tk.Tk()
-#         # root.withdraw()
-#         app=DeleteProductPopup(root,conn)
-#         root.mainloop()
+
+class ProductUpdateWindow(BaseWindow):
+    def __init__(self, parent, conn, user):
+        self.window = tk.Toplevel(parent)
+        self.window.title("Edit Product Details")
+        self.window.configure(bg="lightblue")
+        self.center_window(self.window, 400, 500, parent)
+        self.window.transient(parent)
+        self.window.grab_set()
+
+        self.conn = conn
+        self.user = user
+        # Variables
+        self.search_var = tk.StringVar()
+        # Frames
+        self.top_frame = tk.Frame(self.window, bg="lightblue")
+        self.details_frame = tk.Frame(self.window, bg="lightblue")
+        self.entry = tk.Entry(self.top_frame, textvariable=self.search_var, width=40)
+        self.suggestion_box = tk.Listbox(self.top_frame, width=40)
+        self.search_btn = tk.Button(
+            self.top_frame, text="Search", command=self.search, width=10
+        )
+        self.title = tk.Label(
+            self.details_frame, text="", bg="lightblue", fg="dodgerblue",
+            font=("Arial", 11, "bold", "underline")
+        )
+        self.entries = {}
+        self.entry_order = []
+        self.fields = {
+            "Product Code:": tk.StringVar(),
+            "Product Name:": tk.StringVar(),
+            "Description:": tk.StringVar(),
+            "Quantity:": tk.StringVar(),
+            "Cost:": tk.StringVar(),
+            "Retail Price:": tk.StringVar(),
+            "Wholesale Price:": tk.StringVar(),
+        }
+
+        self.build_ui()
+
+    def build_ui(self):
+        self.top_frame.pack(fill="x", padx=10, pady=5)
+        tk.Label(
+            self.top_frame, text="Enter Product Name / Code:", bg="lightblue",
+            font=("Arial", 11, "bold")
+        ).pack(pady=(5, 0), anchor="w", padx=10)
+        self.entry.pack(anchor="w", padx=10)
+        self.entry.focus_set()
+        self.entry.bind("<KeyRelease>", self.on_keypress)
+        # Suggestion listbox (initially hidden)
+        self.suggestion_box.pack_forget()
+        self.suggestion_box.bind("<<ListboxSelect>>", self.on_select)
+        self.search_btn.pack(pady=(5, 0))
+        # Details Frame
+        self.details_frame.pack(fill="both", expand=True, pady=10, padx=10)
+        self.title.pack(anchor="center", padx=5)
+        # 2 Columns Layout
+        col1 = tk.Frame(self.details_frame, bg="lightblue")
+        col2 = tk.Frame(self.details_frame, bg="lightblue")
+        col1.pack(side="left", fill="both", expand=True, padx=5)
+        col2.pack(side="left", fill="both", expand=True, padx=5)
+        keys = list(self.fields.keys())
+        mid = (len(keys) // 2) + 1
+        for key in keys[:mid]:
+            tk.Label(
+                col1, text=key, bg="lightblue", font=("Arial", 10, "bold")
+            ).pack()
+            entry = tk.Entry(
+                col1, textvariable=self.fields[key], width=30
+            )
+            entry.pack(pady=5)
+            self.entries[key] = entry
+            self.entry_order.append(entry)
+        for key in keys[mid:]:
+            tk.Label(
+                col2, text=key, bg="lightblue", font=("Arial", 10, "bold")
+            ).pack()
+            entry = tk.Entry(
+                col2, textvariable=self.fields[key], width=30
+            )
+            entry.pack(pady=5)
+            self.entries[key] = entry
+            self.entry_order.append(entry)
+        for i, entry in enumerate(self.entry_order):
+            entry.bind("<Return>", lambda e, idx=i: self.focus_next(idx))
+
+    def focus_next(self, idx):
+        """Focus next entry and highlight text."""
+        if idx < len(self.entry_order) - 1:
+            next_entry = self.entry_order[idx + 1]
+            next_entry.focus_set()
+            next_entry.selection_range(0, tk.END)
+        return "break"
+
+    def on_keypress(self, event):
+        """Show suggestion box under entry."""
+        keyword = self.search_var.get().strip()
+        self.suggestion_box.delete(0, tk.END)
+        self.search_btn.pack_forget()
+        if not keyword:
+            self.suggestion_box.pack_forget()
+            self.search_btn.pack(pady=(5, 0))
+            return
+        results = search_product_codes(self.conn, keyword)
+        if isinstance(results, str):
+            messagebox.showerror("Error", results, parent=self.window)
+            return
+        if results:
+            # Adjust height dynamically (max 8)
+            height = min(len(results), 8)
+            self.suggestion_box.config(height=height)
+            self.suggestion_box.pack(anchor="w", fill="x", padx=10)
+            for row in results:
+                self.suggestion_box.insert(
+                    tk.END, f"{row['product_code']} - {row['product_name']}"
+                )
+        else:
+            self.suggestion_box.pack_forget()
+            self.search_btn.pack(pady=(5, 0))
+
+    def on_select(self, event):
+        """Fill entry with selected value when chosen."""
+        if not self.suggestion_box.curselection():
+            return
+        value = self.suggestion_box.get(self.suggestion_box.curselection())
+        code, name = value.split(" - ", 1)
+        # Auto-complete entry with product code (or name)
+        self.search_var.set(code)
+        self.suggestion_box.pack_forget()
+        self.search_btn.pack(pady=(5, 0))
+
+    def search(self):
+        """Search button handler."""
+        keyword = self.search_var.get().strip()
+        if not keyword:
+            messagebox.showwarning(
+                "Warning", "Please Enter a Keyword.", parent=self.window
+            )
+            return
+        self.load_product_details(keyword)
+
+    def load_product_details(self, keyword):
+        """Populate details form with product details."""
+        row, err = search_product_details(self.conn, keyword)
+        if err:
+            messagebox.showerror("Error", err, parent=self.window)
+            return
+        if not row:
+            messagebox.showinfo(
+                "Not Found", "No Product Found.", parent=self.window
+            )
+            return
+        # Map DB keys -> form Keys
+        product_id = row["product_id"]
+        mapping = {
+            "Product Code:": "product_code",
+            "Product Name:": "product_name",
+            "Description:": "description",
+            "Quantity:": "quantity",
+            "Cost:": "cost",
+            "Retail Price:": "retail_price",
+            "Wholesale Price:": "wholesale_price",
+        }
+        # Autofill fields
+        for form_key, db_key in mapping.items():
+            if form_key in self.fields and db_key in row:
+                self.fields[form_key].set(row[db_key])
+        self.title.configure(text=f"Details For Product ID: {product_id}.")
+        # Focus first entry and highlight text
+        first_entry = self.entries["Product Code:"]
+        first_entry.focus_set()
+        first_entry.selection_range(0, tk.END)
+
+
+
+
+
+
+
+
+if __name__ == "__main__":
+    from connect_to_db import connect_db
+    conn = connect_db()
+    root = tk.Tk()
+    app=ProductUpdateWindow(root, conn, "sniffy")
+    root.mainloop()

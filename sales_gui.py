@@ -120,7 +120,7 @@ class MakeSaleWindow(BaseWindow):
         if not code:
             messagebox.showerror("Error", "Please Enter Product Code.")
             return
-        result = fetch_sales_product(code)
+        result = fetch_sales_product(self.conn, code)
         if isinstance(result, tuple):
             self.product_code, self.product_name, self.available_quantity, self.wholesale_price, self.retail_price = result
             answer = messagebox.askyesno(

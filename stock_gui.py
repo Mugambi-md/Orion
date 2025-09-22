@@ -10,12 +10,12 @@ from stock_popups import UpdateQuantityWindow, NewProductPopup, ReconciliationWi
 from stock_access_tables import get_products_table, get_replenishments_table, get_stock_table
 
 class OrionStock(BaseWindow):
-    def __init__(self, parent, user, conn):
+    def __init__(self, parent, conn, user):
         self.master = tk.Toplevel(parent)
         self.master.title("ORION STOCK")
-        self.center_window(self.master, 1300, 600,parent)
+        self.center_window(self.master, 1300, 600, parent)
         self.master.minsize(900, 500)
-        self.master.configure(bg="white")
+        self.master.configure(bg="lightblue")
         self.master.transient(parent)
         self.master.grab_set()
         self.conn = conn
@@ -23,38 +23,49 @@ class OrionStock(BaseWindow):
         self.current_data = None
         self.current_section = None
 
-        self.top_frame = tk.Frame(self.master, bg="#007BFF", height=50) # Blue top frame for navigation buttons
+        # Blue top frame for navigation buttons
+        self.top_frame = tk.Frame(self.master, bg="#007BFF", height=50)
         self.top_frame.pack(side="top", fill="x")
 
         self.active_section = None
         self.section_button_widgets = {}
-        self.section_buttons = ["Stock", "Products", "Replenishments", "Products Report"]
+        self.section_buttons = [
+            "Stock", "Products", "Replenishments"
+        ]
+        style = ttk.Style()
+        style.configure("Treeview", rowheight=30)
+        style.configure("Treeview.Heading", font="Arial 12 bold")
         for section in self.section_buttons:
-            if section == "Products Report":
-                btn = tk.Button(self.top_frame,text=section, font=("Arial", 12, "bold"), command=self.open_product_detail_window)
-            else:
-                btn = tk.Button(self.top_frame, text=section, font=("Arial", 12, "bold"),
-                                command=lambda s=section: self.update_table(s),
-                                bg="white", fg="black")
-            btn.pack(side="left", padx=10)
+            btn = tk.Button(
+                self.top_frame, text=section, font=("Arial", 12, "bold"),
+                command=lambda s=section: self.update_table(s), bg="white",
+                fg="black", bd=4, relief="ridge"
+            )
+            btn.pack(side="left")
             self.section_button_widgets[section] = btn
         
-        button_actions = {"New Product": self.open_new_product_popup,
-                          "Add Stock": self.open_add_stock_popup,
-                          "Update Quantity": self.open_update_quantity_window,
-                          "Delete Product": self.delete_product,
-                          "Stock Reconciliation": self.open_reconciliation
-                          }
-        self.right_frame = tk.Frame(self.master, bg="#28A745", width=220) # Right green frame for actions
-        self.right_frame.pack(side="right", fill="y")
+        button_actions = {
+            "Products Report": self.open_product_detail_window,
+            "Stock Reconciliation": self.open_reconciliation,
+            "Delete Product": self.delete_product,
+            "Update Quantity": self.open_update_quantity_window,
+            "Add Stock": self.open_add_stock_popup,
+            "New Product": self.open_new_product_popup
+        }
+        # Top Right frame for actions
+        self.action_frame = tk.Frame(self.top_frame, bg="lightblue")
+        self.action_frame.pack(side="right", padx=10)
         for text, action in button_actions.items():
-            btn = tk.Button(self.right_frame, text=text, font=("Arial", 11),
-                            bg="white", fg="black", width=15, command=action)
-            btn.pack(pady=5)
+            tk.Button(
+                self.action_frame, text=text, bd=4, bg="white", relief="solid",
+                fg="black", width=len(text), command=action
+            ).pack(side="right")
         
-        self.center_frame = tk.Frame(self.master, bg="white") # Center frame for table and tittle
+        self.center_frame = tk.Frame(self.master, bg="lightblue") # Center frame for table and tittle
         self.center_frame.pack(side="left", fill="both", expand=True)
-        self.table_title = tk.Label(self.center_frame, text="", font=("Arial", 16, "bold"), bg="white")
+        self.table_title = tk.Label(
+            self.center_frame, text="", font=("Arial", 16, "bold"), bg="lightblue"
+        )
         self.table_title.pack(padx=5)
         self.top_control_frame = tk.Frame(self.center_frame, bg="skyblue")
         self.top_control_frame.pack(fill="x")
@@ -239,5 +250,5 @@ if __name__ == "__main__":
     from connect_to_db import connect_db
     conn = connect_db()
     root = tk.Tk()
-    app=OrionStock(root, "sniffy", conn)
+    app=OrionStock(root, conn, "sniffy")
     root.mainloop()

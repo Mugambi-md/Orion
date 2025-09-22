@@ -1,17 +1,19 @@
-from datetime import datetime, date
-from decimal import Decimal
+from datetime import datetime
 
 
 class SalesManager:
     def __init__(self, conn):
         self.conn = conn
+
     def record_sale(self, user, sale_items, payment_method, amount_paid):
         if not self.conn:
             return False, "Database connection failed."
         try:
             with self.conn.cursor() as cursor:
                 # Get user code from logins table
-                cursor.execute("SELECT user_code FROM logins WHERE username = %s", (user,))
+                cursor.execute(
+                    "SELECT user_code FROM logins WHERE username = %s", (user,)
+                )
                 result = cursor.fetchone()
                 if not result:
                     return False, f"User '{user}' not found in logins table."
@@ -22,61 +24,79 @@ class SalesManager:
                 sale_date = now.date()
                 sale_time = now.time().replace(microsecond=0)
                 # 1. Calculate total amount
-                total_amount = sum(item['quantity'] * item['unit_price'] for item in sale_items)
+                total_amount = sum(
+                    item["quantity"] * item["unit_price"] for item in sale_items
+                )
                 # Insert into sales table with sale_date = today
-                cursor.execute("""INSERT INTO sales (receipt_no, sale_date, sale_time, total_amount, user)
+                cursor.execute(
+                    """INSERT INTO sales (receipt_no, sale_date, sale_time, total_amount, user)
                                 VALUES (%s, %s, %s, %s, %s)
-                                """, (receipt_no, sale_date, sale_time, total_amount, user))
+                                """,
+                    (receipt_no, sale_date, sale_time, total_amount, user),
+                )
                 # Insert each sale item into sale_items table
                 for item in sale_items:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                     INSERT INTO sale_items (date, time, receipt_no, product_code, product_name, quantity,
                             unit_price, user)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        sale_date,
-                        sale_time,
-                        receipt_no,
-                        item['product_code'],
-                        item['product_name'],
-                        item['quantity'],
-                        item['unit_price'],
-                        user
-                    ))
+                    """,
+                        (
+                            sale_date,
+                            sale_time,
+                            receipt_no,
+                            item["product_code"],
+                            item["product_name"],
+                            item["quantity"],
+                            item["unit_price"],
+                            user,
+                        ),
+                    )
                     # Reduce quantity in product and replenishments table
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                             UPDATE products
                             SET quantity = quantity - %s
                             WHERE product_code=%s
-                            """, (item['quantity'], item['product_code']))
-                    cursor.execute("""
+                            """,
+                        (item["quantity"], item["product_code"]),
+                    )
+                    cursor.execute(
+                        """
                         UPDATE replenishments
                         SET quantity = quantity - %s
                         WHERE product_code = %s
-                        """, (item['quantity'], item['product_code']))
+                        """,
+                        (item["quantity"], item["product_code"]),
+                    )
                     # Insert into product_control logs
-                    description= f"Sale Receipt no.-{receipt_no}"
-                    cursor.execute("""
-                        INSERT INTO product_control_logs (log_date, product_code, product_name, description, quantity, total, user)
+                    description = f"Sale Receipt no.-{receipt_no}"
+                    cursor.execute(
+                        """
+                        INSERT INTO product_control_logs (log_date, product_code,
+                            product_name, description, quantity, total, user)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        """, (
-                        sale_date,
-                        item['product_code'],
-                        item['product_name'],
-                        description,
-                        item['quantity'],
-                        item['quantity'] * item['unit_price'],
-                        user
-                    ))
+                        """,
+                        (
+                            sale_date,
+                            item["product_code"],
+                            item["product_name"],
+                            description,
+                            item["quantity"],
+                            item["quantity"] * item["unit_price"],
+                            user,
+                        ),
+                    )
                 # Record payment in payments
-                cursor.execute("""
+                cursor.execute(
+                    """
                         INSERT INTO payments (user, receipt_no, payment_date, amount_paid, payment_method)
                         VALUES (%s, %s, %s, %s, %s)
-                        """, (user, receipt_no, sale_date, amount_paid, payment_method))
-                status = insert_to_sale_control(self.conn, receipt_no, user, total_amount, "Sale")
-                if "error" in status.lower():
-                    self.conn.rollback()
-                    return False, status
+                        """,
+                    (user, receipt_no, sale_date, amount_paid, payment_method),
+                )
+
             self.conn.commit()
             return True, receipt_no
         except Exception as e:
@@ -84,23 +104,27 @@ class SalesManager:
             return False, f"Error recording sale: {e}"
 
 
-def fetch_sales_product(product_code):
+def fetch_sales_product(conn, product_code):
     """Fetch product details by product code."""
     try:
-        conn = connect_db()
-        cursor =conn.cursor()
-        cursor.execute("""SELECT product_code, product_name, quantity, wholesale_price, retail_price
-                       FROM products
-                       WHERE product_code=%s
-                       """, (product_code,))
-        result = cursor.fetchone()
-        conn.close()
-        if result:
-            return result
-        else:
-            return f"No Product found with code: {product_code}"
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+            SELECT product_code, product_name, quantity, wholesale_price,
+                retail_price
+            FROM products
+            WHERE product_code=%s
+            """,
+                (product_code,),
+            )
+            result = cursor.fetchone()
+            if result:
+                return result
+            else:
+                return f"No Product found with code: {product_code}"
     except Exception as e:
         return f"Error: {str(e)}"
+
 
 def search_products(conn, field, keyword):
     """Search products by field (e.g., 'product_name' or 'product_code')
@@ -108,117 +132,65 @@ def search_products(conn, field, keyword):
     pattern = f"%{keyword}%"
     try:
         with conn.cursor(dictionary=True) as cursor:
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
             SELECT product_code, product_name, quantity, wholesale_price, retail_price
             FROM products
             WHERE {field} LIKE %s
             ORDER BY {field}
             LIMIT 15
-            """, (pattern,))
+            """,
+                (pattern,),
+            )
             return cursor.fetchall()
     except Exception as e:
         print(f"Error searching products: {e}")
         return []
+
+
 def search_product(conn, field, keyword):
     """Search products by field (e.g., 'product_name' or 'product_code') using like %keyword%."""
     pattern = f"{keyword}%"
     try:
         with conn.cursor(dictionary=True) as cursor:
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
             SELECT product_code, product_name
             FROM products
             WHERE {field} LIKE %s
             ORDER BY {field}
             LIMIT 15
-            """, (pattern,))
+            """,
+                (pattern,),
+            )
             return cursor.fetchall()
     except Exception as e:
         return f"Error searching: {str(e)}" or None
 
-def insert_to_sale_control(conn, receipt_no, user, amount, description="Sale"):
-    today = date.today()
-    first_day = today.replace(day=1)
-    try:
-        with conn.cursor(dictionary=True) as cursor:
-            # Remove previous "Balance brought down"
-            amount = Decimal(str(amount))
-            cursor.execute("""
-                DELETE FROM sales_control
-                WHERE description = 'Balance Brought Down' AND date BETWEEN %s AND %s
-                """, (first_day, today))
-            # Fetch last cumulative total
-            cursor.execute("""
-                    SELECT cumulative_total FROM sales_control
-                    WHERE date BETWEEN %s AND %s
-                    ORDER BY id DESC LIMIT 1
-                    """, (first_day, today))
-            last = cursor.fetchone()
-            # If no previous record this month, insert balance carried down
-            if not last:
-                cursor.execute("""
-                    INSERT INTO sales_control (date, receipt_no, description, user, amount, cumulative_total)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (first_day, None, "Balance Carried Down", "System", 0, 0))
-                previous_total = 0
-            else:
-                previous_total =last["cumulative_total"]
-            # Compute new cumulative total
-            if description.lower() == "sale":
-                new_total = previous_total + amount
-            elif description.lower() == "sale reversal":
-                new_total = previous_total - amount
-            else:
-                new_total = previous_total # Fall back
-            # Insert sale or reversal
-            cursor.execute("""
-                INSERT INTO sales_control (date, receipt_no, description, user, amount, cumulative_total)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                """, (today, receipt_no, description, user, amount, new_total))
-            # Insert balance brought Down
-            cursor.execute("""INSERT INTO sales_control (date, receipt_no, description, user, amount, cumulative_total)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        """, (today, None, "Balance Brought Down", "System", 0, new_total))
-            conn.commit()
-            return "Sale control updates successfully."
-    except Exception as e:
-        conn.rollback()
-        return f"Error updating to sales control: {e}"
-
-def fetch_sales_control_by_month(conn, year, month):
-    try:
-        start_date = date(year, month, 1)
-        if month == 12:
-            end_date = date(year + 1, 1, 1)
-        else:
-            end_date = date(year, month + 1, 1)
-        with conn.cursor(dictionary=True) as cursor:
-            cursor.execute("""SELECT date, receipt_no, description, user, amount, cumulative_total
-                    FROM sales_control
-                    WHERE date >= %s AND date < %s
-                    ORDER BY date ASC, id ASC
-                    """, (start_date, end_date))
-            return cursor.fetchall()
-    except Exception as e:
-        return [], f"{e}"
 
 def fetch_sales_last_24_hours(conn, username):
     try:
         with conn.cursor(dictionary=True) as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT sale_date, sale_time, receipt_no, total_amount, user
                 FROM sales 
                 WHERE CONCAT(sale_date, ' ', sale_time) >= NOW()- INTERVAL 1 DAY AND user = %s
                 ORDER BY sale_date DESC, sale_time DESC
-                """, (username,))
+                """,
+                (username,),
+            )
             return cursor.fetchall(), None
     except Exception as e:
         return [], str(e)
+
+
 def fetch_sales_by_month_and_user(conn, year, month, user=None):
     """Fetch total sales grouped by day for given month/ year.
     Optionally filter by user."""
     try:
         with conn.cursor(dictionary=True) as cursor:
-            query ="""
+            query = """
                 SELECT
                     sale_date,
                     SUM(total_amount) AS daily_total
@@ -238,6 +210,7 @@ def fetch_sales_by_month_and_user(conn, year, month, user=None):
     except Exception as e:
         return [], str(e)
 
+
 def fetch_all_sales_users(conn):
     try:
         with conn.cursor() as cursor:
@@ -247,6 +220,7 @@ def fetch_all_sales_users(conn):
     except Exception as e:
         return [], f"{e}"
 
+
 def fetch_receipt_data(conn, receipt_no):
     try:
         with conn.cursor(dictionary=True) as cursor:
@@ -255,14 +229,18 @@ def fetch_receipt_data(conn, receipt_no):
             if not sale:
                 return None, []
             # Fetch sale items
-            cursor.execute("""
+            cursor.execute(
+                """
                     SELECT date, time, product_code, product_name, quantity, unit_price, total_amount
                     FROM sale_items WHERE receipt_no=%s
-                    """, (receipt_no,))
+                    """,
+                (receipt_no,),
+            )
             items = cursor.fetchall()
             return sale, items
     except Exception as e:
         raise e
+
 
 def fetch_sale_by_year(conn, year, month=None, user=None):
     """Fetch sales data for a given year, with option to filter by month and
@@ -293,26 +271,32 @@ def fetch_sale_by_year(conn, year, month=None, user=None):
     except Exception as e:
         return [], str(e)
 
+
 def fetch_filter_values(conn):
     """Fetch distinct product names and users from sales table."""
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT DISTINCT user
                 FROM sale_items
                 ORDER BY user
-            """)
+            """
+            )
             users = [row[0] for row in cursor.fetchall()]
             # Fetch years from date column
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT DISTINCT YEAR(date) AS year
                 FROM sale_items
                 ORDER BY year DESC
-            """)
+            """
+            )
             years = [row[0] for row in cursor.fetchall()]
         return users, years, None
     except Exception as e:
         return [], [], str(e)
+
 
 def fetch_sales_summary_by_year(conn, year, month=None, user=None):
     """Fetch sales summary data for a given year, with option to filter
@@ -347,6 +331,7 @@ def fetch_sales_summary_by_year(conn, year, month=None, user=None):
             return rows, None
     except Exception as e:
         return [], str(e)
+
 
 def fetch_sales_items(conn, year, month=None, day=None, user=None):
     """Fetch sales items details by year with filters for: month, day
@@ -384,11 +369,361 @@ def fetch_sales_items(conn, year, month=None, day=None, user=None):
     except Exception as e:
         return [], str(e)
 
-# from connect_to_db import connect_db
-# conn=connect_db()
-# data, err = fetch_sales_items(conn, 2025, None, None, "sniffy")
+
+def insert_to_sale_control(conn, entries):
+    try:
+        now = datetime.now()
+        s_date = now.date()
+        s_time = now.time().strftime("%H:%M:%S")  # Time as HH:MM:SS
+        # Normalize to list
+        if isinstance(entries, dict):
+            entries = [entries]
+        values = [
+            (
+                s_date,
+                s_time,
+                e["product_code"],
+                e["receipt_no"],
+                e["description"],
+                e["user"],
+            )
+            for e in entries
+        ]
+        with conn.cursor(dictionary=True) as cursor:
+            cursor.executemany(
+                """
+            INSERT INTO sales_control (date, time, product_code, receipt_no,
+                    description, user)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+                values,
+            )
+        conn.commit()
+        return True, None
+    except Exception as e:
+        conn.rollback()
+        return False, str(e)
+
+
+def tag_reversal(conn, receipt, code, name, price, quantity, refund, user):
+    try:
+        s_date = datetime.today().date()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+            INSERT INTO sales_reversal (date, receipt_no, product_code,
+                    product_name, unit_price, quantity, refund, tag)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+                (s_date, receipt, code, name, price, quantity, refund, user),
+            )
+            entry = {
+                "product_code": code,
+                "receipt_no": receipt,
+                "description": "Tagged Reversal",
+                "user": user,
+            }
+            success, err = insert_to_sale_control(conn, entry)
+            if success:
+                conn.commit()
+                return True, "Reversal Tagged Successfully."
+            else:
+                conn.rollback()
+                return False, f"Error Tagging Reversal: {str(err)}"
+    except Exception as e:
+        conn.rollback()
+        return False, f"Error: {str(e)}"
+
+
+def authorize_reversal(conn, receipt_no, product_code, username):
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE sales_reversal
+                SET authorized = %s
+                WHERE receipt_no = %s AND product_code = %s
+            """,
+                (username, receipt_no, product_code),
+            )
+
+            entry = {
+                "product_code": product_code,
+                "receipt_no": receipt_no,
+                "description": "Authorized reversal.",
+                "user": username,
+            }
+            success, err = insert_to_sale_control(conn, entry)
+            if success:
+                conn.commit()
+                return True, "Reversal authorized successfully."
+            else:
+                conn.rollback()
+                return False, f"Error Authorizing Reversal: {str(err)}"
+    except Exception as e:
+        conn.rollback()
+        return False, f"Error authorizing reversal: {str(e)}"
+
+
+def reject_tagged_reversal(conn, receipt_no, product_code, username):
+    """Reject tagged reversal instead of Authorizing it."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE sales_reversal
+                SET authorized = %s, posted = %s
+                WHERE receipt_no = %s AND product_code = %s
+                    And tag IS NOT NULL;
+            """,
+                ("Rejected", "Rejected", receipt_no, product_code),
+            )
+            if cursor.rowcount == 0:
+                return False, "No Tagged Reversal Found to Reject."
+
+            entry = {
+                "product_code": product_code,
+                "receipt_no": receipt_no,
+                "description": "Rejected tagged reversal.",
+                "user": username,
+            }
+            success, err = insert_to_sale_control(conn, entry)
+            if success:
+                conn.commit()
+                return True, "Reversal Rejected Successfully."
+            else:
+                conn.rollback()
+                return False, f"Error Rejecting Reversal: {str(err)}"
+    except Exception as e:
+        conn.rollback()
+        return False, f"Error Rejecting Reversal: {str(e)}"
+
+
+def delete_rejected_reversal(conn, receipt_no, product_code, username):
+    """Delete a specific reversal where authorized = 'Rejected' using receipt,
+    product code and user."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM sales_reversal
+                WHERE receipt_no = %s AND product_code = %s AND authorized =%s;
+            """,
+                (receipt_no, product_code, "Rejected"),
+            )
+
+            if cursor.rowcount == 0:
+                return False, "No matching rejected reversal found to Delete."
+
+            entry = {
+                "product_code": product_code,
+                "receipt_no": receipt_no,
+                "description": "Deleted Rejected Reversal.",
+                "user": username,
+            }
+            success, err = insert_to_sale_control(conn, entry)
+            if success:
+                conn.commit()
+                return True, "Rejected Reversal Deleted Successfully."
+            else:
+                conn.rollback()
+                return False, f"Error Deleting rejected Reversal: {str(err)}"
+    except Exception as e:
+        conn.rollback()
+        return False, f"Error Deleting Reversal: {str(e)}"
+
+
+def post_reversal(conn, receipt, code, user, qty, price):
+    try:
+        with conn.cursor(dictionary=True) as cursor:
+            # Check if tag and authorized are filled
+            cursor.execute(
+                """
+                SELECT tag, authorized, posted
+                FROM sales_reversal
+                WHERE receipt_no = %s AND product_code = %s
+            """,
+                (receipt, code),
+            )
+            record = cursor.fetchone()
+            if not record:
+                return False, "Reversal Record not Found."
+            if not record["tag"] or not record["authorized"]:
+                return False, "Reversal Must be Tagged and Authorized for posting."
+            if record["posted"]:
+                return False, "Reversal Already posted."
+            # Update sale item and related tables
+            success, err = update_sale_item(conn, receipt, code, qty, price)
+            if not success:
+                conn.rollback()
+                return False, f"Failed to update sale item: {err}"
+            # Update posted column
+            cursor.execute(
+                """
+                UPDATE sales_reversal
+                SET posted = %s
+                WHERE receipt_no = %s AND product_code = %s
+            """,
+                (user, receipt, code),
+            )
+
+            entry = {
+                "product_code": code,
+                "receipt_no": receipt,
+                "description": "Posted Sale Reversal.",
+                "user": user,
+            }
+            success, err = insert_to_sale_control(conn, entry)
+            if success:
+                conn.commit()
+                return True, "Reversal Posted successfully."
+            else:
+                conn.rollback()
+                return False, f"Error Posting Reversal: {str(err)}"
+    except Exception as e:
+        conn.rollback()
+        return False, f"Error Posting reversal: {str(e)}"
+
+
+def update_sale_item(conn, receipt_no, product_code, quantity, unit_price):
+    """Updates product quantity after reversal, reducing quantity sold,
+    total sale amount and increasing available quantity."""
+    try:
+        with conn.cursor(dictionary=True) as cursor:
+            # Update the sale items record
+            cursor.execute(
+                """
+                UPDATE sale_items
+                SET quantity = GREATEST(quantity - %s, 0),
+                    unit_price = %s
+                WHERE receipt_no = %s AND product_code = %s
+            """,
+                (quantity, unit_price, receipt_no, product_code),
+            )
+            # Reduce total amount in sales table using receipt number
+            total_cost = quantity * unit_price
+            cursor.execute(
+                """
+                UPDATE sales
+                SET total_amount = GREATEST(total_amount - %s, 0)
+                WHERE receipt_no = %s
+            """,
+                (total_cost, receipt_no),
+            )
+            # Increase quantity in products table
+            cursor.execute(
+                """
+                UPDATE products
+                SET quantity = quantity + %s
+                WHERE product_code = %s
+            """,
+                (quantity, product_code),
+            )
+            # Increase quantity in replenishment table
+            cursor.execute(
+                """
+                UPDATE replenishments
+                SET quantity = quantity + %s
+                WHERE product_code = %s
+            """,
+                (quantity, product_code),
+            )
+        conn.commit()
+        return True, None
+    except Exception as e:
+        conn.rollback()
+        return False, str(e)
+
+
+def get_retail_price(conn, product_code):
+    """Fetch product details by product code."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+            SELECT retail_price
+            FROM products
+            WHERE product_code=%s
+            """,
+                (product_code,),
+            )
+            result = cursor.fetchone()
+            if result:
+                return float(result[0])
+            else:
+                return None
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+def fetch_pending_reversals(conn, view_filter="Tagged"):
+    """
+    Fetch reversals based on filter:
+        "Tagged" -> tagged is not null, authorized = null, posted = null
+        "Authorized" -> tagged is not null, authorized is not null & not rejected
+        "Rejected" -> fetch only where authorized = "Rejected" & posted= 'Rejected'
+    """
+    try:
+        with conn.cursor(dictionary=True) as cursor:
+            query = """
+                SELECT date, receipt_no, product_code, product_name,
+                    unit_price, quantity, refund, tag, authorized, posted
+                FROM sales_reversal
+                WHERE 1=1
+                """
+            params = []
+            if view_filter == "Tagged":
+                query += (
+                    " AND tag is NOT NULL AND authorized is NULL AND posted IS NULL"
+                )
+            elif view_filter == "Authorized":
+                query += """ AND tag IS NOT NULL AND authorized IS NOT NULL AND 
+                authorized <> %s AND posted IS NULL"""
+                params.append("Rejected")
+            elif view_filter == "Rejected":
+                query += " AND authorized = %s AND posted = %s"
+                params.extend(["Rejected", "Rejected"])
+
+            cursor.execute(query, params)
+            return cursor.fetchall(), None
+    except Exception as e:
+        return None, str(e)
+
+def fetch_reversals_by_month(conn, year, month):
+    """Fetch all reversals from sales reversals for a given year and month."""
+    try:
+        with conn.cursor(dictionary=True) as cursor:
+            cursor.execute("""
+            SELECT date, receipt_no, product_code, product_name, unit_price,
+                quantity, refund, tag, authorized, posted
+            FROM sales_reversal
+            WHERE YEAR(date) = %s AND MONTH(date) = %s
+            ORDER BY date DESC;
+            """, (year, month))
+            return cursor.fetchall(), None
+    except Exception as e:
+        return None, str(e)
+
+def fetch_distinct_years(conn):
+    """Fetch distinct years from sales reversal table.
+    Returns a list of years."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT DISTINCT YEAR(date) AS year
+                FROM sales_reversal
+                ORDER BY year DESC;
+                """)
+            years = [row[0] for row in cursor.fetchall()]
+            return years, None
+    except Exception as e:
+        return None, str(e)
+
+from connect_to_db import connect_db
+
+conn = connect_db()
+# years, err = fetch_distinct_years(conn)
 # if not err:
-#     for r in data:
-#         print(r)
+#     print("Years:", years)
 # else:
 #     print(err)

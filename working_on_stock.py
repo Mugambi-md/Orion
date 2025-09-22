@@ -33,7 +33,9 @@ def delete_product(product_code):
         return "Database Connection Failed!"
     try:
         with conn.cursor() as cursor:
-            cursor.execute("DELETE FROM stock WHERE product_code = %s", (product_code,))
+            cursor.execute(
+                "DELETE FROM stock WHERE product_code = %s", (product_code,)
+            )
         conn.commit()
         return f"Product with code '{product_code}' deleted successfully."
     except Exception as e:
@@ -68,8 +70,10 @@ def update_quantity(product_code, new_quantity):
 def fetch_product_data(conn):
     try:
         with conn.cursor(dictionary=True) as cursor:
-            cursor.execute("""SELECT product_code, product_name, description, quantity, retail_price, wholesale_price
-                       FROM products""")
+            cursor.execute("""
+            SELECT product_code, product_name, description, quantity,
+                retail_price, wholesale_price
+            FROM products""")
             rows = cursor.fetchall()
             return rows
     except Exception as e:
@@ -92,7 +96,9 @@ def update_price(conn, code, retail, wholesale):
 def update_description(conn, code, new_description):
     try:
         with conn.cursor() as cursor:
-            cursor.execute("UPDATE products SET description=%s where product_code=%s", (new_description, code))
+            cursor.execute(
+                "UPDATE products SET description=%s where product_code=%s;",
+                (new_description, code))
             conn.commit()
             return f"Description For {code} Updated successfully"
     except Exception as e:
@@ -103,26 +109,35 @@ def search_product_codes(conn, keyword):
     try:
         pattern = f"{keyword}%"
         with conn.cursor(dictionary=True) as cursor:
-            cursor.execute("""SELECT product_code, product_name
-                           FROM products
-                           WHERE product_code LIKE %s
-                           ORDER BY product_code
-                           LIMIT 10
-                           """, (pattern,))
+            cursor.execute("""
+            SELECT product_code, product_name
+            FROM products
+            WHERE product_code LIKE %s OR product_name LIKE %s
+            ORDER BY product_code
+            LIMIT 15;
+            """, (pattern, pattern))
             return cursor.fetchall()
     except Exception as e:
-        return f"Error searching product codes: {e}"
+        return f"Error searching product codes: {str(e)}."
 
-def search_product_name(conn, keyword):
+def search_product_details(conn, keyword):
     try:
-        pattern = f"%{keyword}%" # Match keyword anywhere in the name
         with conn.cursor(dictionary=True) as cursor:
-            cursor.execute("""SELECT product_code, product_name
-                           FROM products
-                           WHERE product_name LIKE %s
-                           ORDER BY product_name
-                           LIMIT 10
-                           """, (pattern,))
-            return cursor.fetchall()
+            cursor.execute("""
+            SELECT s.id AS product_id, p.product_code, p.product_name, p.description,
+                p.quantity, p.cost, p.retail_price, p.wholesale_price
+            FROM products p
+            JOIN stock s ON p.product_code = s.product_code
+            WHERE p.product_code = %s OR p.product_name = %s;
+            """, (keyword, keyword))
+            return cursor.fetchone(), None
     except Exception as e:
-        return f"Error searching product names: {e}"
+        return None, f"Error searching product: {str(e)}."
+
+# conn = connect_db()
+# rows, err =search_product_details(conn, "Latin Basin")
+# if not err:
+#     for row in rows:
+#         print(row)
+# else:
+#     print(err)

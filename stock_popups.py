@@ -1,12 +1,11 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import tkinter.font as tkFont
-# from connect_to_db import connect_db
 from base_window import BaseWindow
 from table_actions import UpdateQuantityPopup, UpdatePriceWindow, UpdateDescriptionPopup
 from working_on_orders import search_product_codes
 from working_on_stock import fetch_product_data, insert_new_product, update_quantity
-from window_functionality import auto_manage_focus, to_uppercase, only_digits
+from window_functionality import (auto_manage_focus, to_uppercase, only_digits)
 
 class UpdateQuantityWindow(BaseWindow):
         def __init__(self, master=None, product_code=None):
@@ -114,7 +113,10 @@ class NewProductPopup(BaseWindow):
         def submit_product(self):
                 code = self.entries["Product Code"].get().upper()
                 if search_product_codes(self.conn, code):
-                        messagebox.showwarning("Duplicate", "Product Code Already Exists. Choose Another.")
+                        messagebox.showwarning(
+                                "Duplicate",
+                                "Product Code Already Taken."
+                        )
                         return
                 try:
                         result = insert_new_product(
@@ -139,72 +141,101 @@ class ReconciliationWindow(BaseWindow):
         def __init__(self, master, conn):
                 self.window = tk.Toplevel(master)
                 self.window.title("Product Reconciliation")
-                self.center_window(self.window, 1050, 600)
+                self.center_window(self.window, 1100, 600)
                 self.window.configure(bg="lightblue")
                 self.window.grab_set()
                 self.window.transient(master)
 
-                self.search_by_var = None
-                self.search_label = None
-                self.search_var = None
-                self.data = None
-                self.tree = None
                 self.conn = conn
+                self.search_by_var = tk.StringVar()
+                # Search Frame
+                self.search_frame = tk.Frame(self.window, bg="lightblue")
+                self.search_label = tk.Label(
+                        self.search_frame, text="Enter Product Name:",
+                        bg="lightblue", font=("Arial", 11, "bold")
+                )
+                self.search_var = tk.StringVar()
+                self.data = None
+                self.columns = [
+                        "No", "Product Code", "Product Name", "Description",
+                        "Quantity", "Retail Price", "Wholesale Price"
+                ]
+                self.table_frame = tk.Frame(self.window, bg="lightblue")
+                self.tree = ttk.Treeview(
+                        self.table_frame, columns=self.columns, show="headings",
+                        height=20
+                )
 
                 self.setup_widgets()
+                self.populate_table()
+
         def setup_widgets(self):
-                tk.Label(self.window, text="Available Products",
-                         font=("Arial", 15, "bold"),bg="lightblue").pack(pady=(5, 0), padx=5) # Title
-                tk.Label(self.window, text="Select Product to Edit", font=("Arial", 10, "italic"), fg="blue",
-                         bg="lightblue").pack(padx=5) # italic Note
-                #Search Frame
-                search_frame = tk.Frame(self.window, bg="lightblue")
-                search_frame.pack(side="top", fill="x", padx=5)
-                tk.Label(search_frame, text="Search by:", bg="lightblue").pack(side="left", padx=(5, 0))
-                self.search_by_var = tk.StringVar(value="Product Name")
-                search_options = ttk.Combobox(search_frame,
-                                              textvariable=self.search_by_var, values=["Product Name", "Product Code"],
-                                              state="readonly", width=15)
+                tk.Label(
+                        self.window, text="Available Products", bg="lightblue",
+                        font=("Arial", 15, "bold", "underline")
+                ).pack(pady=(5, 0), padx=5)  # Title
+                self.search_frame.pack(side="top", fill="x", padx=5)
+
+
+                tk.Label(
+                        self.search_frame, text="Search by:", bg="lightblue",
+                        font=("Arial", 11, "bold")
+                ).pack(side="left", padx=(5, 0))
+                search_options = ttk.Combobox(
+                        self.search_frame, textvariable=self.search_by_var,
+                        values=["Name", "Code"], state="readonly", width=6
+                )
+                search_options.current(0)
                 search_options.pack(side="left", padx=(0, 5))
                 search_options.bind("<<ComboboxSelected>>", self.update_search_label)
-                self.search_label = tk.Label(search_frame, text="Enter Product Name:", bg="lightblue")
                 self.search_label.pack(side="left", padx=(5, 0))
-                self.search_var = tk.StringVar()
-                search_entry = tk.Entry(search_frame, textvariable=self.search_var, width=20)
+                search_entry = tk.Entry(self.search_frame, textvariable=self.search_var, width=20)
                 search_entry.pack(side="left", padx=(0, 5))
                 search_entry.bind("<KeyRelease>", self.filter_table)
-                btn_frame = tk.Frame(search_frame, bg="lightblue")
+                tk.Label(
+                        self.search_frame, text="Select Product to Edit",
+                        fg="blue", font=("Arial", 13, "italic"), bg="lightblue"
+                ).pack(side="left", padx=5)  # italic Note
+                btn_frame = tk.Frame(self.search_frame, bg="lightblue")
                 btn_frame.pack(side="right", padx=5)
-                ttk.Button(btn_frame, text="Update Quantity", command=self.update_quantity).pack(side="left", padx=3)
-                ttk.Button(btn_frame, text="Update Price", command=self.update_price).pack(side="left", padx=3)
-                ttk.Button(btn_frame, text="Update Description", command=self.update_description).pack(padx=3, side="left")
-                ttk.Button(btn_frame, text="Refresh", command=self.refresh_table).pack(padx=3, side="left")
+                action_btn = {
+                        "Update Quantity": self.update_quantity,
+                        "Update Price": self.update_price,
+                        "Update Description": self.update_description,
+                        "Refresh": self.refresh_table
+                }
+                for text, action in action_btn.items():
+                        tk.Button(
+                                btn_frame, text=text, bd=4, bg="white", relief="solid",
+                                fg="black", width=len(text), command=action
+                        ).pack(side="right")
                 # Table Frame
-                table_frame = tk.Frame(self.window, bg="lightblue")
-                table_frame.pack(fill=tk.BOTH, expand=True, pady=3)
-                self.tree = ttk.Treeview(table_frame, columns=("no", "code", "name", "desc", "qty", "retail",
-                                                               "wholesale"), show="headings", height=20)
+                self.table_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
                 # Style
                 style = ttk.Style()
                 style.configure("Treeview.Heading", font=("Arial", 10, "bold"), anchor="center")
                 style.configure("Treeview", rowheight=30, font=("Arial", 10))
                 # Scrollbar
-                scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+                scrollbar = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
                 self.tree.configure(yscrollcommand=scrollbar.set)
                 scrollbar.pack(side="right", fill="y")
                 self.tree.pack(side="left", fill="both", expand=True)
                 # Columns config
-                headings = [("no", "No"), ("code", "Product Code"), ("name", "Product Name"), ("desc", "Description"),
-                            ("qty", "Quantity"), ("retail", "Retail Price"), ("wholesale", "Wholesale Price")]
-                for col_id, col_name in headings:
-                        self.tree.heading(col_id, text=col_name)
-                        self.tree.column(col_id, anchor="center", stretch=True)
-                self.populate_table()
-                self.tree.bind("<MouseWheel>", lambda e: self.tree.yview_scroll(int(-1*(e.delta/120)), "units"))
+
+                for col in self.columns:
+                        self.tree.heading(col, text=col)
+                        self.tree.column(col, anchor="center", width=30)
+                self.tree.bind("<MouseWheel>", lambda e: self.tree.yview_scroll(
+                                int(-1*(e.delta/120)), "units"
+                ))
 
         def update_search_label(self, event=None):
                 selected = self.search_by_var.get()
-                label = "Enter Product Name:" if selected == "Product Name" else "Enter Product Code:"
+                if selected == "Name":
+                        label = "Enter Product Name:"
+                else:
+                        label = "Enter Product Code:"
                 self.search_label.config(text=label)
 
         def populate_table(self):
@@ -214,22 +245,34 @@ class ReconciliationWindow(BaseWindow):
                 self.tree.tag_configure("evenrow", background=alt_colors[0])
                 self.tree.tag_configure("oddrow", background=alt_colors[1])
                 for index, row in enumerate(self.data, start=1):
-                        display_row = (index, row["product_code"], row["product_name"], row["description"],
-                                       row["quantity"], row["retail_price"], row["wholesale_price"])
                         tag = "evenrow" if index % 2 == 0 else "oddrow"
-                        self.tree.insert("", "end", values=display_row, tags=(tag,))
-                for col in self.tree["columns"]:
-                        font = tkFont.Font()
-                        self.tree.column(col, width=font.measure(col.title()) + 5)
+                        self.tree.insert("", "end", values=(
+                                index,
+                                row["product_code"],
+                                row["product_name"],
+                                row["description"],
+                                row["quantity"],
+                                row["retail_price"],
+                                row["wholesale_price"]
+                        ), tags=(tag,))
+                self.auto_resize()
+
+        def auto_resize(self):
+                """Resize columns to fit content."""
+                font = tkFont.Font()
+                for col in self.columns:
+                        # Start with the column header width
+                        max_width = font.measure(col)
                         for item in self.tree.get_children():
-                                cell_text = str(self.tree.set(item, col))
-                                pixel_width = font.measure(cell_text) + 5
-                                if self.tree.column(col, 'width') < pixel_width:
-                                        self.tree.column(col, width=pixel_width)
+                                text = str(self.tree.set(item, col))
+                                max_width = max(max_width, font.measure(text))
+                        # Add Padding for readability
+                        self.tree.column(col, width=max_width + 3)
 
         def filter_table(self, event=None):
                 keyword = self.search_var.get().lower()
-                search_field = "product_name" if self.search_by_var.get() == "Product Name" else "product_code"
+                search_field = self.search_by_var.get()
+                search_field = "product_name" if search_field == "Product Name" else "product_code"
                 self.tree.delete(*self.tree.get_children())
                 alt_colors = ("#ffffff", "#e6f2ff") # White and light blueish
                 filtered = [r for r in self.data if keyword in str(r[search_field]).lower()]
@@ -267,9 +310,10 @@ class ReconciliationWindow(BaseWindow):
         def refresh_table(self):
                 self.populate_table()
 
-# if __name__ == "__main__":
-#         conn = connect_db()
-#         root = tk.Tk()
-#         # root.withdraw()
-#         app=ReconciliationWindow(root,conn)
-#         root.mainloop()
+if __name__ == "__main__":
+        from connect_to_db import connect_db
+        conn = connect_db()
+        root = tk.Tk()
+        # root.withdraw()
+        app=ReconciliationWindow(root,conn)
+        root.mainloop()
