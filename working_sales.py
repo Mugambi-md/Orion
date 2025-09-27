@@ -113,7 +113,7 @@ def fetch_sales_product(conn, product_code):
             SELECT product_code, product_name, quantity, wholesale_price,
                 retail_price
             FROM products
-            WHERE product_code=%s
+            WHERE product_code=%s AND is_active = 1;
             """,
                 (product_code,),
             )
@@ -136,7 +136,7 @@ def search_products(conn, field, keyword):
                 f"""
             SELECT product_code, product_name, quantity, wholesale_price, retail_price
             FROM products
-            WHERE {field} LIKE %s
+            WHERE {field} LIKE %s AND is_active = 1
             ORDER BY {field}
             LIMIT 15
             """,
@@ -157,7 +157,7 @@ def search_product(conn, field, keyword):
                 f"""
             SELECT product_code, product_name
             FROM products
-            WHERE {field} LIKE %s
+            WHERE {field} LIKE %s AND is_active = 1
             ORDER BY {field}
             LIMIT 15
             """,
@@ -438,14 +438,11 @@ def tag_reversal(conn, receipt, code, name, price, quantity, refund, user):
 def authorize_reversal(conn, receipt_no, product_code, username):
     try:
         with conn.cursor() as cursor:
-            cursor.execute(
-                """
+            cursor.execute("""
                 UPDATE sales_reversal
                 SET authorized = %s
                 WHERE receipt_no = %s AND product_code = %s
-            """,
-                (username, receipt_no, product_code),
-            )
+            """, (username, receipt_no, product_code))
 
             entry = {
                 "product_code": product_code,
@@ -469,15 +466,12 @@ def reject_tagged_reversal(conn, receipt_no, product_code, username):
     """Reject tagged reversal instead of Authorizing it."""
     try:
         with conn.cursor() as cursor:
-            cursor.execute(
-                """
+            cursor.execute("""
                 UPDATE sales_reversal
                 SET authorized = %s, posted = %s
                 WHERE receipt_no = %s AND product_code = %s
                     And tag IS NOT NULL;
-            """,
-                ("Rejected", "Rejected", receipt_no, product_code),
-            )
+            """, ("Rejected", "Rejected", receipt_no, product_code))
             if cursor.rowcount == 0:
                 return False, "No Tagged Reversal Found to Reject."
 
@@ -504,13 +498,10 @@ def delete_rejected_reversal(conn, receipt_no, product_code, username):
     product code and user."""
     try:
         with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                DELETE FROM sales_reversal
-                WHERE receipt_no = %s AND product_code = %s AND authorized =%s;
-            """,
-                (receipt_no, product_code, "Rejected"),
-            )
+            cursor.execute("""
+            DELETE FROM sales_reversal
+            WHERE receipt_no = %s AND product_code = %s AND authorized =%s;
+            """, (receipt_no, product_code, "Rejected"))
 
             if cursor.rowcount == 0:
                 return False, "No matching rejected reversal found to Delete."
@@ -537,14 +528,11 @@ def post_reversal(conn, receipt, code, user, qty, price):
     try:
         with conn.cursor(dictionary=True) as cursor:
             # Check if tag and authorized are filled
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT tag, authorized, posted
                 FROM sales_reversal
                 WHERE receipt_no = %s AND product_code = %s
-            """,
-                (receipt, code),
-            )
+            """, (receipt, code))
             record = cursor.fetchone()
             if not record:
                 return False, "Reversal Record not Found."
@@ -558,14 +546,11 @@ def post_reversal(conn, receipt, code, user, qty, price):
                 conn.rollback()
                 return False, f"Failed to update sale item: {err}"
             # Update posted column
-            cursor.execute(
-                """
+            cursor.execute("""
                 UPDATE sales_reversal
                 SET posted = %s
                 WHERE receipt_no = %s AND product_code = %s
-            """,
-                (user, receipt, code),
-            )
+            """, (user, receipt, code))
 
             entry = {
                 "product_code": code,
@@ -591,43 +576,25 @@ def update_sale_item(conn, receipt_no, product_code, quantity, unit_price):
     try:
         with conn.cursor(dictionary=True) as cursor:
             # Update the sale items record
-            cursor.execute(
-                """
+            cursor.execute("""
                 UPDATE sale_items
                 SET quantity = GREATEST(quantity - %s, 0),
                     unit_price = %s
                 WHERE receipt_no = %s AND product_code = %s
-            """,
-                (quantity, unit_price, receipt_no, product_code),
-            )
+            """, (quantity, unit_price, receipt_no, product_code))
             # Reduce total amount in sales table using receipt number
             total_cost = quantity * unit_price
-            cursor.execute(
-                """
+            cursor.execute("""
                 UPDATE sales
                 SET total_amount = GREATEST(total_amount - %s, 0)
                 WHERE receipt_no = %s
-            """,
-                (total_cost, receipt_no),
-            )
+            """, (total_cost, receipt_no))
             # Increase quantity in products table
-            cursor.execute(
-                """
+            cursor.execute("""
                 UPDATE products
                 SET quantity = quantity + %s
                 WHERE product_code = %s
-            """,
-                (quantity, product_code),
-            )
-            # Increase quantity in replenishment table
-            cursor.execute(
-                """
-                UPDATE replenishments
-                SET quantity = quantity + %s
-                WHERE product_code = %s
-            """,
-                (quantity, product_code),
-            )
+            """, (quantity, product_code))
         conn.commit()
         return True, None
     except Exception as e:
@@ -639,14 +606,11 @@ def get_retail_price(conn, product_code):
     """Fetch product details by product code."""
     try:
         with conn.cursor() as cursor:
-            cursor.execute(
-                """
+            cursor.execute("""
             SELECT retail_price
             FROM products
-            WHERE product_code=%s
-            """,
-                (product_code,),
-            )
+            WHERE product_code=%s AND is_active = 1;
+            """, (product_code,))
             result = cursor.fetchone()
             if result:
                 return float(result[0])

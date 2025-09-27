@@ -26,19 +26,23 @@ for bw in border_widths:
         )
         btn.pack(side="left", padx=5)
 
-root.mainloop()
+# root.mainloop()
 
 from connect_to_db import connect_db
 conn=connect_db()
 
-def drop_table(conn):
+def alter_table(conn):
     try:
         with conn.cursor() as cursor:
-            cursor.execute("DROP TABLE IF EXISTS sales_control;")
-            return "Table dropped successfully."
+            cursor.execute("""
+                ALTER TABLE products
+                ADD COLUMN is_active TINYINT(1) DEFAULT 1;
+                """)
+            conn.commit()
+            return "Column added successfully."
     except Exception as e:
         return f"Error: {str(e)}."
 
-# s=drop_table(conn)
+# s=alter_table(conn)
 # print(s)
 

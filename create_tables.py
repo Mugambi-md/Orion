@@ -18,7 +18,6 @@ def create_tables():
         except Exception as e:
             print(f"Error creating stock table: {e}")
 
-
         try:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS products (
@@ -31,6 +30,8 @@ def create_tables():
                            wholesale_price DECIMAL(10,2) NOT NULL,
                            retail_price DECIMAL(10,2) NOT NULL,
                            min_stock_level INT NOT NULL,
+                           date_replenished DATE NOT NULL,
+                           is_active TINYINT(1) DEFAULT 1,
                            FOREIGN KEY (product_code) REFERENCES stock(product_code)
                             ON UPDATE CASCADE
                             ON DELETE CASCADE

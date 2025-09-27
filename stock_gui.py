@@ -5,7 +5,8 @@ from tkinter import messagebox
 from authentication import VerifyPrivilegePopup
 from base_window import BaseWindow
 from stock_details_window import ProductsDetailsWindow
-from stock_popups1 import AddStockPopup, DeleteProductPopup
+from stock_popups1 import (AddStockPopup, DeleteProductPopup,
+                           ProductUpdateWindow)
 from stock_popups import UpdateQuantityWindow, NewProductPopup, ReconciliationWindow
 from stock_access_tables import get_products_table, get_replenishments_table, get_stock_table
 
@@ -13,8 +14,8 @@ class OrionStock(BaseWindow):
     def __init__(self, parent, conn, user):
         self.master = tk.Toplevel(parent)
         self.master.title("ORION STOCK")
-        self.center_window(self.master, 1300, 600, parent)
-        self.master.minsize(900, 500)
+        self.center_window(self.master, 1350, 700, parent)
+        # self.master.minsize(900, 500)
         self.master.configure(bg="lightblue")
         self.master.transient(parent)
         self.master.grab_set()
@@ -49,6 +50,7 @@ class OrionStock(BaseWindow):
             "Stock Reconciliation": self.open_reconciliation,
             "Delete Product": self.delete_product,
             "Update Quantity": self.open_update_quantity_window,
+            "Update Item Details": self.update_products,
             "Add Stock": self.open_add_stock_popup,
             "New Product": self.open_new_product_popup
         }
@@ -77,7 +79,7 @@ class OrionStock(BaseWindow):
         self.search_var = tk.StringVar()
         self.search_entry = tk.Entry(self.search_frame, textvariable=self.search_var, width=30)
         search_btn = tk.Button(self.search_frame, text="Search", command=self.perform_search)
-        reset_btn = tk.Button(self.search_frame, text="Refresh", command=lambda: self.refresh_table())
+        reset_btn = tk.Button(self.search_frame, text="Refresh", command=lambda: self.refresh())
         self.search_option.pack(side="left", padx=5)
         tk.Label(self.search_frame, bg="skyblue", text="Search Item:").pack(side="left", padx=5)
         self.search_entry.pack(side="left", padx=5)
@@ -86,7 +88,7 @@ class OrionStock(BaseWindow):
         reset_btn.pack(side="left", padx=5)
 
         self.tree_frame = tk.Frame(self.center_frame)
-        self.tree_frame.pack(fill="both", expand=True, padx=5)
+        self.tree_frame.pack(fill="both", expand=True, padx=5, pady=(0, 10))
 
         self.tree_scroll = ttk.Scrollbar(self.tree_frame, orient="vertical")
         self.tree_scroll.pack(side="right", fill="y")
@@ -102,7 +104,12 @@ class OrionStock(BaseWindow):
         self.tree.tag_configure("row1", background="#d1ecf1") # Cyan tint # Define alternating row styles
         self.tree.tag_configure("row2", background="#f8d7da") # Pink/red tint
         self.tree.tag_configure("row3", background="#fff3cd") # Yellow tint
+        self.build_ui()
         self.update_table("Stock") # Default view
+
+    def build_ui(self):
+        """Build user interface."""
+        pass
    
     def autosize_columns(self):
         for col in self.tree["columns"]:
@@ -199,7 +206,7 @@ class OrionStock(BaseWindow):
                 ), tags=(tag,))
             
             self.autosize_columns()
-    def refresh_table(self):
+    def refresh(self):
         self.update_table(self.current_section)
     def open_new_product_popup(self):
         priv = "Add New Product"
@@ -207,14 +214,14 @@ class OrionStock(BaseWindow):
         if verify_dialog.result != "granted":
             messagebox.showwarning("Access Denied", f"You do not have permission to {priv}.")
             return
-        NewProductPopup(self.master, self.conn, self.refresh_table)
+        NewProductPopup(self.master, self.conn, self.user, self.refresh)
     def open_reconciliation(self):
         priv = "Manage Stock"
         verify_dialog = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
         if verify_dialog.result != "granted":
             messagebox.showwarning("Access Denied", f"You do not have permission to {priv}.")
             return
-        ReconciliationWindow(self.master, self.conn)
+        ReconciliationWindow(self.master, self.conn, self.user)
     def open_product_detail_window(self):
         priv = "View Products"
         verify_dialog = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
@@ -228,7 +235,7 @@ class OrionStock(BaseWindow):
         if verify_dialog.result != "granted":
             messagebox.showwarning("Access Denied", f"You do not have permission to {priv}.")
             return
-        UpdateQuantityWindow(self.master)
+        UpdateQuantityWindow(self.master, self.conn, self.user)
 
     def open_add_stock_popup(self):
         priv = "Add Stock"
@@ -236,14 +243,24 @@ class OrionStock(BaseWindow):
         if verify_dialog.result != "granted":
             messagebox.showwarning("Access Denied", f"You do not have permission to {priv}.")
             return
-        AddStockPopup(self.master, self.conn, self.refresh_table)
+        AddStockPopup(self.master, self.user, self.conn, self.refresh)
     def delete_product(self):
         priv = "Delete Product"
         verify_dialog = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
         if verify_dialog.result != "granted":
             messagebox.showwarning("Access Denied", f"You do not have permission to {priv}.")
             return
-        DeleteProductPopup(self.master, self.conn, self.refresh_table)
+        DeleteProductPopup(self.master, self.conn, self.user, self.refresh)
+
+    def update_products(self):
+        priv = "Update Product Details"
+        verify_dialog = VerifyPrivilegePopup(self.master, self.conn,
+                                             self.user, priv)
+        if verify_dialog.result != "granted":
+            messagebox.showwarning("Access Denied",
+                                   f"You do not have permission to {priv}.")
+            return
+        ProductUpdateWindow(self.master, self.conn, self.user)
 
 
 if __name__ == "__main__":

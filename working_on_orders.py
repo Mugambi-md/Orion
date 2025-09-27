@@ -106,10 +106,11 @@ def fetch_order_product(product_code):
     try:
         conn = connect_db()
         cursor = conn.cursor()
-        cursor.execute("""SELECT product_name, wholesale_price, retail_price
-                       FROM products
-                       WHERE product_code = %s
-                       """, (product_code,))
+        cursor.execute("""
+            SELECT product_name, wholesale_price, retail_price
+            FROM products
+            WHERE product_code = %s AND is_active = 1;
+        """, (product_code,))
         result = cursor.fetchone()
         if result:
             return {
@@ -121,9 +122,7 @@ def fetch_order_product(product_code):
             raise ValueError(f"No Product found with Product Code: {product_code}")
     except Exception as e:
         raise e
-    finally:
-        if conn:
-            conn.close()
+        conn.close()
 
 def fetch_all_orders(conn):
     try:
@@ -334,12 +333,13 @@ def search_product_codes(conn, keyword):
     try:
         pattern = f"{keyword}%"
         with conn.cursor(dictionary=True) as cursor:
-            cursor.execute("""SELECT product_code, product_name
-                           FROM products
-                           WHERE product_code LIKE %s
-                           ORDER BY product_code
-                           LIMIT 10
-                           """, (pattern,))
+            cursor.execute("""
+            SELECT product_code, product_name
+            FROM products
+            WHERE product_code LIKE %s AND is_active = 1
+            ORDER BY product_code
+            LIMIT 10;
+            """, (pattern,))
             return cursor.fetchall()
     except Exception as e:
         return f"Error searching product codes: {e}"

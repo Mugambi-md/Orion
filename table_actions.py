@@ -5,17 +5,18 @@ from working_on_stock import update_quantity, delete_product, update_price, upda
 from window_functionality import auto_manage_focus
 
 class UpdatePriceWindow(BaseWindow):
-    def __init__(self, master, conn, item, refresh_callback):
-        self.conn = conn
-        self.item = item
-        self.refresh_callback = refresh_callback
-
+    def __init__(self, master, conn, user, item, refresh_callback):
         self.window = tk.Toplevel(master)
         self.window.title("Update Price")
         self.window.configure(bg="lightgray")
-        self.center_window(self.window, 400, 250)
+        self.center_window(self.window, 400, 250, master)
         self.window.transient(master)
         self.window.grab_set()
+
+        self.conn = conn
+        self.user = user
+        self.item = item
+        self.refresh_callback = refresh_callback
         # Extract Values
         self.product_code = item[1]
         self.product_name = item[2]
@@ -39,13 +40,13 @@ class UpdatePriceWindow(BaseWindow):
         update_btn.bind("<Return>", lambda e: self.update_price())
     def update_price(self):
         try:
-            new_retail = float(self.retail_entry.get())
-            new_wholesale = float(self.wholesale_entry.get())
-            product_code = str(self.product_code)
+            retail = float(self.retail_entry.get())
+            wholesale = float(self.wholesale_entry.get())
+            code = str(self.product_code)
         except ValueError:
             messagebox.showerror("Invalid Input", "Please enter Valid numeric prices")
             return
-        result = update_price(self.conn, product_code, new_retail, new_wholesale)
+        result = update_price(self.conn, code, retail, wholesale, self.user)
         if result:
             messagebox.showinfo("Success",f"Price Updated successfully for {self.product_name}")
             self.refresh_callback()
@@ -54,7 +55,7 @@ class UpdatePriceWindow(BaseWindow):
             messagebox.showerror("Error", str(result))
 
 
-def delete_product_popup(product_code, on_success=None):
+def delete_product_popup(conn, product_code, on_success=None):
     if not product_code:
         messagebox.showwarning("No Selection", "No Product Selected.")
         return
@@ -65,7 +66,7 @@ def delete_product_popup(product_code, on_success=None):
         default="no"
     )
     if confirm.lower() == "yes":
-        result = delete_product(product_code)
+        result = delete_product(conn, product_code)
         if "deleted successfully" in result.lower():
             messagebox.showinfo("Deleted", result)
             if on_success:
@@ -78,11 +79,7 @@ def delete_product_popup(product_code, on_success=None):
             messagebox.showerror("Error", result)
 
 class UpdateQuantityPopup(BaseWindow):
-    def __init__(self, parent, conn, product_data, refresh_callback):
-        self.conn = conn
-        self.product_data = product_data
-        self.refresh_callback = refresh_callback
-
+    def __init__(self, parent, conn, user, product_data, refresh_callback):
         self.window = tk.Toplevel(parent)
         self.window.title("Update Quantity")
         self.center_window(self.window, 300, 180)
@@ -90,9 +87,12 @@ class UpdateQuantityPopup(BaseWindow):
         self.window.transient(parent)
         self.window.grab_set()
 
+        self.conn = conn
+        self.user = user
+        self.product_data = product_data
+        self.refresh_callback = refresh_callback
         name = product_data[2]
         current_qty = product_data[4]
-
         tk.Label(self.window, text=f"Current Quantity for {name}\nIs: {current_qty}", font=("Arial", 10, "italic"),
                  bg="lightgray").pack(pady=(5, 4))
         tk.Label(self.window, text="Enter New Current Quantity:", font=("Arial", 10, "bold"),
@@ -110,7 +110,7 @@ class UpdateQuantityPopup(BaseWindow):
         product_code = str(self.product_data[1])
         qty = int(new_qty)
         try:
-            result = update_quantity(product_code, qty)
+            result = update_quantity(self.conn, product_code, qty, self.user)
             if result:
                 messagebox.showinfo("Success", "Quantity Updated Successfully.")
                 self.refresh_callback()
