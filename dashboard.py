@@ -2,14 +2,16 @@ import tkinter as tk
 from tkinter import messagebox, Menu
 from base_window import BaseWindow
 from employee_gui_popup import ChangePasswordPopup
-class OrionDashboard(BaseWindow):
-    def __init__(self, master, user, conn):
-        self.window = tk.Toplevel(master)
+
+class OrionDashboard:
+    def __init__(self, conn, user):
+        self.window = tk.Toplevel()
         self.window.title("ORION STAR SYSTEM")
         self.window.iconbitmap("myicon.ico")
         self.window.configure(bg="#007BFF") # Blue Background
-        self.center_window(self.window, 1300, 650, master)
-        self.window.transient(master)
+        # self.center_window(self.window, 1300, 650, master)
+        self.window.state("zoomed")
+        # self.window.transient(master)
         self.window.grab_set()
 
         self.user = user
@@ -30,18 +32,18 @@ class OrionDashboard(BaseWindow):
             "Human Resource": self.hr_window
         }
         for text, command in buttons.items():
-            btn = tk.Button(
+            tk.Button(
                 button_frame, text=text, font=("Arial", 12, "bold"),
-                width=len(text)+1, height=1, bg="white", fg="black",
-                activebackground="#218838", activeforeground="white",
-                command=command, relief="raised", bd=3
-            )
-            btn.pack(side="left", padx=5)
-        btn_frame = tk.Frame(button_frame, bg="blue")
+                width=len(text), height=1, fg="black",
+                command=command, relief="raised", bd=4
+            ).pack(side="left")
+        btn_frame = tk.Frame(button_frame, bg="blue", height=1)
         btn_frame.pack(side="left")
         power_btn = tk.Button(
-            btn_frame, text="⭕", font=("Arial", 16, "bold"), bg="blue", fg="red", width=2,
-            height=1, relief="flat", command=self.window.destroy)
+            btn_frame, text="⭕", font=("Arial", 16, "bold"), bg="blue",
+            fg="red", width=2, height=1, relief="flat",
+            command=self.window.destroy
+        )
         power_btn.pack(side="left")
         arrow_btn = tk.Menubutton(
             btn_frame, text="▽", font=("Arial", 10), relief="flat", bg="blue", anchor="sw", fg="#FF6666")
@@ -75,7 +77,8 @@ if __name__ == "__main__":
     from connect_to_db import connect_db
     conn=connect_db()
     root = tk.Tk()
-    app = OrionDashboard(root, "sniffy", conn)
+    root.withdraw()
+    app = OrionDashboard(conn, "sniffy")
     root.mainloop()
 
 

@@ -1,5 +1,5 @@
 from datetime import date
-from connect_to_db import connect_db
+
 def check_account_name_exists(conn, prefix):
     try:
         keyword = f"{prefix}%"
@@ -16,13 +16,13 @@ def insert_account(conn, account_name, account_type, code, description):
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-                INSERT INTO chart_of_accounts (account_name, account_type, code, description)
-                VALUES (%s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE
-                    account_name=VALUES(account_name),
-                    account_type=VALUES(account_type),
-                    description=VALUES(description)
-                """, (account_name, account_type, code, description))
+            INSERT INTO chart_of_accounts (account_name, account_type, code, description)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                account_name=VALUES(account_name),
+                account_type=VALUES(account_type),
+                description=VALUES(description)
+            """, (account_name, account_type, code, description))
         conn.commit()
         return f"Account '{account_name}' inserted/updated successfully."
     except Exception as e:
@@ -30,12 +30,14 @@ def insert_account(conn, account_name, account_type, code, description):
         return f"Error inserting account: {str(e)}"
 
 def count_accounts_by_type(conn, account_type):
-    """Returns the number of accounts for the given account_type. E.g: Asset, Liability, Equity, Revenue and Expense"""
+    """Returns the number of accounts for the given account_type.
+    E.g: Asset, Liability, Equity, Revenue and Expense."""
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""SELECT COUNT(*) FROM chart_of_accounts
-                            WHERE account_type = %s
-                            """, (account_type,))
+            cursor.execute("""
+            SELECT COUNT(*) FROM chart_of_accounts
+            WHERE account_type = %s;
+            """, (account_type,))
             result = cursor.fetchone()
             return result[0] if result else 0
     except Exception as e:
@@ -55,9 +57,10 @@ def insert_journal_entry(conn, reference_no, line_items):
             # Insert lines
             for line in line_items:
                 cursor.execute("""
-                        INSERT INTO journal_entry_lines (journal_id, account_code, description, debit, credit)
-                        VALUES (%s, %s, %s, %s, %s)
-                        """, (
+                INSERT INTO journal_entry_lines (journal_id, account_code,
+                    description, debit, credit)
+                VALUES (%s, %s, %s, %s, %s)
+                """, (
                     journal_id,
                     line['account_code'],
                     line.get('description', ''),
@@ -74,7 +77,9 @@ def get_account_name_and_code(conn):
     """Returns a single account dict {'account_name':..., 'code':...} Matching either account name or code."""
     try:
         with conn.cursor(dictionary=True) as cursor:
-            cursor.execute("SELECT account_name, code FROM chart_of_accounts")
+            cursor.execute(
+                "SELECT account_name, code FROM chart_of_accounts"
+            )
             return cursor.fetchall()
     except Exception as e:
         return f"Error fetching account: {e}"
@@ -86,9 +91,11 @@ def get_account_by_name_or_code(conn, value):
                     WHERE account_name=%s OR code=%s
                     LIMIT 1
                     """, (value, value))
-            return cursor.fetchone()
+            result = cursor.fetchone()
+            return result
     except Exception as e:
-        return f"Error fetching account: {str(e)}"
+        print(f"Error fetching account: {str(e)}")
+        return None
 
 def fetch_trial_balance(conn):
     try:
@@ -205,8 +212,8 @@ def reverse_journal_entry(conn, original_journal_id):
             new_journal_id = cursor.lastrowid
             for line in original_lines:
                 cursor.execute("""
-                    INSERT INTO journal_entry_lines (journal_id, account_code, description,
-                            debit, credit)
+                    INSERT INTO journal_entry_lines (journal_id, account_code,
+                        description, debit, credit)
                     VALUES (%s, %s, %s, %s, %s)
                     """, (
                     new_journal_id,
@@ -349,3 +356,106 @@ def delete_journal_entry(conn, journal_id):
         conn.rollback()
         return f"Error deleting journal entry: {str(e)}"
 
+
+class SalesJournalRecorder:
+    PREFIX_MAP = {
+        "Asset": 1,
+        "Liability": 2,
+        "Equity": 3,
+        "Revenue": 4,
+        "Expense": 5
+    }
+    def __init__(self, conn):
+        """Initialize with a Mysql connection."""
+        self.conn = conn
+    def ensure_accounts_exist(self, account_details):
+        """
+        Ensure all accounts in account_details exist in chart of accounts.
+        Returns dict {account_name: account_code}.
+        """
+        account_codes = {}
+        try:
+            for name, info in account_details.items():
+                # 1. Check if account exists by name
+                result = get_account_by_name_or_code(self.conn, name)
+                if result:
+                    # Account exists
+                    account_codes[name] = result["code"]
+                else:
+                    # 2. Count existing accounts by type
+                    account_type = info["type"]
+                    count = count_accounts_by_type(self.conn, account_type)
+                    # 3. Generate account code
+                    prefix = self.PREFIX_MAP.get(account_type, 9)
+                    code = int(f"{prefix * 10}{count + 1:03d}")
+                    # Insert new account
+                    descr = info.get("description", "")
+                    insert_account(self.conn, name, account_type, code, descr)
+                    # store code for later use
+                    account_codes[name] = code
+            return True, account_codes
+        except Exception as e:
+            return  False, f"Error: {str(e)}"
+
+    def create_journal_entry(self, reference_no):
+        """Create a new journal entry and return its ID or None if failed."""
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute("""
+                INSERT INTO journal_entries (entry_date, reference_no)
+                VALUES (%s, %s)
+                """, (date.today(), reference_no))
+                last_id = cursor.lastrowid
+                self.conn.commit()
+            return True, last_id
+        except Exception as e:
+            return False, str(e)
+
+    def insert_journal_lines(self, journal_id, lines, account_codes):
+        """Insert debit and credit lines into journal_entry_lines."""
+        try:
+            with self.conn.cursor() as cursor:
+                for line in lines:
+                    acc_name = line["account_name"]
+                    account_code = account_codes.get(acc_name)
+                    if not account_code:
+                        raise ValueError(f"Acc Code of  {acc_name} not found")
+                    cursor.execute("""
+                    INSERT INTO journal_entry_lines(journal_id, account_code,
+                        description, debit, credit)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """, (
+                        journal_id,
+                        account_code,
+                        line.get("description", ""),
+                        line.get("debit", 0.00),
+                        line.get("credit", 0.00)
+                    ))
+                self.conn.commit()
+                return True, "Journal Recorded Successfully."
+        except Exception as e:
+            self.conn.rollback()
+            return False, f"Error: {str(e)}."
+
+    def record_sales(self, account_details, transaction_lines, reference_no):
+        """Records a sales transaction.
+        Returns True if successful, False otherwise."""
+        try:
+            # Ensure accounts exists
+            ok, result = self.ensure_accounts_exist(account_details)
+            if not ok:
+                return False, result
+            codes = result
+            # 2. Create journal entry
+            ok, journal_result = self.create_journal_entry(reference_no)
+            if not ok:
+                return False, journal_result
+            journal_id = journal_result
+            # 3. Insert journal lines
+            ok, msg = self.insert_journal_lines(journal_id, transaction_lines, codes)
+            if not ok:
+                return False, msg
+            return True, "Sales transaction recorded successfully."
+        except Exception as e:
+            self.conn.rollback()
+            return False, f"Error: {str(e)}"

@@ -23,17 +23,17 @@ def create_accounting_tables(conn):
                 """)
             # 3. Journal Entry Lines
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS journal_entry_lines(
-                    line_id INT PRIMARY KEY AUTO_INCREMENT,
-                    journal_id INT,
-                    account_code VARCHAR(20),
-                    description TEXT,
-                    debit DECIMAL(12, 2) DEFAULT 0.00,
-                    credit DECIMAL(12, 2) DEFAULT 0.00,
-                    FOREIGN KEY (journal_id) REFERENCES journal_entries(journal_id),
-                    FOREIGN KEY (account_code) REFERENCES chart_of_accounts(code)
-                );
-                """)
+            CREATE TABLE IF NOT EXISTS journal_entry_lines(
+                line_id INT PRIMARY KEY AUTO_INCREMENT,
+                journal_id INT,
+                account_code VARCHAR(20),
+                description TEXT,
+                debit DECIMAL(12, 2) DEFAULT 0.00,
+                credit DECIMAL(12, 2) DEFAULT 0.00,
+                FOREIGN KEY (journal_id) REFERENCES journal_entries(journal_id),
+                FOREIGN KEY (account_code) REFERENCES chart_of_accounts(code)
+            );
+            """)
             print("Tables created successfully.")
             # 4. Create trial balance view
             cursor.execute("""

@@ -1,10 +1,13 @@
+import re
 import tkinter as tk
 import tkinter.font as tkFont 
 from tkinter import ttk, messagebox
 from base_window import BaseWindow
-from working_on_stock2 import view_all_products
+from analysis_gui_pie import AnalysisWindow
+from working_on_stock import view_all_products
 from accounting_export import ReportExporter
-from authentication import VerifyPrivilegePopup
+from authentication import VerifyPrivilegePopup, DescriptionFormatter
+
 
 class ProductsDetailsWindow(BaseWindow):
     def __init__(self, parent, user, conn):
@@ -17,86 +20,98 @@ class ProductsDetailsWindow(BaseWindow):
 
         self.user = user
         self.conn = conn
-        self.right_frame = tk.Frame(self.window, padx=3, bg="green")
-        self.tree_frame = tk.Frame(self.right_frame, bg="green")
-        self.title = "Available Products Information"
+        self.title = "AVAILABLE  PRODUCTS  INFORMATION"
         self.columns = [
             "No", "Code", "Name", "Description", "Quantity", "Cost",
             "Wholesale Price", "Retail Price", "Min Stock"
         ]
-        self.tree = ttk.Treeview(self.tree_frame, columns=self.columns, show="headings")
-        self.scrollbar = ttk.Scrollbar(self.tree_frame, orient="vertical")
+        style = ttk.Style(self.window)
+        style.configure(
+            "Treeview.Heading", font=("Arial", 12, "bold", "underline")
+        )
+        style.configure("Treeview", font=("Arial", 10))
+        self.main_frame = tk.Frame(
+            self.window, bg="green", bd=4, relief="solid"
+        )
+        self.tree_frame = tk.Frame(self.main_frame, bg="green")
 
+        self.tree = ttk.Treeview(
+            self.tree_frame, columns=self.columns, show="headings"
+        )
 
         self.create_widgets()
         self.populate_table()
 
     def create_widgets(self):
-        left_frame = tk.Frame(self.window, bg="green") # Left frame with buttons
-        left_frame.pack(side="top", fill="x", padx=5)
-        # Buttons on top
-        tk.Button(left_frame, text="Product Statistics", width=20,
-                  command=self.products_statistics).pack(padx=5, side="left")
-        tk.Button(left_frame, text="Export Excel", width=15,
-                  command=self.on_export_excel).pack(padx=5, side="left")
-        tk.Button(left_frame, text="Export PDF", width=15,
-                  command=self.on_export_pdf).pack(padx=5, side="left")
-        tk.Button(left_frame, text="Print", width=15,
-                  command=self.on_print).pack(padx=5, side="left")
-        tk.Button(left_frame, text="Other Action", width=20,
-                  command=self.another_action).pack(padx=5, side="left")
-        # Right frame with table
-        self.right_frame.pack(side="left", fill="both", expand=True)
-        # Table Title
-        tk.Label(self.right_frame, text=self.title, bg="green", fg="white",
-                 font=("Arial", 14, "bold"), anchor="center"
-                 ).pack(pady=(5, 0))
-        style = ttk.Style(self.window)
-        style.configure("Treeview.Heading", font=("Arial", 11, "bold"))
-        style.configure("Treeview", rowheight=30)
-        self.tree_frame.pack(pady=(0, 10), fill="both", expand=True)
-        self.tree.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
-        self.tree.configure(yscrollcommand=self.scrollbar.set)
-        self.scrollbar.config(command=self.tree.yview)
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        # Top frame with buttons
+        top_frame = tk.Frame(self.main_frame, bg="green")
+        top_frame.pack(side="top", fill="x", padx=5)
+        # Buttons on top and Table Title
+        tk.Label(
+            top_frame, text=self.title, bg="green", fg="white", bd=2,
+            relief="groove", font=("Arial", 17, "bold", "underline")
+        ).pack(side="left", padx=10)
+        buttons = {
+            "Print": self.on_print,
+            "Export PDF": self.on_export_pdf,
+            "Export Excel": self.on_export_excel,
+            "Products Chart": self.products_statistics,
+        }
+        for text, command in buttons.items():
+            tk.Button(
+                top_frame, text=text, font=("Arial", 12), bg="blue", bd=4,
+                relief="groove", command=command
+            ).pack(side="right")
+        self.tree_frame.pack(fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(
+            self.tree_frame, orient="vertical", command=self.tree.yview
+        )
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
         # Set Headings
         for col in self.columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor="center", width=50)
-        self.tree.tag_configure("totalrow", font=("Arial", 11, "bold", "underline"))
-        self.tree.tag_configure("grandtotalrow", background="#c5cae9",
-                                font=("Arial", 12, "bold", "underline"))
-        self.tree.bind(
-            "<MouseWheel>", lambda e:
-            self.tree.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.config(command=self.tree.yview)
+        self.tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        self.tree.tag_configure(
+            "totalrow", font=("Arial", 11, "bold", "underline")
         )
-        self.tree.bind("<Button-4>",
-                       lambda e: self.tree.yview_scroll(-1, "units"))
-        self.tree.bind("<Button-5>",
-                       lambda e: self.tree.yview_scroll(1, "units"))
+        self.tree.tag_configure(
+            "grandtotalrow", background="#c5cae9",
+            font=("Arial", 12, "bold", "underline")
+        )
+        self.tree.bind("<MouseWheel>", lambda e:self.tree.yview_scroll(
+            int(-1 * (e.delta / 120)), "units"
+        ))
 
     def populate_table(self):
-        products = view_all_products()
+        products = view_all_products(self.conn)
         total_qty = 0
         total_cost = 0.0
         total_wholesale = 0.0
         total_retail = 0.0
+        formatter = DescriptionFormatter()
         for i, product in enumerate(products, start=1):
+            name = re.sub(r"\s+", " ", str(product["product_name"])).strip()
+            description = formatter.format(product["description"])
             tag = "evenrow" if i % 2 == 0 else "oddrow"
-            values = [
+            self.tree.insert("", "end", values=(
                 i,
                 product["product_code"],
-                product["product_name"],
-                product["description"],
+                name,
+                description,
                 product["quantity"],
                 f"{product['cost']:,.2f}",
                 f"{product['wholesale_price']:,.2f}",
                 f"{product['retail_price']:,.2f}",
                 product["min_stock_level"]
-            ]
-            self.tree.insert("", "end", values=values, tags=(tag,))
+            ), tags=(tag,))
+
+
             # Accumulate totals
             total_qty += product["quantity"]
             total_cost += product["cost"]
@@ -143,8 +158,22 @@ class ProductsDetailsWindow(BaseWindow):
                 width = font.measure(text)
                 if width > max_width:
                     max_width = width
-            self.tree.column(col, width=max_width + 3)
+            self.tree.column(col, width=max_width)
 
+
+    def has_privilege(self, privilege: str) -> bool:
+        """Check if the current user has the required privilege."""
+        dialog = VerifyPrivilegePopup(
+            self.window, self.conn, self.user, privilege
+        )
+        if dialog.result != "granted":
+            messagebox.showwarning(
+                "Access Denied",
+                f"You do not have permission to {privilege}.",
+                parent=self.window
+            )
+            return False
+        return True
 
     def _collect_rows(self):
         rows = []
@@ -162,31 +191,61 @@ class ProductsDetailsWindow(BaseWindow):
                 "Min Stock Level": vals[8] or ""
             })
         return rows
+
     def _make_exporter(self):
         title = "Available Product Information"
-        columns = ["No", "Code", "Name", "Description", "Quantity", "Cost",
-               "Wholesale Price", "Retail Price", "Min Stock Level"]
+        columns = [
+            "No", "Code", "Name", "Description", "Quantity", "Cost",
+            "Wholesale Price", "Retail Price", "Min Stock Level"
+        ]
         rows = self._collect_rows()
         return ReportExporter(self.window, title, columns, rows)
+
     def on_export_excel(self):
+        if not self.has_privilege("Export Products Records"):
+            return
         exporter = self._make_exporter()
         exporter.export_excel()
+
     def on_export_pdf(self):
+        if not self.has_privilege("Export Products Records"):
+            return
         exporter = self._make_exporter()
         exporter.export_pdf()
+
     def on_print(self):
+        if not self.has_privilege("Export Products Records"):
+            return
         exporter = self._make_exporter()
         exporter.print()
 
     def products_statistics(self):
-        # Verify user privilege
-        priv = "Stock Statistics"
-        verify_dialog = VerifyPrivilegePopup(self.window, self.conn, self.user, priv)
-        if verify_dialog.result != "granted":
-            messagebox.showwarning("Access Denied", f"You do not have permission to {priv}.")
+        # Fetch current product data
+        products = view_all_products(self.conn)
+        if not products:
+            messagebox.showinfo(
+                "No Data",
+                "No Products Available For Analysis.", parent=self.window
+            )
             return
-    def another_action(self):
-        pass
+        # Verify user privilege
+        if not self.has_privilege("View Products"):
+            return
+        # Define metrics for charting
+        metrics = {
+            "Quantity": lambda r: r["quantity"],
+            "Cost": lambda r: r["cost"],
+            "Wholesale Price": lambda r: r["wholesale_price"],
+            "Retail Price": lambda r: r["retail_price"],
+            "Min Stock Level": lambda r: r["min_stock_level"],
+        }
+        # Create and open Analysis Window
+        title = "Products"
+        field = "product_name"
+        AnalysisWindow(self.window, title, products, metrics, field)
+
+
+
 
 if __name__ == "__main__":
     from connect_to_db import connect_db

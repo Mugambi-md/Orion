@@ -26,7 +26,7 @@ for bw in border_widths:
         )
         btn.pack(side="left", padx=5)
 
-# root.mainloop()
+root.mainloop()
 
 from connect_to_db import connect_db
 conn=connect_db()

@@ -62,6 +62,20 @@ def create_tables(conn):
             );
             """)
             print("Login Access table created successfully.")
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS logs (
+                log_id INT AUTO_INCREMENT PRIMARY KEY,
+                log_date DATE NOT NULL,
+                log_time TIME NOT NULL,
+                username VARCHAR(30) NOT NULL,
+                section VARCHAR(30) NOT NULL,
+                action TEXT NOT NULL,
+                INDEX (username),
+                INDEX (section)
+                );
+            """)
+            print("Logs table created successfully.")
         conn.commit()
     except Exception as e:
         print(f"Table Error: {e}")

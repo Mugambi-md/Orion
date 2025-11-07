@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import tkinter.font as tkFont
 from datetime import date
-from analysis import AnalysisWindow
+from analysis_gui_pie import AnalysisWindow
 from base_window import BaseWindow
 from accounting_export import ReportExporter
 from working_sales import (fetch_sales_summary_by_year, fetch_filter_values)

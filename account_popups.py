@@ -5,11 +5,15 @@ from tkinter import ttk, messagebox
 from datetime import datetime
 from authentication import VerifyPrivilegePopup
 from accounting_export import ReportExporter
-from working_on_accounting import (count_accounts_by_type, check_account_name_exists, get_account_name_and_code,
-                                   insert_account, insert_opening_balance, fetch_journal_lines_by_account_code,
-                                   insert_journal_entry, get_account_by_name_or_code, reverse_journal_entry,
-                                   fetch_all_journal_lines_with_names, fetch_trial_balance, get_income_statement,
-                                   CashFlowStatement, get_balance_sheet, delete_journal_entry)
+from working_on_accounting import (
+    count_accounts_by_type, check_account_name_exists,
+    get_account_name_and_code, insert_account, insert_opening_balance,
+    fetch_journal_lines_by_account_code, insert_journal_entry,
+    get_account_by_name_or_code, reverse_journal_entry,
+    fetch_all_journal_lines_with_names, fetch_trial_balance,
+    get_income_statement, CashFlowStatement, get_balance_sheet,
+    delete_journal_entry
+)
 from connect_to_db import connect_db
 
 class InsertAccountPopup(BaseWindow):
@@ -242,7 +246,7 @@ class OpeningBalancePopup(BaseWindow):
         self.popup = tk.Toplevel(parent)
         self.popup.title("Creating Opening Balances")
         self.popup.configure(bg="lightblue")
-        self.center_window(self.popup, 500, 350)
+        self.center_window(self.popup, 500, 350, parent)
         self.popup.transient(parent)
         self.popup.grab_set()
 

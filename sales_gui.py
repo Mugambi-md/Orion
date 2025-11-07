@@ -141,7 +141,11 @@ class MakeSaleWindow(BaseWindow):
             return
         qty = int(qty_str)
         if qty > self.available_quantity:
-            messagebox.showerror("Not Enough Stock", f"Available quantity for '{self.product_name}' is {self.available_quantity}. You don't have enough quantity to make the sale.")
+            messagebox.showerror(
+                "Not Enough Stock",
+                "You don't have enough quantity to make the sale."
+                f"Available quantity is {self.available_quantity}."
+            )
             return
         existing_item = None
         for i, item in enumerate(self.sale_items):
@@ -290,7 +294,10 @@ class MakeSaleWindow(BaseWindow):
                     print_success, print_message = ReceiptPrinter.print_receipt(self.conn, receipt_no)
                     if not print_success:
                         messagebox.showerror("Error", print_message)
-                    messagebox.showinfo("Transaction Complete", f"Change: {change:.2f}")
+                    messagebox.showinfo(
+                        "Transaction Complete",
+                        f"Change: {change:.2f}", parent=popup
+                    )
                     self.sale_items.clear()
                     self.payment_list.clear()
                     self.refresh_sale_list()
@@ -301,6 +308,7 @@ class MakeSaleWindow(BaseWindow):
                     self.add_button.configure(state="disabled")
                     self.post_sale_button.configure(state="disabled")
                     popup.destroy()
+                    self.search_entry.focus_set()
                 else:
                     messagebox.showerror("Error", result)
             except Exception as e:

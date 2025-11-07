@@ -4,7 +4,8 @@ from tkinter import ttk, messagebox, simpledialog
 import tkinter.font as tkFont
 from datetime import date
 from base_window import BaseWindow
-from analysis import LineAnalysisWindow, AnalysisWindow
+from analysis_gui_graph import LineAnalysisWindow
+from analysis_gui_pie import AnalysisWindow
 from accounting_export import ReportExporter
 from receipt_gui_and_print import ReceiptViewer
 from authentication import VerifyPrivilegePopup
@@ -23,7 +24,7 @@ class Last24HoursSalesWindow(BaseWindow):
         self.window = tk.Toplevel(parent)
         self.window.title("Last 24 Hours Sales")
         self.window.configure(bg="lightblue")
-        self.center_window(self.window, 700, 450)
+        self.center_window(self.window, 700, 450, parent)
         self.window.transient(parent)
         self.window.grab_set()
 
@@ -48,10 +49,8 @@ class Last24HoursSalesWindow(BaseWindow):
         style.configure("Treeview", font=("Arial", 10))
         self.columns = ("No", "Date", "Time", "Receipt No", "Amount")
         self.tree = ttk.Treeview(
-            table_frame,
-            columns=self.columns,
-            show="headings",
-            yscrollcommand=scrollbar.set,
+            table_frame, columns=self.columns, show="headings",
+            yscrollcommand=scrollbar.set
         )
         for col in self.columns:
             self.tree.heading(col, text=col)
@@ -60,13 +59,16 @@ class Last24HoursSalesWindow(BaseWindow):
         scrollbar.config(command=self.tree.yview)
         # Mousewheel scroll binding
         # Windows and Linux
-        self.tree.bind(
-            "<MouseWheel>",
-            lambda e: self.tree.yview_scroll(-1 * int(e.delta / 120), "units"),
-        )
+        self.tree.bind("<MouseWheel>", lambda e: self.tree.yview_scroll(
+            -1 * int(e.delta / 120), "units"
+        ))
         # MacOS
-        self.tree.bind("<Button-4>", lambda e: self.tree.yview_scroll(-1, "units"))
-        self.tree.bind("<Button-5>", lambda e: self.tree.yview_scroll(1, "units"))
+        self.tree.bind(
+            "<Button-4>", lambda e: self.tree.yview_scroll(-1, "units")
+        )
+        self.tree.bind(
+            "<Button-5>", lambda e: self.tree.yview_scroll(1, "units")
+        )
 
         self.load_data()
 
@@ -77,7 +79,10 @@ class Last24HoursSalesWindow(BaseWindow):
             # Call your receipt printing function here
             ReceiptViewer(self.window, self.conn, receipt_no, self.user)
         else:
-            messagebox.showwarning("Info", "Please select a sale to print its receipt.")
+            messagebox.showwarning(
+                "Info",
+                "Please select a sale to print receipt.", parent=self.window
+            )
 
     def load_data(self):
         data, error = fetch_sales_last_24_hours(self.conn, self.user)
@@ -127,7 +132,10 @@ class MonthlySalesSummary(BaseWindow):
         # Load filter values from DB
         users, years, err = fetch_filter_values(self.conn)
         if err:
-            messagebox.showerror("Error", f"Failed to fetch filter values:\n{err}")
+            messagebox.showerror(
+                "Error",
+                f"Failed to fetch filter values:\n{err}", parent=self.window
+            )
             self.window.destroy()
             return
         # Data holders for filter options
@@ -355,7 +363,10 @@ class YearlySalesWindow(BaseWindow):
         # Load filter values from DB
         users, years, err = fetch_filter_values(self.conn)
         if err:
-            messagebox.showerror("Error", f"Failed to fetch filter values:\n{err}")
+            messagebox.showerror(
+                "Error",
+                f"Failed to fetch filter values:\n{err}", parent=self.master
+            )
             self.master.destroy()
             return
         # Data holders for filter options
@@ -596,7 +607,9 @@ class YearlySalesWindow(BaseWindow):
                 ),
             )
         if rows:
-            self.product_table.insert("", "end", values=("", "", "", "", "", ""))
+            self.product_table.insert(
+                "", "end", values=("", "", "", "", "", "")
+            )
             self.product_table.insert(
                 "",
                 "end",
@@ -670,7 +683,7 @@ class YearlySalesWindow(BaseWindow):
             title += f" For {user}"
         if month:
             title += f" In {self.month_cb.get()}"
-        LineAnalysisWindow(self.master, title, rows, metrics, "sale_date")
+        LineAnalysisWindow(title, rows, metrics, "sale_date")
 
     def _collect_rows(self):
         rows = []
@@ -1060,15 +1073,8 @@ class YearlyProductSales(BaseWindow):
     def _make_exporter(self):
         title = self.title
         columns = [
-            "No",
-            "Product Code",
-            "Product Name",
-            "Quantity",
-            "Unit Cost",
-            "Total Cost",
-            "EST. Unit Price",
-            "Total Amount",
-            "Total Profit",
+            "No", "Product Code", "Product Name", "Quantity", "Unit Cost",
+            "Total Cost", "EST. Unit Price", "Total Amount", "Total Profit",
         ]
         rows = self._collect_rows()
         return ReportExporter(self.master, title, columns, rows)
@@ -1489,17 +1495,9 @@ class SalesReversalWindow(BaseWindow):
         self.conn = conn
         self.user = user
         self.columns = [
-            "No",
-            "Date",
-            "Receipt No",
-            "Product Code",
-            "Product Name",
-            "Unit Price",
-            "Quantity",
-            "Refund",
-            "Tagged By",
-            "Authorized By",
-            "Posted",
+            "No", "Date", "Receipt No", "Product Code", "Product Name",
+            "Unit Price", "Quantity", "Refund", "Tagged By", "Authorized By",
+            "Posted"
         ]
         self.table_frame = tk.Frame(self.window, bg="lightblue")
         self.tree = ttk.Treeview(
@@ -1560,12 +1558,8 @@ class SalesReversalWindow(BaseWindow):
             font=("Arial", 11, "italic"), fg="dodgerblue"
         ).pack(side="left", padx=(5, 0))
         tk.Button(
-            self.del_frame,
-            text="Delete Reversal",
-            bg="red",
-            bd=4,
-            relief="ridge",
-            command=self.delete_reversal,
+            self.del_frame, text="Delete Reversal", bg="red", bd=4,
+            relief="ridge", command=self.delete_reversal,
         ).pack(side="left", padx=(0, 5))
 
     def load_data(self):
@@ -1580,30 +1574,25 @@ class SalesReversalWindow(BaseWindow):
         else:
             self.del_frame.pack_forget()
 
-
         rows, error = fetch_pending_reversals(self.conn, selected)
         if error:
             messagebox.showerror("Error", error, parent=self.window)
             return
         # Insert into table
         for i, row in enumerate(rows, start=1):
-            self.tree.insert(
-                "",
-                "end",
-                values=(
-                    i,
-                    row["date"],
-                    row["receipt_no"],
-                    row["product_code"],
-                    row["product_name"],
-                    f"{row["unit_price"]:,.2f}",
-                    row["quantity"],
-                    f"{row["refund"]:,.2f}",
-                    row["tag"],
-                    row["authorized"] if row["authorized"] is not None else "",
-                    row["posted"] if row["posted"] is not None else "",
-                ),
-            )
+            self.tree.insert("", "end", values=(
+                i,
+                row["date"],
+                row["receipt_no"],
+                row["product_code"],
+                row["product_name"],
+                f"{row["unit_price"]:,.2f}",
+                row["quantity"],
+                f"{row["refund"]:,.2f}",
+                row["tag"],
+                row["authorized"] if row["authorized"] is not None else "",
+                row["posted"] if row["posted"] is not None else "",
+            ))
         self.autosize_columns()
 
     def autosize_columns(self):

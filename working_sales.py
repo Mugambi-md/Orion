@@ -1,19 +1,43 @@
 from datetime import datetime
-
+from working_on_stock import get_total_cost_by_codes
+from working_on_accounting import SalesJournalRecorder
 
 class SalesManager:
     def __init__(self, conn):
         self.conn = conn
+        self.accounts = {
+            "Sales Revenue": {"type": "Revenue",
+                              "description": "Income from sales"},
+            "Cash": {"type": "Asset", "description": "Cash In Hand"},
+            "Inventory": {"type": "Asset", "description": "Stock Value"}
+        }
+
+    def finalize_sales(self, receipt_no, amount_paid, cost):
+        """Finalize the sale by recording journal entries in the
+        accounting system."""
+        recorder = SalesJournalRecorder(self.conn)
+        transaction_lines = [
+            {"account_name": "Cash", "debit": float(amount_paid),
+             "credit": 0, "description": "Cash Sales"},
+            {"account_name": "Sales Revenue", "debit": 0,
+             "credit": float(amount_paid), "description": "Sales."},
+            {"account_name": "Inventory", "debit": 0,
+             "credit": float(cost), "description": "Sales."}
+        ]
+        return recorder.record_sales(self.accounts, transaction_lines,
+                                     receipt_no)
 
     def record_sale(self, user, sale_items, payment_method, amount_paid):
+        """Record a complete sale transaction including: sales, sales items,
+        stock updates, payment entry, cost of goods sold, journal entries."""
         if not self.conn:
             return False, "Database connection failed."
         try:
             with self.conn.cursor() as cursor:
                 # Get user code from logins table
-                cursor.execute(
-                    "SELECT user_code FROM logins WHERE username = %s", (user,)
-                )
+                cursor.execute("""
+                SELECT user_code FROM logins WHERE username = %s;
+                """, (user,))
                 result = cursor.fetchone()
                 if not result:
                     return False, f"User '{user}' not found in logins table."
@@ -28,80 +52,78 @@ class SalesManager:
                     item["quantity"] * item["unit_price"] for item in sale_items
                 )
                 # Insert into sales table with sale_date = today
-                cursor.execute(
-                    """INSERT INTO sales (receipt_no, sale_date, sale_time, total_amount, user)
-                                VALUES (%s, %s, %s, %s, %s)
-                                """,
-                    (receipt_no, sale_date, sale_time, total_amount, user),
-                )
+                cursor.execute("""
+                INSERT INTO sales (receipt_no, sale_date, sale_time,
+                    total_amount, user)
+                VALUES (%s, %s, %s, %s, %s)
+                """, (receipt_no, sale_date, sale_time, total_amount, user))
+                cogs_items = [] # List of product codes and quantity
                 # Insert each sale item into sale_items table
                 for item in sale_items:
-                    cursor.execute(
-                        """
-                    INSERT INTO sale_items (date, time, receipt_no, product_code, product_name, quantity,
-                            unit_price, user)
+                    cursor.execute("""
+                    INSERT INTO sale_items (date, time, receipt_no,
+                        product_code, product_name, quantity, unit_price,
+                        user)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
-                        (
-                            sale_date,
-                            sale_time,
-                            receipt_no,
-                            item["product_code"],
-                            item["product_name"],
-                            item["quantity"],
-                            item["unit_price"],
-                            user,
-                        ),
-                    )
-                    # Reduce quantity in product and replenishments table
-                    cursor.execute(
-                        """
-                            UPDATE products
-                            SET quantity = quantity - %s
-                            WHERE product_code=%s
-                            """,
-                        (item["quantity"], item["product_code"]),
-                    )
-                    cursor.execute(
-                        """
-                        UPDATE replenishments
-                        SET quantity = quantity - %s
-                        WHERE product_code = %s
-                        """,
-                        (item["quantity"], item["product_code"]),
-                    )
+                    """, (
+                        sale_date,
+                        sale_time,
+                        receipt_no,
+                        item["product_code"],
+                        item["product_name"],
+                        item["quantity"],
+                        item["unit_price"],
+                        user,
+                    ))
+                    # Reduce quantity in products
+                    cursor.execute("""
+                    UPDATE products
+                    SET quantity = quantity - %s
+                    WHERE product_code=%s
+                    """, (item["quantity"], item["product_code"]))
                     # Insert into product_control logs
                     description = f"Sale Receipt no.-{receipt_no}"
-                    cursor.execute(
-                        """
-                        INSERT INTO product_control_logs (log_date, product_code,
-                            product_name, description, quantity, total, user)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        """,
-                        (
-                            sale_date,
-                            item["product_code"],
-                            item["product_name"],
-                            description,
-                            item["quantity"],
-                            item["quantity"] * item["unit_price"],
-                            user,
-                        ),
-                    )
+                    cursor.execute("""
+                    INSERT INTO product_control_logs (log_date, product_code,
+                        product_name, description, quantity, total, user)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        sale_date,
+                        item["product_code"],
+                        item["product_name"],
+                        description,
+                        item["quantity"],
+                        item["quantity"] * item["unit_price"],
+                        user
+                    ))
+                    cogs_items.append({
+                        "product_code": item["product_code"],
+                        "quantity": item["quantity"]
+                    })
                 # Record payment in payments
-                cursor.execute(
-                    """
-                        INSERT INTO payments (user, receipt_no, payment_date, amount_paid, payment_method)
-                        VALUES (%s, %s, %s, %s, %s)
-                        """,
-                    (user, receipt_no, sale_date, amount_paid, payment_method),
-                )
+                cursor.execute("""
+                INSERT INTO payments (user, receipt_no, payment_date,
+                    amount_paid, payment_method)
+                VALUES (%s, %s, %s, %s, %s)
+                """, (
+                    user, receipt_no, sale_date, amount_paid, payment_method
+                ))
 
-            self.conn.commit()
-            return True, receipt_no
+            cost, error = get_total_cost_by_codes(self.conn, cogs_items)
+            if error:
+                self.conn.rollback()
+                return False, f"Error Calculating Cost: {error}"
+            # Record Journal entries
+            success, err = self.finalize_sales(receipt_no, amount_paid, cost)
+            if success:
+                self.conn.commit()
+                return True, receipt_no
+            else:
+                self.conn.rollback()
+                return False, f"Error Recording Books of Accounts: {err}"
         except Exception as e:
             self.conn.rollback()
-            return False, f"Error recording sale: {e}"
+            return False, f"Error recording sale: {e!s}"
 
 
 def fetch_sales_product(conn, product_code):
@@ -595,8 +617,28 @@ def update_sale_item(conn, receipt_no, product_code, quantity, unit_price):
                 SET quantity = quantity + %s
                 WHERE product_code = %s
             """, (quantity, product_code))
-        conn.commit()
-        return True, None
+        recorder = SalesJournalRecorder(conn)
+        accounts = {
+            "Sales Revenue": {"type": "Revenue",
+                              "description": "Income from sales"},
+            "Cash": {"type": "Asset", "description": "Cash In Hand"},
+            "Inventory": {"type": "Asset", "description": "Stock Value"}
+        }
+        lines = [
+            {"account_name": "Cash", "debit": 0, "credit": total_cost,
+             "description": "Sales Reversal"},
+            {"account_name": "Sales Revenue", "debit": total_cost, "credit": 0,
+             "description": "Sales Reversal."},
+            {"account_name": "Inventory", "debit": total_cost, "credit": 0,
+             "description": "Sales Reversal."}
+        ]
+        success, error =recorder.record_sales(accounts, lines, receipt_no)
+        if not success:
+            conn.rollback()
+            return False, str(error)
+        else:
+            conn.commit()
+            return True, None
     except Exception as e:
         conn.rollback()
         return False, str(e)
