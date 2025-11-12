@@ -203,16 +203,16 @@ def update_login_password(conn, username, new_pass):
             """, (new_pass, now, username))
             conn.commit()
             if cursor.rowcount == 0:
-                return f"Username '{username}' not Found."
+                return False, f"Username '{username}' not Found."
         action = "Updated Login Password."
         success, msg = insert_logs(conn, username, "Human Resource", action)
         if not success:
             conn.rollback()
-            return f"Failed to Log Action: {msg}."
-        return "Password updated successfully."
+            return False, f"Failed to Log Action: {msg}."
+        return True, "Password updated successfully."
     except Exception as e:
         conn.rollback()
-        return f"Error updating Password: {str(e)}."
+        return False, f"Error updating Password: {str(e)}."
 
 def update_login_status(conn, identifier, status, user):
     """Args: conn: the database connection
@@ -262,7 +262,7 @@ def get_login_status_and_name(conn, identifier):
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-                SELECT status FROM logins
+                SELECT username, status FROM logins
                 WHERE username=%s OR user_code=%s
             """, (identifier, identifier))
             result = cursor.fetchone()
@@ -418,14 +418,19 @@ def reset_user_password(conn, user_code, name, user, new_password="000000"):
 def check_username_exists(conn, username):
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT username FROM logins WHERE username=%s", (username,))
+            cursor.execute(
+                "SELECT username FROM logins WHERE username=%s", (username,)
+            )
             return cursor.fetchone() is not None
     except Exception as e:
-        return False, f"{e}"
+        return False, f"{str(e)}."
+
 def fetch_password(conn, username):
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT password FROM logins WHERE username=%s", (username,))
+            cursor.execute(
+                "SELECT password FROM logins WHERE username=%s", (username,)
+            )
             return cursor.fetchone()
     except Exception as e:
         raise e
@@ -435,10 +440,11 @@ def get_assigned_privileges(conn, identifier):
     try:
         with conn.cursor() as cursor:
             # Fetch user_code and status
-            cursor.execute("""SELECT user_code, status, designation
-                    FROM logins
-                    WHERE username=%s
-                    """, (identifier,))
+            cursor.execute("""
+                SELECT user_code, status, designation
+                FROM logins
+                WHERE username=%s
+            """, (identifier,))
             result = cursor.fetchone()
             if not result:
                 return None, [], None # No user found
@@ -446,10 +452,10 @@ def get_assigned_privileges(conn, identifier):
             # Fetch Privileges
             cursor.execute("""
                 SELECT a.privilege
-                        FROM login_access la
-                        JOIN access a ON la.access_id=a.no
-                        WHERE la.user_code=%s
-                        """, (user_code,))
+                FROM login_access la
+                JOIN access a ON la.access_id=a.no
+                WHERE la.user_code=%s
+            """, (user_code,))
             privileges = [row[0] for row in cursor.fetchall()]
             return status, privileges, role, None
     except Exception as e:
@@ -468,7 +474,7 @@ def fetch_all_employee_details(conn):
             """)
             return cursor.fetchall(), None
     except Exception as e:
-        return [], str(e)
+        return None, str(e)
 
 def fetch_user_details_and_privileges(conn, identifier):
     try:
@@ -479,18 +485,18 @@ def fetch_user_details_and_privileges(conn, identifier):
                 FROM logins
                 WHERE username = %s OR user_code =%s
                 LIMIT 1;
-                """, (identifier, identifier))
+            """, (identifier, identifier))
             user = cursor.fetchone()
             if not user:
                 return None, [] # No user found
 
             # Fetch privileges
             cursor.execute("""
-                SELECT a.privilege
+                SELECT a.no, a.privilege
                 FROM login_access la
                 JOIN access a ON la.access_id = a.no
                 WHERE la.user_code = %s
-                """, (user['user_code'],))
+            """, (user['user_code'],))
             privileges = cursor.fetchall() # List of dictionaries
             return user, privileges
     except Exception as e:
@@ -518,7 +524,7 @@ def fetch_user_identity(conn, identifier):
                 FROM logins
                 WHERE username = %s OR user_code=%s
                 LIMIT 1;
-                """, (identifier, identifier))
+            """, (identifier, identifier))
             row = cursor.fetchone()
             if not row:
                 return "No matching user found."
@@ -547,15 +553,15 @@ def fetch_employee_login_info(conn, identifier):
                 JOIN logins l ON e.username = l.username
                 WHERE e.username = %s OR l.user_code = %s
                 LIMIT 1;
-                """, (identifier, identifier))
+            """, (identifier, identifier))
             row = cursor.fetchone()
             if not row:
-                return False, f"No matching employee for identifier '{identifier}'."
+                return False, f"No Employee for identifier '{identifier}'."
             return True, row
     except Exception as e:
-        return False, f"Error fetching Employee Info: {e}."
+        return False, f"Error fetching Employee Info: {str(e)}."
 
-def update_employee_info(conn, info):
+def update_employee_info(conn, info, user):
     """Updates employee/login field except user_code using user_code as
     identifier. Expects 'info' dict with keys: code, name, username,
     designation, national_id, phone, email, salary """
@@ -568,7 +574,7 @@ def update_employee_info(conn, info):
             )
             row = cursor.fetchone()
             if not row:
-                return False, f"No login found for user code '{info['user_code']}'."
+                return False, f"No logins for user, '{info['user_code']}'."
             current_username = row["username"]
             # Update employees (only provided fields)
             emp_fields = []
@@ -602,11 +608,17 @@ def update_employee_info(conn, info):
                     f"UPDATE logins SET {','.join(login_fields)} WHERE user_code = %s",
                     tuple(login_values)
                 )
+        username = current_username
+        action = f"Updated User {username} Details with; {login_values}."
+        success, msg = insert_logs(conn, user, "Human Resource", action)
+        if not success:
+            conn.rollback()
+            return False, f"Failed to Log Action: {msg}."
         conn.commit()
         return True, "Employee info updated successfully."
     except Exception as e:
         conn.rollback()
-        return False, f"Error updating employee info: {e}."
+        return False, f"Error updating employee info: {str(e)}."
 
 def insert_logs(conn, username, section, action):
     """Insert new log entry into log table."""
@@ -627,4 +639,84 @@ def insert_logs(conn, username, section, action):
         conn.rollback()
         return False, f"Failed to Insert Log: {str(e)}."
 
-from connect_to_db import connect_db
+
+def fetch_logs(conn, year, month=None, username=None, section=None):
+    """Fetch logs from logs table filtered by year, and optionally by month,
+    username and section.
+    Returns: (bool, list or str): (True, [rows]) on success,
+    (False, error_msg) on failure."""
+    try:
+        with conn.cursor(dictionary=True) as cursor:
+            query = """
+                SELECT log_date, log_time, username, section, action
+                FROM logs
+                WHERE YEAR(log_date) = %s
+            """
+            params = [year]
+
+            # Optional filters
+            if month:
+                query += " AND MONTH(log_date) = %s"
+                params.append(month)
+            if username:
+                query += " AND username = %s"
+                params.append(username)
+            if section:
+                query += " AND section = %s"
+                params.append(section)
+
+            # Order by most recent first
+            query += " ORDER BY log_date DESC, log_time DESC;"
+            cursor.execute(query, tuple(params))
+            rows = cursor.fetchall()
+            return True, rows
+    except Exception as e:
+        return False, f"Error: {str(e)}."
+
+
+def fetch_log_filter_data(conn):
+    """Fetch distinct years, usernames and sections from the logs table.
+    Returns all three in one query for GUI filtering."""
+    try:
+        with conn.cursor() as cursor:
+            # Distinct years
+            cursor.execute("""
+                SELECT DISTINCT YEAR(log_date) as year
+                FROM logs ORDER BY year DESC;
+            """)
+            years = [row[0] for row in cursor.fetchall()]
+            # Distinct usernames
+            cursor.execute(
+                "SELECT DISTINCT username FROM logs ORDER BY username ASC;"
+            )
+            usernames = [row[0] for row in cursor.fetchall()]
+            # Distinct sections
+            cursor.execute(
+                "SELECT DISTINCT section FROM logs ORDER BY section ASC;"
+            )
+            sections = [row[0] for row in cursor.fetchall()]
+
+        return True, {
+            "years": years,
+            "usernames": usernames,
+            "sections": sections
+        }
+    except Exception as e:
+        return False, f"Error Fetching Data: {str(e)}."
+
+def delete_log(conn, id):
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM logs WHERE log_id = %s;", (id,))
+            if cursor.rowcount == 0:
+                return False, f"No log found with id: {id}."
+        conn.commit()
+        return True, f"Log id {id} deleted successfully."
+    except Exception as e:
+        conn.rollback()
+        return False, f"Error deleting log: {str(e)}."
+
+# from connect_to_db import connect_db
+# conn=connect_db()
+# success, msg = delete_log(conn, 58)
+# print(success, msg)

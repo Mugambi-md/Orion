@@ -1,5 +1,6 @@
 from datetime import date
 from working_on_accounting import SalesJournalRecorder
+from working_on_employee import insert_logs
 
 def insert_new_product(conn, product, user):
     """Insert a new product into stock and product tables.
@@ -398,6 +399,10 @@ def log_stock_change(conn, data):
                     product_name, description, quantity, total, user)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (date.today(), code, name, desc, qty, total, user))
+        success, msg = insert_logs(conn, user, "Stock", desc)
+        if not success:
+            conn.rollback()
+            return False, f"Error Recording Logs: {msg}."
         conn.commit()
         return True, f"Successfully logged {name}."
     except Exception as e:
@@ -532,7 +537,6 @@ def fetch_deleted_products(conn):
     except Exception as e:
         raise e
 
-
 def get_product_codes(conn, keyword):
     try:
         pattern = f"{keyword}%"
@@ -548,10 +552,4 @@ def get_product_codes(conn, keyword):
     except Exception as e:
         return False, f"Error searching product codes: {str(e)}."
 
-# from connect_to_db import connect_db
-# conn=connect_db()
-#
-# items = get_product_codes(conn, "H")
-# if items:
-#     for item in items:
-#         print(item)
+

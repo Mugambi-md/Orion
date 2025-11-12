@@ -158,20 +158,49 @@ class OrdersWindow(BaseWindow):
                     max_width = cell_width
             self.tree.column(col, width=max_width + 5)
 
+    def has_privilege(self, privilege: str) -> bool:
+        """Check if the current user has the required privilege."""
+        dialog = VerifyPrivilegePopup(
+            self.window, self.conn, self.user, privilege
+        )
+        if dialog.result != "granted":
+            messagebox.showwarning(
+                "Access Denied",
+                f"You do not have permission to {privilege}.",
+                parent=self.window
+            )
+            return False
+        return True
 
     # Placeholders buttons actions
     def new_order(self):
+        if not self.has_privilege("Receive Order"):
+            return
         NewOrderWindow(self.window, self.conn, self.user)
+
     def order_payments(self):
+        if not self.has_privilege("Receive Order Payment"):
+            return
         UnpaidOrdersWindow(self.window, self.conn, self.user)
+
     def edit_order(self):
+        if not self.has_privilege("Edit Order"):
+            return
         EditOrdersWindow(self.window, self.conn, self.user)
+
     def view_ordered_items(self):
+        if not self.has_privilege("View Ordered Items"):
+            return
         OrderedItemsWindow(self.window, self.conn, self.user)
+
     def work_on_orders(self):
+        if not self.has_privilege("Manage Orders"):
+            return
         PendingOrdersWindow(self.window, conn, self.user)
 
     def view_logs(self):
+        if not self.has_privilege("View Order Logs"):
+            return
         OrderLogsWindow(self.window, self.conn, self.user)
 
 if __name__ == "__main__":

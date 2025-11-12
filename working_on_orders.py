@@ -1,5 +1,5 @@
 from datetime import date
-
+from working_on_employee import insert_logs
 
 def insert_order_data(conn, order_data, items, user, payment_data=None):
     try:
@@ -61,6 +61,10 @@ def log_order_action(conn, order_id, total_amount, user, action):
                 action)
             VALUES (%s, %s, %s, %s, %s)
             """, (log_date, order_id, total_amount, user, action))
+        success, msg = insert_logs(conn, user, "Orders", action)
+        if not success:
+            conn.rollback()
+            return False, f"Failed to Record Logs: {msg}."
         conn.commit()
         return True, "Order recorded successfully."
     except Exception as e:

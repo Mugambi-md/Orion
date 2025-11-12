@@ -55,3 +55,34 @@ class DateFormatter:
         suffix = cls._get_ordinal_suffix(day)
         return today.strftime(f"%A {day}{suffix} %B %Y")
 
+class CurrencyFormatter:
+    """Helper class to auto-format Tkinter Entry Field as currency."""
+
+    @staticmethod
+    def add_currency_trace(var, entry):
+        """Attach a trace to format the Entry value as currency."""
+        def callback(var_name, index, mode):
+            CurrencyFormatter.format_currency(var, entry)
+        var.trace_add("write", callback)
+
+    @staticmethod
+    def format_currency(var, entry):
+        """Automatically format entry text as money."""
+        # Temporarily remove trace to prevent recursion
+        traces = var.trace_info()
+        if traces:
+            for trace in traces:
+                mode, cbname = trace[:2]
+                var.trace_remove(mode, cbname)
+        value = var.get().replace(",", "").strip()
+        cleaned = ''.join(ch for ch in value if ch.isdigit())
+
+        if not cleaned:
+            CurrencyFormatter.add_currency_trace(var, entry)
+            return
+        formatted = f"{int(cleaned):,}"
+        var.set(formatted)
+        # Set cursor at end of text
+        entry.after_idle(lambda: entry.icursor(tk.END))
+        # Reattach trace
+        CurrencyFormatter.add_currency_trace(var, entry)

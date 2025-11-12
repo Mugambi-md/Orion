@@ -5,14 +5,18 @@ from tkinter import ttk, messagebox
 from base_window import BaseWindow
 from authentication import VerifyPrivilegePopup
 from windows_utils import (
-    only_digits, capitalize_customer_name, is_valid_email
+    only_digits, capitalize_customer_name, is_valid_email, CurrencyFormatter
 )
 from working_on_employee import (
-    get_departments, username_exists, insert_privilege, insert_user_privilege, get_all_privileges, EmployeeManager,
-    get_user_info, get_login_status_and_name, update_login_status, get_user_privileges, fetch_password, fetch_all_users,
-    remove_user_privilege, reset_user_password, check_username_exists, update_login_password, fetch_user_identity,
-    fetch_user_details_and_privileges, fetch_departments, insert_into_departments, fetch_employee_login_info,
-    update_employee_info)
+    get_departments, username_exists, insert_privilege, get_user_info,
+    insert_user_privilege, get_all_privileges, EmployeeManager,
+    fetch_departments, get_login_status_and_name, update_login_status,
+    get_user_privileges, fetch_password, fetch_all_users,
+    remove_user_privilege, reset_user_password, check_username_exists,
+    update_login_password, fetch_user_identity, update_employee_info,
+    fetch_user_details_and_privileges, insert_into_departments,
+    fetch_employee_login_info
+)
 
 class EmployeePopup(BaseWindow):
     def __init__(self, master, conn, user):
@@ -289,7 +293,7 @@ class LoginStatusPopup(BaseWindow):
                 parent=self.window
             )
             return
-        self.current_status = result[0]
+        self.current_status = result[1]
         status = self.current_status.lower()
         label_color = "red" if status == "disabled" else "dodgerblue"
         self.info_label.config(
@@ -997,7 +1001,7 @@ class ChangePasswordPopup(BaseWindow):
         self.window = tk.Toplevel(master)
         self.window.title("Change Password")
         self.window.configure(bg="lightgreen")
-        self.center_window(self.window, 300, 260, master)
+        self.center_window(self.window, 320, 350, master)
         self.window.transient(master)
         self.window.grab_set()
 
@@ -1008,56 +1012,98 @@ class ChangePasswordPopup(BaseWindow):
         self.new_password_var = tk.StringVar()
         self.confirm_password_var = tk.StringVar()
         self.stored_username = None # Username once validated
-        self.employee_name = None # Fetched name
-        self.username_entry = tk.Entry(self.window, textvariable=self.username_var)
-        self.password_entry = tk.Entry(self.window, textvariable=self.password_var, show="*")
+        self.main_frame = tk.Frame(
+            self.window, bg="lightgreen", bd=4, relief="solid"
+        )
+        self.username_entry = tk.Entry(
+            self.main_frame, textvariable=self.username_var, bd=4, width=15,
+            relief="raised", font=("Arial", 12)
+        )
+        self.password_entry = tk.Entry(
+            self.main_frame, textvariable=self.password_var, show="*", bd=4,
+            relief="raised", font=("Arial", 12)
+        )
         # New Password (Initially Hidden)
-        self.new_frame = tk.Frame(self.window, bg="lightgreen")
-        self.new_password_label = tk.Label(self.new_frame, text="New Password:", bg="lightgreen",
-                                           font=("Arial", 12, "bold"))
-        self.new_password_entry = tk.Entry(self.new_frame, textvariable=self.new_password_var, show="*")
-        self.password_error_label = tk.Label(self.new_frame, text="", fg="red", bg="lightgreen",
-                                             font=("Arial", 8, "italic"))
-        self.confirm_password_label = tk.Label(self.new_frame, text="Confirm New Password:", bg="lightgreen",
-                                               font=("Arial", 12, "bold"))
-        self.confirm_password_entry = tk.Entry(self.new_frame, textvariable=self.confirm_password_var, show="*")
-        self.change_btn = tk.Button(self.new_frame, text="Change Password", bg="dodgerblue", fg="white",
-                                    command=self.change_password)
+        self.new_frame = tk.Frame(self.main_frame, bg="lightgreen")
+        self.new_password_entry = tk.Entry(
+            self.new_frame, textvariable=self.new_password_var, show="*",
+            bd=4, relief="raised", font=("Arial", 12)
+        )
+        self.password_error_label = tk.Label(
+            self.new_frame, text="", fg="red", bg="lightgreen",
+            font=("Arial", 9, "italic"))
+
+        self.confirm_password_entry = tk.Entry(
+            self.new_frame, textvariable=self.confirm_password_var, show="*",
+            bd=4, relief="raised"
+        )
+        self.change_btn = tk.Button(
+            self.new_frame, text="Change Password", bg="dodgerblue", bd=2,
+            relief="groove", fg="white", command=self.change_password
+        )
 
         self.build_ui()
 
     def build_ui(self):
+        self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
         # Username Entry
-        tk.Label(self.window, text="Username:", bg="lightgreen", font=("Arial", 12, "bold")).pack(pady=(5, 0))
-        self.username_entry.pack()
+        tk.Label(self.main_frame, text="Username:", bg="lightgreen", font=(
+            "Arial", 12, "bold"
+        )).pack(pady=(5, 0))
+        self.username_entry.pack(pady=(0, 5))
+        self.username_entry.focus_set()
+        self.username_entry.icursor(tk.END)
         self.username_entry.bind("<Return>", self.check_username)
         # Current Password Entry
-        tk.Label(self.window, text="Current Password:", bg="lightgreen", font=("Arial", 12, "bold")).pack(pady=(5, 0))
-        self.password_entry.pack()
+        tk.Label(
+            self.main_frame, text="Current Password:", bg="lightgreen",
+            font=("Arial", 12, "bold")
+        ).pack(pady=(5, 0))
+        self.password_entry.pack(pady=(0, 5))
         self.password_entry.bind("<Return>", self.verify_password_and_status)
         self.new_frame.pack()
-        self.new_password_label.pack(pady=(10, 0))
+        tk.Label(
+            self.new_frame, text="New Password:", bg="lightgreen",
+            font=("Arial", 12, "bold")
+        ).pack(pady=(10, 0))
         self.new_password_entry.pack()
-        self.new_password_entry.bind("<KeyRelease>", self.validate_password_strength) # Real time validation
-        self.new_password_entry.bind("<Return>", lambda e: self.confirm_password_entry.focus_set())
+        # Real time validation
+        self.new_password_entry.bind(
+            "<KeyRelease>", self.validate_password_strength
+        )
+        self.new_password_entry.bind(
+            "<Return>", lambda e: self.confirm_password_entry.focus_set()
+        )
         self.password_error_label.pack(pady=(2, 0))
         # self.password_error_label.pack_forget()
-        self.confirm_password_label.pack(pady=(5, 0))
+        tk.Label(
+            self.new_frame, text="Confirm New Password:", bg="lightgreen",
+            font=("Arial", 12, "bold")
+        ).pack(pady=(5, 0))
         self.confirm_password_entry.pack()
-        self.confirm_password_entry.bind("<Return>", lambda e: self.change_password())
+        self.confirm_password_entry.bind(
+            "<Return>", lambda e: self.change_password()
+        )
         self.change_btn.pack(pady=5, anchor="center")
         self.new_frame.pack_forget()
+
     def check_username(self, event=None):
         username = self.username_var.get().strip()
         exists = check_username_exists(self.conn, username)
         if isinstance(exists, tuple): # Error case
-            messagebox.showerror("Error", f"DB Error: {exists[1]}")
+            messagebox.showerror(
+                "Error", f"DB Error: {exists[1]}", parent=self.main_frame
+            )
             return
         if not exists:
-            messagebox.showerror("Invalid","Username not allowed. Consult System Admin.")
+            messagebox.showerror(
+                "Invalid", "Username Not Allowed. Consult System Admin.",
+                parent=self.main_frame
+            )
             return
         self.stored_username = username
         self.password_entry.focus_set()
+
     def validate_password_strength(self, event=None):
         pwd = self.new_password_var.get()
         errors = []
@@ -1070,53 +1116,76 @@ class ChangePasswordPopup(BaseWindow):
         if not any(c in string.punctuation for c in pwd):
             errors.append("punctuation")
         if errors:
-            self.password_error_label.config(text="Should be: "+", ".join(errors))
+            self.password_error_label.config(
+                text="Should be: "+", ".join(errors)
+            )
         else:
             self.password_error_label.config(text="", fg="lightgreen")
+
     def verify_password_and_status(self, event=None):
         username = self.stored_username
         entered_pass = self.password_var.get()
         if not username or not entered_pass:
-            messagebox.showerror("Error", "Username and Current Password Required.")
+            messagebox.showerror(
+                "Error", "Username and Current Password Required.",
+                parent=self.main_frame
+            )
             return
         result = get_login_status_and_name(self.conn, username)
         if not result:
-            messagebox.showerror("Error", "User Not Authorised.")
+            messagebox.showerror(
+                "Error", "User Not Authorised.", parent=self.main_frame
+            )
             return
-        name, status = result
-        self.employee_name = name
+        user = result[0]
+        status = result[1]
         stored_password = fetch_password(self.conn, username)
         if not stored_password or entered_pass != stored_password[0]:
-            messagebox.showerror("Error", "Password is Incorrect.")
+            messagebox.showerror(
+                "Error", "Password is Incorrect.", parent=self.main_frame
+            )
             self.password_entry.focus_set()
             return
         if status.lower() != "active":
-            messagebox.showerror("Account Disabled", f"{name}'s Account is Disabled.")
+            messagebox.showerror(
+                "Disabled", f"{user}'s Account is Disabled.",
+                parent=self.main_frame
+            )
             return
         # If all checks passed
         self.show_password_change_fields()
-        self.new_password_entry.focus_set()
+
     def show_password_change_fields(self):
         self.new_frame.pack()
+        self.new_password_entry.focus_set()
+
     def change_password(self):
         new_pass = self.new_password_var.get()
         confirm_pass = self.confirm_password_var.get()
         if not new_pass or not confirm_pass:
-            messagebox.showerror("Error", "Please Enter and Confirm New Password.")
+            messagebox.showerror(
+                "Error", "Please Enter and Confirm New Password.",
+                parent=self.main_frame
+            )
             return
         if new_pass != confirm_pass:
-            messagebox.showerror("Missmatch", "New Password and Confirmation Don't Match.")
+            messagebox.showerror(
+                "Missmatch", "New Password and Confirmation Don't Match.",
+                parent=self.main_frame
+            )
             return
-        result = update_login_password(self.conn, self.stored_username, new_pass)
-        if "successfully" in result.lower():
-            messagebox.showinfo("Success", result)
+        success, msg = update_login_password(
+            self.conn, self.stored_username, new_pass
+        )
+        if success:
+            messagebox.showinfo("Success", msg, parent=self.main_frame)
             self.window.destroy()
         else:
-            messagebox.showerror("Error", result)
+            messagebox.showerror("Error", msg, parent=self.main_frame)
 
 
 class UserPrivilegesPopup(BaseWindow):
-    def __init__(self, parent, conn):
+    def __init__(self, parent, conn, user):
         self.window = tk.Toplevel(parent)
         self.window.title("View User Privileges")
         self.center_window(self.window, 500, 400, parent)
@@ -1125,6 +1194,7 @@ class UserPrivilegesPopup(BaseWindow):
         self.window.grab_set()
 
         self.conn = conn
+        self.user = user
         # Fetch user list; usernames and user codes
         self.users_data = fetch_all_users(self.conn)
         if isinstance(self.users_data, str):
@@ -1133,63 +1203,178 @@ class UserPrivilegesPopup(BaseWindow):
             return
         self.usernames = [user['username'] for user in self.users_data]
         self.usercodes = [user['user_code'] for user in self.users_data]
-        self.top_frame = tk.Frame(self.window, bg="lightgreen")
         self.username_var = tk.StringVar()
         self.usercode_var = tk.StringVar()
-        self.username_cb = ttk.Combobox(self.top_frame, textvariable=self.username_var, values=self.usernames,
-                                        width=20)
-        self.usercode_cb = ttk.Combobox(self.top_frame, textvariable=self.usercode_var, values=self.usercodes,
-                                         width=10)
-        self.search_btn = tk.Button(self.top_frame, text="Search", width=10, command=self.display_privileges)
-        self.info_label = tk.Label(self.window, text="", font=("Arial", 12, "italic"), bg="lightgreen", fg="red")
-        self.priv_listbox = tk.Listbox(self.window, width=60)
+        self.privileges_data = []
+        self.columns = ["No", "Access ID", "Privilege"]
+        style = ttk.Style()
+        style.configure(
+            "Treeview.Heading", font=("Arial", 11, "bold", "underline")
+        )
+        style.configure("Treeview", font=("Arial", 10))
+        self.main_frame = tk.Frame(
+            self.window, bg="lightgreen", bd=4, relief="solid"
+        )
+        self.top_frame = tk.Frame(self.main_frame, bg="lightgreen")
+        self.list_frame = tk.Frame(
+            self.main_frame, bg="lightgreen", bd=2, relief="solid"
+        )
+        self.username_cb = ttk.Combobox(
+            self.top_frame, textvariable=self.username_var, width=10,
+            values=self.usernames, font=("Arial", 12)
+        )
+        self.usercode_cb = ttk.Combobox(
+            self.top_frame, textvariable=self.usercode_var, width=10,
+            values=self.usercodes, font=("Arial", 12)
+        )
+        self.info_label = tk.Label(
+            self.main_frame, text="", bg="lightgreen", fg="red",
+            font=("Arial", 14, "italic", "underline")
+        )
+        self.tree = ttk.Treeview(
+            self.list_frame, columns=self.columns, show="headings", height=10
+        )
 
         self.build_ui()
 
     def build_ui(self):
-        self.top_frame.pack(pady=(5, 0), padx=5, fill="x")
-        tk.Label(self.top_frame, text="Select Username:", bg="lightgreen", font=("Arial", 11, "bold")
-                 ).grid(row=0, column=0, sticky="w", padx=(5, 0))
-        self.username_cb.grid(row=0, column=1, padx=(0, 3))
-        self.username_cb.bind("<<ComboboxSelected>>", self.on_username_selected)
-        tk.Label(self.top_frame, text="User Code:", bg="lightgreen", font=("Arial", 11, "bold")
-                 ).grid(row=0, column=2, sticky="w", padx=(3, 0))
-        self.usercode_cb.grid(row=0, column=3, padx=(0, 5))
-        self.usercode_cb.bind("<<ComboboxSelected>>", self.on_usercode_selected)
-        self.search_btn.grid(row=1, column=0, columnspan=4, padx=10, pady=5)
-        self.info_label.pack(pady=10)
-        self.priv_listbox.pack(pady=(0, 5), padx=5, fill="both", expand=True)
+        self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
+        tk.Label(
+            self.main_frame, text="Select User to Display Privileges",
+            bg="lightgreen", font=("Arial", 14, "bold", "underline")
+        ).pack(side="top", pady=(5, 0), padx=10)
+        self.top_frame.pack(padx=20, fill="x", anchor="center")
+        tk.Label(
+            self.top_frame, text="Select Username:", bg="lightgreen",
+            font=("Arial", 12, "bold")
+        ).grid(row=0, column=0, sticky="w", pady=(5, 0), padx=(0, 10))
+        self.username_cb.grid(row=1, column=0, pady=(0, 5))
+        self.username_cb.bind(
+            "<<ComboboxSelected>>", self.on_username_selected
+        )
+        tk.Label(
+            self.top_frame, text="Select User Code:", bg="lightgreen",
+            font=("Arial", 12, "bold")
+        ).grid(row=0, column=1, sticky="w", pady=(5, 0), padx=10)
+        self.usercode_cb.grid(row=1, column=1, pady=(0, 5))
+        self.usercode_cb.bind(
+            "<<ComboboxSelected>>", self.on_usercode_selected
+        )
+        self.info_label.pack(pady=(5, 0))
+        btn_frame = tk.Frame(self.list_frame, bg="lightgreen")
+        btn_frame.pack(fill="x", padx=5)
+        tk.Button(
+            btn_frame, text="Remove Privilege", bd=2, relief="groove",
+            command=self.remove_privilege, bg="dodgerblue", fg="white"
+        ).pack(side="right")
+        scrollbar = tk.Scrollbar(self.list_frame, orient="vertical",
+                                 command=self.tree.yview)
+        for col in self.columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, anchor="center", width=30)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        self.tree.pack(side="left", fill="both", expand=True)
 
     def on_username_selected(self, event=None):
         username = self.username_var.get()
         result = fetch_user_identity(self.conn, username)
         if isinstance(result, dict):
             self.usercode_var.set(result['user_code'])
+            self.list_frame.pack(fill="both", expand=True)
+            self.display_privileges()
 
     def on_usercode_selected(self, event=None):
         user_code = self.usercode_var.get()
         result = fetch_user_identity(self.conn, user_code)
         if isinstance(result, dict):
             self.username_var.set(result['username'])
+            self.list_frame.pack(fill="both", expand=True)
+            self.display_privileges()
 
     def display_privileges(self):
         identifier = self.username_var.get() or self.usercode_var.get()
-        user_info, privileges = fetch_user_details_and_privileges(self.conn, identifier)
-
+        user_info, privileges = fetch_user_details_and_privileges(
+            self.conn, identifier
+        )
         if not user_info:
-            messagebox.showerror("Error", "No user found.")
-        elif "error" in user_info:
-            messagebox.showerror("Error", user_info["error"])
-        else:
-            self.info_label.config(
-                text=f"Showing Privileges Assigned to {user_info['designation']}, {user_info['username']}."
+            messagebox.showerror(
+                "Error", "No User Found.", parent=self.window
             )
-            self.priv_listbox.delete(0, tk.END)
-            if privileges:
-                for i, p in enumerate(privileges, start=1):
-                    self.priv_listbox.insert(tk.END, f"{i} - {p['privilege']}")
-            else:
-                self.priv_listbox.insert(tk.END, "No Privileges Assigned.")
+        elif "error" in user_info:
+            messagebox.showerror(
+                "Error", user_info["error"], parent=self.window
+            )
+        rank = user_info['designation']
+        user = user_info['username']
+        self.info_label.config(text=f"Privileges Of {rank}; {user}.")
+        self.privileges_data = privileges
+
+        for row in self.tree.get_children():
+            self.tree.delete(row)
+
+        if privileges:
+            for i, p in enumerate(privileges, start=1):
+                self.tree.insert("", "end", values=(
+                    i,
+                    p["no"],
+                    p["privilege"]
+                ))
+        else:
+            text = "No Privileges Assigned."
+            self.tree.insert("", "end", values=("", "", text))
+        self.autosize_columns()
+
+    def remove_privilege(self):
+        """Remove the selected privilege from the list and database."""
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning(
+                "No Selection", "Please Select Privilege to Remove.",
+                parent=self.main_frame
+            )
+            return
+        # Verify Privilege
+        priv = "Remove Privilege"
+        verify = VerifyPrivilegePopup(self.window, self.conn, self.user, priv)
+        if verify.result != "granted":
+            messagebox.showwarning(
+                "Access Denied",
+                f"You Don't Have Permission To {priv}.", parent=self.window
+            )
+            return
+
+        values = self.tree.item(selected[0], "values")
+        aid = values[1]
+        pname = values[2]
+        name = self.username_var.get()
+        user_code = self.usercode_var.get()
+
+        confirm = messagebox.askyesno(
+            "Confirm",
+            f"Remove Privilege to '{pname}' From {name}", default="no",
+            parent=self.window
+        )
+        if not confirm:
+            return
+        success, msg = remove_user_privilege(
+            self.conn, user_code, aid, pname, name, self.user
+        )
+        if success:
+            messagebox.showinfo("Success", msg, parent=self.main_frame)
+            self.display_privileges()
+        else:
+            messagebox.showerror("Error", msg, parent=self.main_frame)
+
+    def autosize_columns(self):
+        font = tkFont.Font()
+        for col in self.columns:
+            max_width = font.measure(col)
+            for item in self.tree.get_children():
+                text = str(self.tree.set(item, col))
+                max_width = max(max_width, font.measure(text))
+            self.tree.column(col, width=max_width)
+
 
 class DepartmentsPopup(BaseWindow):
     def __init__(self, master, conn, user):
@@ -1233,10 +1418,9 @@ class DepartmentsPopup(BaseWindow):
         )
         # Bold table headings
         style = ttk.Style()
+        style.theme_use("alt")
         style.configure("Treeview", font=("Arial", 10))
-        style.configure(
-            "Treeview.Heading", font=("Arial", 11, "bold", "underline")
-        )
+        style.configure("Treeview.Heading", font=("Arial", 11, "bold"))
 
         self.build_ui()
 
@@ -1354,7 +1538,7 @@ class EditEmployeeWindow(BaseWindow):
         self.window = tk.Toplevel(parent)
         self.window.title("Edit Employee")
         self.window.configure(bg="lightgreen")
-        self.center_window(self.window, 300, 400, parent)
+        self.center_window(self.window, 350, 500, parent)
         self.window.transient(parent)
         self.window.grab_set()
 
@@ -1365,41 +1549,46 @@ class EditEmployeeWindow(BaseWindow):
         self.search_type_var = tk.StringVar(value="username")
         self.identifier_var = tk.StringVar()
         self.status_var = tk.StringVar()
-        self.search_frame = tk.Frame(self.window, bg="lightgreen")
-        self.search_type_cb = ttk.Combobox(
-            self.search_frame,
-            textvariable=self.search_type_var,
-            values=["username", "user code"],
-            state="readonly",
-            width=15
+        self.salary_var = tk.StringVar()
+        self.main_frame = tk.Frame(
+            self.window, bg="lightgreen", bd=4, relief="solid"
         )
-        self.identifier_entry = tk.Entry(self.search_frame, width=20,
-                                         textvariable=self.identifier_var)
-        self.search_btn = tk.Button(self.search_frame, text="Search", width=10,
-                                    command=self.perform_search)
+        self.search_frame = tk.Frame(self.main_frame, bg="lightgreen")
+        self.search_type_cb = ttk.Combobox(
+            self.search_frame, textvariable=self.search_type_var, width=10,
+            values=["Username", "User Code"], state="readonly",
+            font=("Arial", 11)
+        )
+        self.identifier_entry = tk.Entry(
+            self.search_frame, width=15, textvariable=self.identifier_var,
+            bd=4, relief="raised", font=("Arial", 11)
+        )
+        self.search_btn = tk.Button(
+            self.search_frame, text="Search", width=10, bd=4, relief="groove",
+            command=self.perform_search
+        )
         self.prompt_label = tk.Label(
-            self.search_frame, bg="lightgreen",
+            self.search_frame, bg="lightgreen", font=("Arial", 11, "bold"),
             text=f"Search {self.search_type_var.get()}:"
         )
-        self.edit_frame = tk.Frame(self.window, bg="lightgreen", bd=1,
-                                   relief="groove")
+        self.edit_frame = tk.Frame(
+            self.main_frame, bg="lightgreen", bd=1, relief="solid"
+        )
         # Header
-        self.header_var = tk.StringVar(value="Editing User: _ With Code: _")
+        self.header_var = tk.StringVar(value="Editing User; ")
         self.header_label = tk.Label(
             self.edit_frame, bg="lightgreen", textvariable=self.header_var,
-            font=("Arial", 10, "bold")
+            font=("Arial", 12, "bold", "underline"), fg="dodgerblue"
         )
         # Status handled separately
         self.status_cb = ttk.Combobox(
-            self.edit_frame,
-            textvariable=self.status_var,
-            values=["active", "disabled"],
-            state="disabled",
-            width=20
+            self.edit_frame, textvariable=self.status_var, width=10,
+            values=["active", "disabled"], state="disabled",
+            font=("Arial", 11)
         )
         self.post_btn = tk.Button(
             self.edit_frame, text="Post Update", bg="dodgerblue", fg="white",
-            command=self.post_update, width=10, state="disabled"
+            command=self.post_update, bd=4, relief="groove", state="disabled"
         )
 
         # Entry widgets container
@@ -1408,20 +1597,27 @@ class EditEmployeeWindow(BaseWindow):
         self.build_ui()
 
     def build_ui(self):
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         # Search section
-        self.search_frame.pack(fill="x", pady=10, padx=10)
-        tk.Label(self.search_frame, text="Search by:",
-                 bg="lightgreen").grid(row=0, column=0)
-        self.search_type_cb.grid(row=0, column=1, padx=(0, 5))
+        self.search_frame.pack(fill="x", pady=(5, 0))
+        tk.Label(
+            self.search_frame, text="Search by:", bg="lightgreen",
+            font=("Arial", 11, "bold")
+        ).grid(row=0, column=0, sticky="e")
+        self.search_type_cb.grid(row=0, column=1, padx=(0, 5), sticky="w")
         self.search_type_cb.bind("<<ComboboxSelected>>", self.update_prompt)
-        self.prompt_label.grid(row=1, column=0, pady=5)
-        self.identifier_entry.grid(row=1, column=1, pady=5)
+        self.prompt_label.grid(row=1, column=0, pady=5, sticky="e")
+        self.identifier_entry.grid(row=1, column=1, pady=5, sticky="w")
         self.identifier_entry.focus_set()
-        self.identifier_entry.bind("<Return>", lambda e: self.search_btn.focus_set())
+        self.identifier_entry.bind(
+            "<Return>", lambda e: self.search_btn.focus_set()
+        )
         self.search_btn.grid(row=2, column=0, columnspan=2, pady=(5, 0))
         self.search_btn.bind("<Return>", lambda e: self.perform_search())
-        self.edit_frame.pack(fill="both", expand=False, pady=(0, 5), padx=5)
-        self.header_label.grid(row=0, column=0, columnspan=2, pady=(0, 10), sticky="w")
+        self.edit_frame.pack(fill="both", expand=True, pady=(5, 0))
+        self.header_label.grid(
+            row=0, column=0, columnspan=2, pady=(0, 5), sticky="we"
+        )
         # Create entry widgets
         labels_and_keys = [
             ("Name:", "name"),
@@ -1435,12 +1631,20 @@ class EditEmployeeWindow(BaseWindow):
         ]
         for _, key in labels_and_keys:
             if key != "status":
-                self.entries[key] = tk.Entry(self.edit_frame, width=30)
+                self.entries[key] = tk.Entry(
+                    self.edit_frame, width=25, bd=4, relief="raised",
+                    font=("Arial", 11)
+                )
+        self.entries["salary"].configure(textvariable=self.salary_var)
+        CurrencyFormatter.add_currency_trace(self.salary_var,
+                                             self.entries["salary"])
         # Layout fields (labels left, inputs right)
         row = 1
         for label_text, key in labels_and_keys:
-            tk.Label(self.edit_frame, text=label_text, bg="lightgreen"
-                     ).grid(row=row, column=0, pady=3, sticky="e")
+            tk.Label(
+                self.edit_frame, text=label_text, bg="lightgreen",
+                font=("Arial", 11, "bold")
+            ).grid(row=row, column=0, pady=3, sticky="e")
             if key == "status":
                 self.status_cb.grid(row=row, column=1, pady=3, sticky="w")
                 self.status_cb.configure(state="disabled")
@@ -1454,6 +1658,7 @@ class EditEmployeeWindow(BaseWindow):
     def update_prompt(self, event=None):
         kind = self.search_type_var.get()
         self.prompt_label.config(text=f"Search {kind}:")
+
     def select_all_text(self, event=None):
         event.widget.selection_range(0, tk.END)
         return 'break'
@@ -1462,52 +1667,80 @@ class EditEmployeeWindow(BaseWindow):
         identifier = self.identifier_var.get().strip()
         kind = self.search_type_var.get()
         if not identifier:
-            messagebox.showwarning("Input Required",
-                                   f"Please enter {kind} to search.")
+            messagebox.showwarning(
+                "Required", f"Please enter {kind} to search.",
+                parent=self.window
+            )
             return
         success, result = fetch_employee_login_info(self.conn, identifier)
         if not success:
-            messagebox.showerror("Not Found", result)
+            messagebox.showerror("Not Found", result, parent=self.window)
             return
         self.current_record = result
         # Populate and enable fields
-        ordered_keys = ["name", "username", "designation", "national_id", "phone", "email", "salary"]
+        ordered_keys = [
+            "name", "username", "designation", "national_id", "phone",
+            "email", "salary"
+        ]
         for i, key in enumerate(ordered_keys):
             entry = self.entries.get(key)
             if entry:
                 entry.configure(state="normal")
                 entry.delete(0, tk.END)
-                entry.insert(0, result.get(key, ""))
+                if key == "salary" and result.get(key):
+                    self.salary_var.set(f"{int(float(result[key])):,}")
+                else:
+                    entry.insert(0, result.get(key, ""))
                 # Bind Enter Navigation
                 if i < len(ordered_keys) - 1:
                     next_entry = self.entries[ordered_keys[i + 1]]
-                    entry.bind("<Return>", lambda e, next_e=next_entry: next_e.focus_set())
+                    entry.bind(
+                        "<Return>", lambda e, next_e=next_entry: next_e.focus_set()
+                    )
                 # Bind focus-in to select all text
                 entry.bind("<FocusIn>", self.select_all_text)
         # Capitalize Name on focus out
         self.entries["name"].bind("<KeyRelease>", capitalize_customer_name)
         digit_vcmd = (self.window.register(only_digits), "%S")
-        self.entries["phone"].configure(validate="key", validatecommand=digit_vcmd)
-        self.entries["national_id"].configure(validate="key", validatecommand=digit_vcmd)
+        self.entries["phone"].configure(
+            validate="key", validatecommand=digit_vcmd
+        )
+        self.entries["national_id"].configure(
+            validate="key", validatecommand=digit_vcmd
+        )
 
         self.status_cb.configure(state="readonly")
         self.status_var.set(result.get("status", "active"))
         # Header text
         uname = result.get("username", "")
-        ucode = result.get("user_code", "")
-        self.header_var.set(f"Editing User: {uname} With Code: {ucode}")
+        self.header_var.set(f"Editing User Info For  {uname.capitalize()}.")
         # Enable post button
         self.post_btn.configure(state="normal")
 
     def post_update(self):
         if not self.current_record:
-            messagebox.showwarning("No Record",
-                                   "You need to search and load info first.")
+            messagebox.showwarning(
+                "No Record", "You Need to Search and Load Info First.",
+                parent=self.window
+            )
             return
         email = self.entries["email"].get().strip()
         if not is_valid_email(email):
-            messagebox.showerror("Error", "Invalid email format.")
+            messagebox.showerror(
+                "Error", "Invalid email format.", parent=self.window
+            )
             self.entries["email"].focus_set()
+            return
+        # Verify user privilege
+        priv = "Edit User"
+        verify_dialog = VerifyPrivilegePopup(
+            self.window, self.conn, self.user, priv
+        )
+        if verify_dialog.result != "granted":
+            messagebox.showwarning(
+                "Access Denied",
+                f"You Don't Have Permission to {priv}.", parent=self.window
+            )
             return
         info = {
             "user_code": self.current_record.get("user_code"),
@@ -1517,12 +1750,12 @@ class EditEmployeeWindow(BaseWindow):
             "national_id": self.entries["national_id"].get().strip(),
             "phone": self.entries["phone"].get().strip(),
             "email": self.entries["email"].get().strip(),
-            "salary": self.entries["salary"].get().strip(),
+            "salary": self.entries["salary"].get().replace(",", "").strip(),
             "status": self.status_var.get()
         }
-        success, msg = update_employee_info(self.conn, info)
+        success, msg = update_employee_info(self.conn, info, self.user)
         if success:
-            messagebox.showinfo("Updated", msg)
+            messagebox.showinfo("Updated", msg, parent=self.window)
             for entry in self.entries.values():
                 entry.delete(0, tk.END)
                 entry.configure(state="disabled")
@@ -1531,11 +1764,12 @@ class EditEmployeeWindow(BaseWindow):
             self.status_cb.configure(state="disabled")
             self.post_btn.configure(state="disabled")
         else:
-            messagebox.showerror("Error", msg)
+            messagebox.showerror("Error", msg, parent=self.window)
 
-if __name__ == "__main__":
-    from connect_to_db import connect_db
-    conn=connect_db()
-    root=tk.Tk()
-    ResetPasswordPopup(root, conn, "Sniffy")
-    root.mainloop()
+
+# if __name__ == "__main__":
+#     from connect_to_db import connect_db
+#     conn=connect_db()
+#     root=tk.Tk()
+#     EditEmployeeWindow(root, conn, "Sniffy")
+#     root.mainloop()

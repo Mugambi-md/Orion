@@ -1,6 +1,7 @@
 from datetime import datetime
 from working_on_stock import get_total_cost_by_codes
 from working_on_accounting import SalesJournalRecorder
+from working_on_employee import insert_logs
 
 class SalesManager:
     def __init__(self, conn):
@@ -115,16 +116,19 @@ class SalesManager:
                 return False, f"Error Calculating Cost: {error}"
             # Record Journal entries
             success, err = self.finalize_sales(receipt_no, amount_paid, cost)
-            if success:
-                self.conn.commit()
-                return True, receipt_no
-            else:
+            if not success:
                 self.conn.rollback()
                 return False, f"Error Recording Books of Accounts: {err}"
+            desc = f"Sold Receipt #{receipt_no}. Amounting to {amount_paid}."
+            success, msg = insert_logs(self.conn, user, "Sales", desc)
+            if not success:
+                self.conn.rollback()
+                return False, f"Error Recording Logs: {msg}."
+            self.conn.commit()
+            return True, receipt_no
         except Exception as e:
             self.conn.rollback()
             return False, f"Error recording sale: {e!s}"
-
 
 def fetch_sales_product(conn, product_code):
     """Fetch product details by product code."""
@@ -420,6 +424,13 @@ def insert_to_sale_control(conn, entries):
             """,
                 values,
             )
+        for entry in entries:
+            user = entry["user"]
+            desc = entry["description"]
+            success, msg = insert_logs(conn, user, "Sales", desc)
+            if not success:
+                conn.rollback()
+                return False, f"Error Recording Logs: {msg}."
         conn.commit()
         return True, None
     except Exception as e:
@@ -695,20 +706,27 @@ def fetch_pending_reversals(conn, view_filter="Tagged"):
     except Exception as e:
         return None, str(e)
 
-def fetch_reversals_by_month(conn, year, month):
+def fetch_reversals_by_month(conn, year, month=None):
     """Fetch all reversals from sales reversals for a given year and month."""
     try:
         with conn.cursor(dictionary=True) as cursor:
-            cursor.execute("""
+            query = """
             SELECT date, receipt_no, product_code, product_name, unit_price,
                 quantity, refund, tag, authorized, posted
             FROM sales_reversal
-            WHERE YEAR(date) = %s AND MONTH(date) = %s
-            ORDER BY date DESC;
-            """, (year, month))
-            return cursor.fetchall(), None
+            WHERE YEAR(date) = %s
+            """
+            params = [year]
+            # Optional filters
+            if month:
+                query += " AND MONTH(date) = %s"
+                params.append(month)
+            query += " ORDER BY date DESC;"
+            cursor.execute(query, tuple(params))
+            rows = cursor.fetchall()
+            return True, rows
     except Exception as e:
-        return None, str(e)
+        return False, f"Error: {str(e)}."
 
 def fetch_distinct_years(conn):
     """Fetch distinct years from sales reversal table.
@@ -725,11 +743,4 @@ def fetch_distinct_years(conn):
     except Exception as e:
         return None, str(e)
 
-from connect_to_db import connect_db
 
-conn = connect_db()
-# years, err = fetch_distinct_years(conn)
-# if not err:
-#     print("Years:", years)
-# else:
-#     print(err)

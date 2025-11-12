@@ -1032,5 +1032,5 @@ if __name__ == "__main__":
     from connect_to_db import connect_db
     conn = connect_db()
     root = tk.Tk()
-    UnpaidOrdersWindow(root, conn, "Sniffy")
+    OrderLogsWindow(root, conn, "Sniffy")
     root.mainloop()

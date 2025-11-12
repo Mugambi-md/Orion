@@ -7,6 +7,7 @@ from working_on_stock import view_all_products
 from base_window import BaseWindow
 from authentication import VerifyPrivilegePopup
 from accounting_export import ReportExporter
+from orders_gui import OrdersWindow
 from sales_popup import (
     SalesControlReportWindow, MonthlySalesSummary, SalesReversalWindow,
     YearlySalesWindow, YearlyProductSales, MonthlyReversalLogs
@@ -258,6 +259,20 @@ class SalesGUI(BaseWindow):
             products = self.current_products
         self.populate_table(products)
 
+    def has_privilege(self, privilege: str) -> bool:
+        """Check if the current user has the required privilege."""
+        dialog = VerifyPrivilegePopup(
+            self.master, self.conn, self.user, privilege
+        )
+        if dialog.result != "granted":
+            messagebox.showwarning(
+                "Access Denied",
+                f"You do not have permission to {privilege}.",
+                parent=self.master
+            )
+            return False
+        return True
+
     def _collect_rows(self):
         rows = []
         for item in self.product_table.get_children():
@@ -274,6 +289,7 @@ class SalesGUI(BaseWindow):
                 "Min Stock": vals[8]
             })
         return rows
+
     def _make_exporter(self):
         title = "Available Products In Stock"
         columns = [
@@ -282,33 +298,21 @@ class SalesGUI(BaseWindow):
         ]
         rows = self._collect_rows()
         return ReportExporter(self.master, title, columns, rows)
+
     def on_export_excel(self):
-        priv = "Export Products Records"
-        if not self._check_privilege(priv):
-            messagebox.showwarning(
-                "Access Denied",
-                f"You do not permission to: {priv}."
-            )
+        if not self.has_privilege("Export Products Records"):
             return
         exporter = self._make_exporter()
         exporter.export_excel()
+
     def on_export_pdf(self):
-        priv = "Export Products Records"
-        if not self._check_privilege(priv):
-            messagebox.showwarning(
-                "Access Denied",
-                f"You do not permission to: {priv}."
-            )
+        if not self.has_privilege("Export Products Records"):
             return
         exporter = self._make_exporter()
         exporter.export_pdf()
+
     def on_print(self):
-        priv = "Export Products Records"
-        if not self._check_privilege(priv):
-            messagebox.showwarning(
-                "Access Denied",
-                f"You do not permission to: {priv}."
-            )
+        if not self.has_privilege("Export Products Records"):
             return
         exporter = self._make_exporter()
         exporter.print()
@@ -321,63 +325,44 @@ class SalesGUI(BaseWindow):
         return getattr(verify_dialog, "result", None) == "granted"
 
     def open_sell_window(self):
-        if not self._check_privilege("Make Sale"):
-            messagebox.showwarning(
-                "Access Denied", "You do not permission to Sell."
-            )
+        if not self.has_privilege("Make Sale"):
             return
         MakeSaleWindow(self.master, self.conn, self.user)
 
     def monthly_summary(self):
-        if not self._check_privilege("Sales Report"):
-            messagebox.showwarning(
-                "Access Denied", "You don't have permission to View Report."
-            )
+        if not self.has_privilege("Sales Report"):
             return
         MonthlySalesSummary(self.master, self.conn)
 
     def sales_records(self):
-        if not self._check_privilege("View Sales Records"):
-            messagebox.showwarning(
-                "Access Denied",
-                "You do not permission to View Sales Records."
-            )
+        if not self.has_privilege("View Sales Records"):
             return
         YearlySalesWindow(self.master, self.conn, self.user)
+
     def sales_analysis(self):
-        if not self._check_privilege("Sales Report"):
-            messagebox.showwarning(
-                "Access Denied", "You don't have permission to View Report."
-            )
+        if not self.has_privilege("Sales Report"):
             return
         YearlyProductSales(self.master, self.conn, self.user)
 
     def monthly_report(self):
-        if not self._check_privilege("Tag Reversal"):
-            messagebox.showwarning(
-                "Access Denied", "You don't have permission to View Report."
-            )
+        if not self.has_privilege("Work On Sales"):
             return
         SalesControlReportWindow(self.master, self.conn, self.user)
 
     def reversal_authorization(self):
-        if not self._check_privilege("Work on Sales"):
-            messagebox.showwarning(
-                "Access Denied", "You do not permission to work on sales."
-            )
+        if not self.has_privilege("Work On Sales"):
             return
         SalesReversalWindow(self.master, self.conn, self.user)
 
     def reversal_logs(self):
-        if not self._check_privilege("Work on Sales"):
-            messagebox.showwarning(
-                "Access Denied", "You do not permission to Work On Sales."
-            )
+        if not self.has_privilege("Work On Sales"):
             return
         MonthlyReversalLogs(self.master, self.conn, self.user)
 
     def orders(self):
-        pass
+        if not self.has_privilege("Work On Order"):
+            return
+        OrdersWindow(self.master, self.conn, self.user)
 
 if __name__ == "__main__":
     from connect_to_db import connect_db

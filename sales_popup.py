@@ -1,3 +1,4 @@
+import re
 import calendar
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
@@ -787,9 +788,17 @@ class YearlyProductSales(BaseWindow):
         self.month_var = tk.BooleanVar()
         self.user_var = tk.BooleanVar()
         self.show_all_var = tk.BooleanVar()
+        # Bold headings
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
+        style.configure("Treeview", font=("Arial", 10), rowheight=30)
         # Frames
-        self.top_frame = tk.Frame(self.master, bg="lightblue")
-        self.filter_frame = tk.Frame(self.master, bg="lightblue")
+        self.main_frame = tk.Frame(
+            self.master, bg="lightblue", bd=4, relief="solid"
+        )
+        self.top_frame = tk.Frame(self.main_frame, bg="lightblue")
+        self.filter_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.year_cb = ttk.Combobox(
             self.top_frame, width=8, values=self.years, state="readonly"
         )
@@ -804,7 +813,7 @@ class YearlyProductSales(BaseWindow):
             self.filter_frame, width=15, state="disabled", values=self.users
         )
         # Title frame + Label
-        self.title_frame = tk.Frame(self.master, bg="lightblue")
+        self.title_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.title = "Products Sales Performance"
         self.title_label = tk.Label(
             self.title_frame,
@@ -814,7 +823,7 @@ class YearlyProductSales(BaseWindow):
             font=("Arial", 14, "bold"),
         )
         # Table Frame
-        self.table_frame = tk.Frame(self.master, bg="lightblue")
+        self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
 
         self.product_table = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
@@ -824,13 +833,14 @@ class YearlyProductSales(BaseWindow):
         self.load_data()
 
     def _build_ui(self):
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         # Fixed Part
         self.top_frame.pack(side="top", fill="x", padx=5)
         self.filter_frame.pack(fill="x", padx=5)
         self.title_frame.pack(pady=(5, 0), fill="x")
         self.title_label.pack(anchor="center")
 
-        self.table_frame.pack(fill="both", expand=True, pady=(0, 5))
+        self.table_frame.pack(fill="both", expand=True)
         tk.Label(
             self.top_frame,
             text="Select Sales Year:",
@@ -909,10 +919,6 @@ class YearlyProductSales(BaseWindow):
         )
         self.product_table.configure(yscrollcommand=vsb.set)
         vsb.pack(side="right", fill="y")
-        # Bold headings
-        style = ttk.Style()
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold", "underline"))
-        style.configure("Treeview", font=("Arial", 10), rowheight=30)
         # Configure headings
         for col in self.columns:
             self.product_table.heading(col, text=col)
@@ -1769,20 +1775,24 @@ class MonthlyReversalLogs(BaseWindow):
         else:
             self.years = years
         self.months = [
-            ("January", 1), ("February", 2), ("March", 3), ("April", 4),
-            ("May", 5), ("June", 6), ("July", 7), ("August", 8),
-            ("September", 9), ("October", 10), ("November", 11), ("December", 12),
+            ("", None), ("January", 1), ("February", 2), ("March", 3),
+            ("April", 4), ("May", 5), ("June", 6), ("July", 7),
+            ("August", 8), ("September", 9), ("October", 10),
+            ("November", 11), ("December", 12),
         ]
         self.columns = [
             "No", "Date", "Receipt", "Product Code", "Product Name", "Price",
             "Quantity", "Refund", "Tagged By", "Authorized By", "Posted",
         ]
-        current_month_num = date.today().month
-        current_month_name = dict((num, name) for name, num in self.months)[
-            current_month_num
-        ]
+        style = ttk.Style(self.window)
+        style.theme_use("clam")
+        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
+        style.configure("Treeview", rowheight=20, font=("Arial", 10))
+        self.main_frame = tk.Frame(
+            self.window, bg="lightblue", bd=4, relief="solid"
+        )
         # Top Frame
-        self.top_frame = tk.Frame(self.window, bg="lightblue")
+        self.top_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.year_cb = ttk.Combobox(
             self.top_frame, values=self.years, state="readonly", width=10
         )
@@ -1791,30 +1801,25 @@ class MonthlyReversalLogs(BaseWindow):
             self.top_frame, values=[name for name, _num in self.months],
             width=12, state="readonly"
         )
-        self.month_cb.set(current_month_name)
         # Table Frame
-        self.table_frame = tk.Frame(self.window, bg="lightblue")
+        self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.title = tk.Label(
-            self.table_frame, text="Reversals For", bg="lightblue",
-            font=("Arial", 14, "bold", "underline")
+            self.main_frame, text="Reversals For", bg="lightblue", bd=4,
+            font=("Arial", 14, "bold", "underline"), relief="raised"
         )
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings", height=20
         )
-        style = ttk.Style(self.window)
-        style.configure("Treeview.Heading", font=(
-            "Arial", 11, "bold", "underline"
-        ))
-        style.configure("Treeview", font=("Arial", 10))
-        style.configure("Treeview", rowheight=20)
 
 
         self.build_ui()
         self.load_data()
 
     def build_ui(self):
-        self.top_frame.pack(fill="x", padx=10)
-        self.table_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        self.title.pack(anchor="center", padx=10)
+        self.top_frame.pack(fill="x", padx=5)
+        self.table_frame.pack(fill="both", expand=True)
         tk.Label(
             self.top_frame, text="Select Year:", bg="lightblue",
             font=("Arial", 11, "bold")
@@ -1829,9 +1834,8 @@ class MonthlyReversalLogs(BaseWindow):
         self.month_cb.bind("<<ComboboxSelected>>", lambda e: self.load_data())
         tk.Button(
             self.top_frame, text="Export PDF", bg="dodgerblue", fg="red",
-            bd=4, relief="raised", command=self.export
-        ).pack(side="right", padx=10)
-        self.title.pack(anchor="center", padx=10)
+            bd=4, relief="groove", command=self.export
+        ).pack(side="right", padx=5)
         for col in self.columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor="center", width=50)
@@ -1848,29 +1852,40 @@ class MonthlyReversalLogs(BaseWindow):
         for item in self.tree.get_children():
             self.tree.delete(item)
         year = int(self.year_cb.get())
-        month = dict(self.months).get(self.month_cb.get())
-        if not year or not month:
+        month = None
+        title = f"Reversals In"
+        if self.month_cb.get():
+            month = dict(self.months).get(self.month_cb.get())
+            month_name = self.month_cb.get()
+            title += f" {month_name}"
+        if not year:
             return
-        month_name = self.month_cb.get()
+        title += f" {year}."
         # Insert into table
-        rows, error = fetch_reversals_by_month(self.conn, year, month)
-        if not error and rows:
-            for i, row in enumerate(rows, start=1):
-                self.tree.insert("", "end", values=(
-                    i,
-                    row["date"],
-                    row["receipt_no"],
-                    row["product_code"],
-                    row["product_name"],
-                    f"{row["unit_price"]:,.2f}",
-                    row["quantity"],
-                    f"{row["refund"]:,.2f}",
-                    row["tag"] if row["tag"] is not None else "",
-                    row["authorized"] if row["authorized"] is not None else "",
-                    row["posted"] if row["posted"] is not None else "",
-                ))
-            self.auto_resize()
-        self.title.configure(text=f"Reversals For {month_name} {year}.")
+        success, rows = fetch_reversals_by_month(self.conn, year, month)
+        if not success:
+            messagebox.showerror(
+                "Error", f"Error Fetching Data: {rows}", parent=self.window
+            )
+            return
+
+        for i, row in enumerate(rows, start=1):
+            name = re.sub(r"\s+", " ", str(row["product_name"])).strip()
+            self.tree.insert("", "end", values=(
+                i,
+                row["date"],
+                row["receipt_no"],
+                row["product_code"],
+                name,
+                f"{row["unit_price"]:,.2f}",
+                row["quantity"],
+                f"{row["refund"]:,.2f}",
+                row["tag"] if row["tag"] is not None else "",
+                row["authorized"] if row["authorized"] is not None else "",
+                row["posted"] if row["posted"] is not None else "",
+            ))
+        self.auto_resize()
+        self.title.configure(text=title)
 
     def auto_resize(self):
         """Resize columns to fit content."""
@@ -1918,3 +1933,9 @@ class MonthlyReversalLogs(BaseWindow):
         exporter = self._make_exporter()
         exporter.export_pdf()
 
+if __name__ == "__main__":
+    from connect_to_db import connect_db
+    conn=connect_db()
+    root=tk.Tk()
+    MonthlyReversalLogs(root, conn, "Sniffy")
+    root.mainloop()

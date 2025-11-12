@@ -13,11 +13,14 @@ def auto_manage_focus(parent):
         else:
             if buttons:
                 entries[i].bind("<Return>", lambda e, btn=buttons[0]: btn.invoke())
+
 def to_uppercase(entry_widget):
     """Convert the value of an entry widget to uppercase."""
     value = entry_widget.get()
     entry_widget.delete(0, "end")
     entry_widget.insert(0, value.upper())
+
 def only_digits(char):
     """Allow only characters."""
     return char.isdigit() or char == '.'
+
