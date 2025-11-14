@@ -351,6 +351,7 @@ def fetch_sales_summary_by_year(conn, year, month=None, user=None):
                 params.append(user)
             query += """
                 GROUP BY si.product_code, si.product_name, p.cost
+                HAVING SUM(si.quantity) > 0
                 ORDER BY total_amount DESC"""
             cursor.execute(query, tuple(params))
             rows = cursor.fetchall()
