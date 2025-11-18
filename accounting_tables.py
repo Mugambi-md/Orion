@@ -168,6 +168,21 @@ def create_accounting_tables(conn):
                     );
                     """)
             print("System Settings Table created Successfully.")
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS finance_logs(
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                log_date DATE NOT NULL,
+                log_time TIME NOT NULL,
+                username VARCHAR(30) NOT NULL,
+                receipt_no VARCHAR(50) NOT NULL,
+                action TEXT NOT NULL,
+                
+                INDEX (log_date),
+                INDEX (username),
+                INDEX (receipt_no)
+                );
+            """)
+            print("Finance Logs Table created Successfully.")
         conn.commit()
     except Exception as e:
         print("Error creating tables:", str(e))

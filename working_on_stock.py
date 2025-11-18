@@ -22,7 +22,7 @@ def insert_new_product(conn, product, user):
     retail = float(product["retail_price"])
     wholesale = float(product["wholesale_price"])
     min_stock = int(product["min_stock_level"])
-    recorder = SalesJournalRecorder(conn)
+    recorder = SalesJournalRecorder(conn, user)
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
@@ -157,7 +157,7 @@ def add_to_existing_product(conn, product: dict, user: str):
         code = product["product_code"]
         add_qty = product.get("quantity", 0)
         date_filled = date.today()
-        recorder = SalesJournalRecorder(conn)
+        recorder = SalesJournalRecorder(conn, user)
         with conn.cursor() as cursor:
             # Fetch current details
             cursor.execute("""

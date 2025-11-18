@@ -10,9 +10,10 @@ from analysis_gui_pie import AnalysisWindow
 from accounting_export import ReportExporter
 from receipt_gui_and_print import ReceiptViewer
 from authentication import VerifyPrivilegePopup
+from log_popups_gui import MonthlyReversalLogs
 from working_sales import (
-    fetch_sales_last_24_hours, fetch_sale_by_year, fetch_reversals_by_month,
-    fetch_sales_summary_by_year, tag_reversal, fetch_distinct_years,
+    fetch_sales_last_24_hours, fetch_sale_by_year,
+    fetch_sales_summary_by_year, tag_reversal,
     get_retail_price, fetch_pending_reversals,
     reject_tagged_reversal, delete_rejected_reversal, authorize_reversal,
     fetch_filter_values, fetch_sales_by_month_and_user,
@@ -111,7 +112,7 @@ class Last24HoursSalesWindow(BaseWindow):
         for i, row in enumerate(data, start=1):
             self.tree.insert("", "end", values=(
                 i,
-                row["sale_date"],
+                row["sale_date"].strftime("%d/%m/%Y"),
                 row["sale_time"],
                 row["receipt_no"],
                 f"{row['total_amount']:,.2f}"
@@ -318,7 +319,7 @@ class MonthlySalesSummary(BaseWindow):
             running_total += amount
             self.tree.insert("", "end", values=(
                 i,
-                row["sale_date"],
+                row["sale_date"].strftime("%d/%m/%Y"),
                 f"{amount:,.2f}",
                 f"{running_total:,.2f}"
             ))
@@ -544,7 +545,10 @@ class YearlySalesWindow(BaseWindow):
                 user = self.user_cb.get()
         rows, err = fetch_sale_by_year(self.conn, year, month, user)
         if err:
-            messagebox.showerror("Error", f"Failed to fetch sales:\n{err}")
+            messagebox.showerror(
+                "Error", f"Failed to fetch sales:\n{err}.",
+                parent=self.master
+            )
             return
         cumulative_total = 0
         for idx, row in enumerate(rows, start=1):
@@ -552,7 +556,7 @@ class YearlySalesWindow(BaseWindow):
             tag = "evenrow" if idx % 2 == 0 else "oddrow"
             self.product_table.insert("", "end", values=(
                 idx,
-                row["sale_date"],
+                row["sale_date"].strftime("%d/%m/%Y"),
                 row["receipt_no"],
                 row["user"],
                 f"{row["total_amount"]:,.2f}",
@@ -1121,7 +1125,7 @@ class SalesControlReportWindow(BaseWindow):
         )
         style = ttk.Style(self.report_win)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 11, "bold"))
+        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
         style.configure("Treeview", rowheight=25, font=("Arial", 10))
 
         self.setup_widgets()
@@ -1315,7 +1319,7 @@ class SalesControlReportWindow(BaseWindow):
             tag = "evenrow" if i % 2 == 0 else "oddrow"
             self.tree.insert("", "end", values=(
                 i,
-                row["date"],
+                row["date"].strftime("%d/%m/%Y"),
                 row["user"],
                 row["receipt_no"],
                 row["product_code"],
@@ -1549,7 +1553,7 @@ class SalesReversalWindow(BaseWindow):
             tag = "evenrow" if i % 2 == 0 else "oddrow"
             self.tree.insert("", "end", values=(
                 i,
-                row["date"],
+                row["date"].strftime("%d/%m/%Y"),
                 row["receipt_no"],
                 row["product_code"],
                 row["product_name"],
@@ -1716,184 +1720,3 @@ class SalesReversalWindow(BaseWindow):
             messagebox.showerror("Error", msg, parent=self.window)
 
 
-class MonthlyReversalLogs(BaseWindow):
-    def __init__(self, parent, conn, user):
-        self.window = tk.Toplevel(parent)
-        self.window.title("Monthly Reversal Logs")
-        self.window.configure(bg="lightblue")
-        self.center_window(self.window, 1250, 700, parent)
-        self.window.transient(parent)
-        self.window.grab_set()
-
-        self.conn = conn
-        self.user = user
-        years, err = fetch_distinct_years(self.conn)
-        if err:
-            self.years = date.today().year
-        else:
-            self.years = years
-        self.months = [
-            ("", None), ("January", 1), ("February", 2), ("March", 3),
-            ("April", 4), ("May", 5), ("June", 6), ("July", 7),
-            ("August", 8), ("September", 9), ("October", 10),
-            ("November", 11), ("December", 12),
-        ]
-        self.columns = [
-            "No", "Date", "Receipt", "Product Code", "Product Name", "Price",
-            "Quantity", "Refund", "Tagged By", "Authorized By", "Posted",
-        ]
-        style = ttk.Style(self.window)
-        style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", rowheight=20, font=("Arial", 10))
-        self.main_frame = tk.Frame(
-            self.window, bg="lightblue", bd=4, relief="solid"
-        )
-        # Top Frame
-        self.top_frame = tk.Frame(self.main_frame, bg="lightblue")
-        self.year_cb = ttk.Combobox(
-            self.top_frame, values=self.years, state="readonly", width=10
-        )
-        self.year_cb.current(0)
-        self.month_cb = ttk.Combobox(
-            self.top_frame, values=[name for name, _num in self.months],
-            width=12, state="readonly"
-        )
-        # Table Frame
-        self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
-        self.title = tk.Label(
-            self.main_frame, text="Reversals For", bg="lightblue", bd=4,
-            font=("Arial", 14, "bold", "underline"), relief="raised"
-        )
-        self.tree = ttk.Treeview(
-            self.table_frame, columns=self.columns, show="headings", height=20
-        )
-
-
-        self.build_ui()
-        self.load_data()
-
-    def build_ui(self):
-        self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        self.title.pack(anchor="center", padx=10)
-        self.top_frame.pack(fill="x", padx=5)
-        self.table_frame.pack(fill="both", expand=True)
-        tk.Label(
-            self.top_frame, text="Select Year:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).pack(side="left", padx=(10, 5))
-        self.year_cb.pack(side="left", padx=(0, 10))
-        self.year_cb.bind("<<ComboboxSelected>>", lambda e: self.load_data())
-        tk.Label(
-            self.top_frame, text="Select Month:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).pack(side="left", padx=(10, 5))
-        self.month_cb.pack(side="left", padx=(0, 10))
-        self.month_cb.bind("<<ComboboxSelected>>", lambda e: self.load_data())
-        tk.Button(
-            self.top_frame, text="Export PDF", bg="dodgerblue", fg="red",
-            bd=4, relief="groove", command=self.export
-        ).pack(side="right", padx=5)
-        for col in self.columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", width=50)
-        vsb = ttk.Scrollbar(
-            self.table_frame, orient="vertical", command=self.tree.yview
-        )
-        self.tree.configure(yscrollcommand=vsb.set)
-        vsb.pack(side="right", fill="y")
-        self.tree.pack(side="left", fill="both", expand=True)
-
-    def load_data(self):
-        """Load Reversals for selected year and month."""
-        # Clear old data
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        year = int(self.year_cb.get())
-        month = None
-        title = f"Reversals In"
-        if self.month_cb.get():
-            month = dict(self.months).get(self.month_cb.get())
-            month_name = self.month_cb.get()
-            title += f" {month_name}"
-        if not year:
-            return
-        title += f" {year}."
-        # Insert into table
-        success, rows = fetch_reversals_by_month(self.conn, year, month)
-        if not success:
-            messagebox.showerror(
-                "Error", f"Error Fetching Data: {rows}", parent=self.window
-            )
-            return
-
-        for i, row in enumerate(rows, start=1):
-            name = re.sub(r"\s+", " ", str(row["product_name"])).strip()
-            self.tree.insert("", "end", values=(
-                i,
-                row["date"],
-                row["receipt_no"],
-                row["product_code"],
-                name,
-                f"{row["unit_price"]:,.2f}",
-                row["quantity"],
-                f"{row["refund"]:,.2f}",
-                row["tag"] if row["tag"] is not None else "",
-                row["authorized"] if row["authorized"] is not None else "",
-                row["posted"] if row["posted"] is not None else "",
-            ))
-        self.auto_resize()
-        self.title.configure(text=title)
-
-    def auto_resize(self):
-        """Resize columns to fit content."""
-        font = tkFont.Font()
-        for col in self.columns:
-            # Start with the column header width
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                max_width = max(max_width, font.measure(text))
-            # Add Padding for readability
-            self.tree.column(col, width=max_width + 3)
-
-    def _collect_rows(self):
-        rows = []
-        for item in self.tree.get_children():
-            vals = self.tree.item(item, "values")
-            rows.append(
-                {
-                    "No": vals[0],
-                    "Date": vals[1],
-                    "Receipt": vals[2],
-                    "Product Code": vals[3],
-                    "Product Name": vals[4],
-                    "Price": vals[5],
-                    "Quantity": vals[6],
-                    "Refund": vals[7],
-                    "Tagged By": vals[8],
-                    "Authorized By": vals[9],
-                    "Posted": vals[10],
-                }
-            )
-        return rows
-
-    def _make_exporter(self):
-        title = f"Reversals For {self.month_cb.get()} {self.year_cb.get()}."
-        columns = [
-            "No", "Date", "Receipt", "Product Code", "Product Name", "Price",
-            "Quantity", "Refund", "Tagged By", "Authorized By", "Posted",
-        ]
-        rows = self._collect_rows()
-        return ReportExporter(self.window, title, columns, rows)
-    def export(self):
-        """Export data to PDF."""
-        exporter = self._make_exporter()
-        exporter.export_pdf()
-
-if __name__ == "__main__":
-    from connect_to_db import connect_db
-    conn=connect_db()
-    root=tk.Tk()
-    Last24HoursSalesWindow(root, conn, "Sniffy")
-    root.mainloop()

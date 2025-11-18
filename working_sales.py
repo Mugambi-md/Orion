@@ -13,10 +13,10 @@ class SalesManager:
             "Inventory": {"type": "Asset", "description": "Stock Value"}
         }
 
-    def finalize_sales(self, receipt_no, amount_paid, cost):
+    def finalize_sales(self, receipt_no, amount_paid, cost, user):
         """Finalize the sale by recording journal entries in the
         accounting system."""
-        recorder = SalesJournalRecorder(self.conn)
+        recorder = SalesJournalRecorder(self.conn, user)
         transaction_lines = [
             {"account_name": "Cash", "debit": float(amount_paid),
              "credit": 0, "description": "Cash Sales"},
@@ -115,7 +115,9 @@ class SalesManager:
                 self.conn.rollback()
                 return False, f"Error Calculating Cost: {error}"
             # Record Journal entries
-            success, err = self.finalize_sales(receipt_no, amount_paid, cost)
+            success, err = self.finalize_sales(
+                receipt_no, amount_paid, cost, user
+            )
             if not success:
                 self.conn.rollback()
                 return False, f"Error Recording Books of Accounts: {err}"
@@ -528,8 +530,8 @@ def reject_tagged_reversal(conn, receipt_no, product_code, username):
 
 
 def delete_rejected_reversal(conn, receipt_no, product_code, username):
-    """Delete a specific reversal where authorized = 'Rejected' using receipt,
-    product code and user."""
+    """Delete a specific reversal where authorized = 'Rejected' using
+    receipt, product code and user."""
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
@@ -571,11 +573,13 @@ def post_reversal(conn, receipt, code, user, qty, price):
             if not record:
                 return False, "Reversal Record not Found."
             if not record["tag"] or not record["authorized"]:
-                return False, "Reversal Must be Tagged and Authorized for posting."
+                return False, "Reversal be Tagged/Authorized For Posting."
             if record["posted"]:
                 return False, "Reversal Already posted."
             # Update sale item and related tables
-            success, err = update_sale_item(conn, receipt, code, qty, price)
+            success, err = update_sale_item(
+                conn, receipt, code, qty, price, user
+            )
             if not success:
                 conn.rollback()
                 return False, f"Failed to update sale item: {err}"
@@ -604,7 +608,7 @@ def post_reversal(conn, receipt, code, user, qty, price):
         return False, f"Error Posting reversal: {str(e)}"
 
 
-def update_sale_item(conn, receipt_no, product_code, quantity, unit_price):
+def update_sale_item(conn, receipt_no, code, quantity, unit_price, user):
     """Updates product quantity after reversal, reducing quantity sold,
     total sale amount and increasing available quantity."""
     try:
@@ -615,7 +619,7 @@ def update_sale_item(conn, receipt_no, product_code, quantity, unit_price):
                 SET quantity = GREATEST(quantity - %s, 0),
                     unit_price = %s
                 WHERE receipt_no = %s AND product_code = %s
-            """, (quantity, unit_price, receipt_no, product_code))
+            """, (quantity, unit_price, receipt_no, code))
             # Reduce total amount in sales table using receipt number
             total_cost = quantity * unit_price
             cursor.execute("""
@@ -628,8 +632,8 @@ def update_sale_item(conn, receipt_no, product_code, quantity, unit_price):
                 UPDATE products
                 SET quantity = quantity + %s
                 WHERE product_code = %s
-            """, (quantity, product_code))
-        recorder = SalesJournalRecorder(conn)
+            """, (quantity, code))
+        recorder = SalesJournalRecorder(conn, user)
         accounts = {
             "Sales Revenue": {"type": "Revenue",
                               "description": "Income from sales"},
@@ -744,4 +748,58 @@ def fetch_distinct_years(conn):
     except Exception as e:
         return None, str(e)
 
+def fetch_sales_logs(conn, year, month=None, username=None):
+    """Fetch logs from Finance logs table filtered by year, and optionally
+    by month, username and section.
+    Returns: (bool, list or str): (True, [rows]) on success,
+    (False, error_msg) on failure."""
+    try:
+        with conn.cursor(dictionary=True) as cursor:
+            query = """
+                SELECT date, time, product_code, receipt_no, description, user
+                FROM sales_control
+                WHERE YEAR(date) = %s
+            """
+            params = [year]
+
+            # Optional filters
+            if month:
+                query += " AND MONTH(date) = %s"
+                params.append(month)
+            if username:
+                query += " AND user = %s"
+                params.append(username)
+
+            # Order by most recent first
+            query += " ORDER BY date DESC, time DESC;"
+            cursor.execute(query, tuple(params))
+            rows = cursor.fetchall()
+            return True, rows
+    except Exception as e:
+        return False, f"Error: {str(e)}."
+
+
+def fetch_sales_control_log_filter_data(conn):
+    """Fetch distinct years, usernames and sections from the logs table.
+    Returns all three in one query for GUI filtering."""
+    try:
+        with conn.cursor() as cursor:
+            # Distinct years
+            cursor.execute("""
+                SELECT DISTINCT YEAR(date) as year
+                FROM sales_control ORDER BY year DESC;
+            """)
+            years = [row[0] for row in cursor.fetchall()]
+            # Distinct usernames
+            cursor.execute("""
+                SELECT DISTINCT user
+                FROM sales_control ORDER BY user ASC;
+            """)
+            usernames = [row[0] for row in cursor.fetchall()]
+        return True, {
+            "years": years,
+            "usernames": usernames
+        }
+    except Exception as e:
+        return False, f"Error Fetching Data: {str(e)}."
 

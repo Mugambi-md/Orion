@@ -17,7 +17,7 @@ class EmployeeManagementWindow(BaseWindow):
         self.window = tk.Toplevel(parent)
         self.window.title("Employee Management")
         self.window.configure(bg="lightgreen")
-        self.center_window(self.window, 1300, 650, parent)
+        self.center_window(self.window, 1300, 700, parent)
         self.window.transient(parent)
         self.window.grab_set()
 
@@ -35,8 +35,8 @@ class EmployeeManagementWindow(BaseWindow):
         ]
         style = ttk.Style()
         style.theme_use("alt")
-        style.configure("Treeview.Heading", font=("Arial", 11, "bold"))
-        style.configure("Treeview", font=("Arial", 10))
+        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
+        style.configure("Treeview", font=("Arial", 11))
         self.main_frame = tk.Frame(
             self.window, bg="lightgreen", bd=4, relief="solid"
         )
@@ -89,9 +89,10 @@ class EmployeeManagementWindow(BaseWindow):
         self.right_frame.pack(side="left", expand=True, fill="both")
         self.top_frame.pack(fill="x") # Top Title Frame
         tk.Label(
-            self.top_frame, text="Current Employees Information", bg="lightgreen",
-            font=("Arial", 16, "bold", "underline")
-        ).pack(side="left", padx=10)
+            self.top_frame, text="Current Employees Information", bd=2,
+            relief="ridge", font=("Arial", 16, "bold", "underline"),
+            bg="lightgreen", fg="blue"
+        ).pack(side="left", padx=20, ipadx=10)
         # Top Button Frame
         self.btn_frame.pack(side="right", padx=5)
         tk.Label(
@@ -139,6 +140,8 @@ class EmployeeManagementWindow(BaseWindow):
         self.tree.bind(
             "<Button-5>", lambda e: self.tree.yview_scroll(1, "units")
         )
+        self.tree.tag_configure("evenrow", background="#fffde7")
+        self.tree.tag_configure("oddrow", background="#e0f7e9")
 
     def load_data(self, data=None):
         for row in self.tree.get_children():
@@ -148,8 +151,8 @@ class EmployeeManagementWindow(BaseWindow):
             current_data = self.all_data
         else:
             current_data = data
-
         for i, row in enumerate(current_data, start=1):
+            tag = "evenrow" if i % 2 == 0 else "oddrow"
             self.tree.insert("", "end", values=(
                 i,
                 row["name"],
@@ -162,7 +165,7 @@ class EmployeeManagementWindow(BaseWindow):
                 row["email"],
                 f"{row['salary']:,.2f}",
                 row["status"]
-            ))
+            ), tags=(tag,))
         self.autosize_columns()
 
     def filter_table(self, event=None):

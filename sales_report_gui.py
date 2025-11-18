@@ -8,9 +8,10 @@ from base_window import BaseWindow
 from authentication import VerifyPrivilegePopup
 from accounting_export import ReportExporter
 from orders_gui import OrdersWindow
+from log_popups_gui import SalesLogsWindow, MonthlyReversalLogs
 from sales_popup import (
     SalesControlReportWindow, MonthlySalesSummary, SalesReversalWindow,
-    YearlySalesWindow, YearlyProductSales, MonthlyReversalLogs
+    YearlySalesWindow, YearlyProductSales
 )
 
 class SalesGUI(BaseWindow):
@@ -30,30 +31,33 @@ class SalesGUI(BaseWindow):
             "No", "Product Code", "Product Name", "Description", "Quantity",
             "Cost", "Retail Price", "W.Sale Price", "Min Stock"
         ]
+        self.main_frame = tk.Frame(
+            self.master, bg="blue", bd=4, relief="solid"
+        )
         # Left Frame Nav Buttons
-        self.left_frame = tk.Frame(self.master, bg="blue")
-        self.center_frame = tk.Frame(self.master, bg="blue")
+        self.left_frame = tk.Frame(self.main_frame, bg="blue")
+        self.center_frame = tk.Frame(self.main_frame, bg="blue")
         # Top Frame search and sort controls
         self.top_controls = tk.Frame(self.center_frame, bg="blue")
         self.search_mode = ttk.Combobox(
-            self.top_controls, values=["Name", "Code"], width=10,
-            state="readonly"
+            self.top_controls, values=["Name", "Code"], width=5,
+            state="readonly", font=("Arial", 11)
         )
         self.search_label = tk.Label(
-            self.top_controls, text="Enter Product Name to Search:",
-            bg="blue", fg="white", font=("Arial", 11, "bold")
+            self.top_controls, text="Search Product Name:", bg="blue",
+            fg="white", font=("Arial", 12, "bold")
         )
         self.search_entry = tk.Entry(
-            self.top_controls, width=20, font=("Arial", 11), bd=2,
+            self.top_controls, width=15, font=("Arial", 11), bd=4,
             relief="raised"
         )
         self.sort_column = ttk.Combobox(
             self.top_controls, width=7, values=["Name", "Code", "Quantity"],
-            state="readonly"
+            state="readonly", font=("Arial", 11)
         )
         self.sort_order = ttk.Combobox(
             self.top_controls, values=["Ascending", "Descending"], width=11,
-            state="readonly"
+            state="readonly", font=("Arial", 11)
         )
         self.btn_frame = tk.Frame(self.top_controls, bg="lightblue")
         # Table Treeview
@@ -67,7 +71,8 @@ class SalesGUI(BaseWindow):
         self.sort_table()
 
     def build_ui(self):
-        self.left_frame.pack(padx=5, side="top", fill="x")
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        self.left_frame.pack(pady=5, side="top", fill="x", padx=10)
         buttons = {
             "Sell": self.open_sell_window,
             "Orders": self.orders,
@@ -76,23 +81,25 @@ class SalesGUI(BaseWindow):
             "Product Impact": self.sales_analysis,
             "Tag Sale Reversal": self.monthly_report,
             "Reversal Posting": self.reversal_authorization,
-            "Reversal Logs": self.reversal_logs
+            "Reversal Logs": self.reversal_logs,
+            "Sales Logs": self.sales_logs
         }
         for text, command in buttons.items():
             tk.Button(
-                self.left_frame, text=text, command=command, bd=6, width=len(text),
-                relief="ridge", bg="lightblue"
+                self.left_frame, text=text, command=command, bd=4, fg="white",
+                relief="groove", bg="dodgerblue", font=("Arial", 10, "bold")
             ).pack(side="left")
-        self.center_frame.pack(padx=5, pady=(0, 5), expand=True, fill="both")
+        self.center_frame.pack(fill="both", expand=True)
         self.top_controls.pack(fill="x")
         # Table Title
         tk.Label(
-            self.center_frame, text="Available Products In Stock", fg="white",
-            bg="blue", font=("Arial", 16, "bold")
-        ).pack(anchor="center", padx=10, pady=(5, 0))
+            self.center_frame, text="Available Products In Stock",
+            bg="blue", fg="white", bd=2, relief="ridge",
+            font=("Arial", 16, "bold", "underline")
+        ).pack(anchor="center", ipadx=10, pady=(5, 0))
         tk.Label(
             self.top_controls, text="Search By:", bg="blue", fg="white",
-            font=("Arial", 11, "bold")
+            font=("Arial", 12, "bold")
         ).pack(side="left", padx=(5, 0))
         self.search_mode.current(0)
         self.search_mode.pack(side="left", padx=(0, 3))
@@ -130,9 +137,9 @@ class SalesGUI(BaseWindow):
             command=self.product_table.yview
         )
         style = ttk.Style()
-        style.configure("Treeview", rowheight=20)
+        style.theme_use("clam")
+        style.configure("Treeview", rowheight=20, font=("Arial", 10))
         style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", font=("Arial", 10))
         for col in self.columns:  # Set up headings
             self.product_table.heading(col, text=col)
             self.product_table.column(col, anchor="center", width=20)
@@ -185,7 +192,6 @@ class SalesGUI(BaseWindow):
                 r"\s+", " ", str(product["product_name"])
             ).strip()
             description = format_description(product["description"] or "")
-
             row = [
                 idx,
                 code,
@@ -217,9 +223,9 @@ class SalesGUI(BaseWindow):
 
     def update_search_label(self, event=None):
         if self.search_mode.get() == "Code":
-            self.search_label.config(text="Enter Product Code to Search:")
+            self.search_label.config(text="Search Product Code:")
         else:
-            self.search_label.config(text="Enter Product Name to Search:")
+            self.search_label.config(text="Search Product Name:")
     def filter_table(self, event=None):
         keyword = self.search_entry.get().lower()
         mode = self.search_mode.get()
@@ -317,13 +323,6 @@ class SalesGUI(BaseWindow):
         exporter = self._make_exporter()
         exporter.print()
 
-    def _check_privilege(self, privilege):
-        priv = privilege
-        verify_dialog = VerifyPrivilegePopup(
-            self.master, self.conn, self.user, priv
-        )
-        return getattr(verify_dialog, "result", None) == "granted"
-
     def open_sell_window(self):
         if not self.has_privilege("Make Sale"):
             return
@@ -345,7 +344,7 @@ class SalesGUI(BaseWindow):
         YearlyProductSales(self.master, self.conn, self.user)
 
     def monthly_report(self):
-        if not self.has_privilege("Work On Sales"):
+        if not self.has_privilege("Sales Report"):
             return
         SalesControlReportWindow(self.master, self.conn, self.user)
 
@@ -355,9 +354,14 @@ class SalesGUI(BaseWindow):
         SalesReversalWindow(self.master, self.conn, self.user)
 
     def reversal_logs(self):
-        if not self.has_privilege("Work On Sales"):
+        if not self.has_privilege("View Sales Logs"):
             return
         MonthlyReversalLogs(self.master, self.conn, self.user)
+
+    def sales_logs(self):
+        if not self.has_privilege("View Sales Logs"):
+            return
+        SalesLogsWindow(self.master, self.conn, self.user)
 
     def orders(self):
         if not self.has_privilege("Work On Order"):
@@ -369,5 +373,5 @@ if __name__ == "__main__":
     conn = connect_db()
     root = tk.Tk()
     # root.withdraw()
-    app=SalesGUI(root, conn, "Johnie")
+    app=SalesGUI(root, conn, "Sniffy")
     root.mainloop()

@@ -1,4 +1,6 @@
 from datetime import date
+from datetime import datetime
+from working_on_employee import insert_logs
 
 def check_account_name_exists(conn, prefix):
     try:
@@ -12,22 +14,29 @@ def check_account_name_exists(conn, prefix):
     except Exception as e:
         return f"Error checking account name: {str(e)}"
 
-def insert_account(conn, account_name, account_type, code, description):
+def insert_account(conn, account_name, account_type, code, descr, username):
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-            INSERT INTO chart_of_accounts (account_name, account_type, code, description)
+            INSERT INTO chart_of_accounts
+                (account_name, account_type, code, description)
             VALUES (%s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
                 account_name=VALUES(account_name),
                 account_type=VALUES(account_type),
                 description=VALUES(description)
-            """, (account_name, account_type, code, description))
+            """, (account_name, account_type, code, descr))
+        name = account_name.title()
+        action = f"Created Account '{name}'. Description: {descr}."
+        success, msg = insert_finance_log(conn, username, code, action)
+        if not success:
+            conn.rollback()
+            return False, f"Error: {msg}."
         conn.commit()
-        return f"Account '{account_name}' inserted/updated successfully."
+        return True, f"Account '{account_name}' Inserted."
     except Exception as e:
         conn.rollback()
-        return f"Error inserting account: {str(e)}"
+        return False, f"Error Creating Account: {str(e)}."
 
 def count_accounts_by_type(conn, account_type):
     """Returns the number of accounts for the given account_type.
@@ -43,8 +52,9 @@ def count_accounts_by_type(conn, account_type):
     except Exception as e:
         return f"Error counting accounts: {str(e)}"
 
-def insert_journal_entry(conn, reference_no, line_items):
-    """Insert a journal entry and its associated lines. Returns a success message or error message"""
+def insert_journal_entry(conn, reference_no, line_items, username):
+    """Insert a journal entry and its associated lines.
+    Returns a success message or error message."""
     try:
         with conn.cursor() as cursor:
             today = date.today()
@@ -56,25 +66,36 @@ def insert_journal_entry(conn, reference_no, line_items):
             journal_id = cursor.lastrowid
             # Insert lines
             for line in line_items:
+                code = line['account_code']
+                desc = line.get('description', '')
                 cursor.execute("""
                 INSERT INTO journal_entry_lines (journal_id, account_code,
                     description, debit, credit)
                 VALUES (%s, %s, %s, %s, %s)
                 """, (
                     journal_id,
-                    line['account_code'],
-                    line.get('description', ''),
+                    code,
+                    desc,
                     line.get('debit', 0.00),
                     line.get('credit', 0.00)
                 ))
+                entry = "Debited" if line.get("debit") > 0 else "Credited"
+                action = f"{entry} Account {code} ({desc})."
+                success, msg = insert_finance_log(
+                    conn, username, code, action
+                )
+                if not success:
+                    conn.rollback()
+                    return False, f"Error: {msg}."
         conn.commit()
-        return True, f"Journal entry #{journal_id} recorded successfully."
+        return True, f"Journal entry #{journal_id} Recorded."
     except Exception as e:
         conn.rollback()
         return False, f"Error inserting journal: {str(e)}"
 
 def get_account_name_and_code(conn):
-    """Returns a single account dict {'account_name':..., 'code':...} Matching either account name or code."""
+    """Returns a single account dict {'account_name':..., 'code':...}
+    Matching either account name or code."""
     try:
         with conn.cursor(dictionary=True) as cursor:
             cursor.execute(
@@ -82,7 +103,8 @@ def get_account_name_and_code(conn):
             )
             return cursor.fetchall()
     except Exception as e:
-        return f"Error fetching account: {e}"
+        return f"Error fetching account: {str(e)}."
+
 def get_account_by_name_or_code(conn, value):
     try:
         with conn.cursor(dictionary=True) as cursor:
@@ -115,8 +137,9 @@ def get_income_statement(conn):
         return False, f"Error fetching income statement: {str(e)}"
 
 
-def insert_opening_balance(conn, opening_lines):
-    """Inserts an opening balance journal entry once, Returns (Success, Message)."""
+def insert_opening_balance(conn, opening_lines, username):
+    """Inserts an opening balance journal entry once,
+    Returns (Success, Message)."""
     try:
         with conn.cursor() as cursor:
             # Check if opening balance already exists
@@ -126,7 +149,7 @@ def insert_opening_balance(conn, opening_lines):
                     """)
             (existing_count,) = cursor.fetchone()
             if existing_count > 0:
-                return False, "Opening balance already recorded. Cannot insert again."
+                return False, "Opening balance already recorded."
             # Insert new opening balance journal
             today = date.today()
             ref = f"OB-{today.year}"
@@ -136,25 +159,33 @@ def insert_opening_balance(conn, opening_lines):
                     """, (today, ref))
             journal_id = cursor.lastrowid
             for line in opening_lines:
+                code = line["account_code"]
+                desc = line.get("description", "Opening Balance")
                 cursor.execute("""
-                        INSERT INTO journal_entry_lines (journal_id, account_code, description, debit, credit)
-                        VALUES (%s, %s, %s, %s, %s)
-                        """, (
-                    journal_id,
-                    line["account_code"],
-                    line.get("description", "Opening Balance"),
-                    line.get("debit", 0.00),
+                INSERT INTO journal_entry_lines 
+                    (journal_id, account_code, description, debit, credit)
+                VALUES (%s, %s, %s, %s, %s)
+                """, (
+                    journal_id, code, desc, line.get("debit", 0.00),
                     line.get("credit", 0.00)
                 ))
+                entry = "Debited" if line.get("debit") > 0 else "Credited"
+                action = f"{entry} Account {code} (Inserted {desc})."
+                success, msg = insert_finance_log(
+                    conn, username, code, action
+                )
+                if not success:
+                    conn.rollback()
+                    return False, f"Error: {msg}."
         conn.commit()
-        return True, f"Opening balance Journal #{journal_id} recorded successfully."
+        return True, f"Opening Balance Journal #{journal_id} Recorded."
     except Exception as e:
         conn.rollback()
-        return False, f"Error inserting opening balance: {str(e)}"
+        return False, f"Error Recording Opening Balance: {str(e)}."
 
 def fetch_chart_of_accounts(conn):
-    """Fetch account name, account type, code and description from chart of accounts table.
-    Returns a list of dictionaries."""
+    """Fetch account name, account type, code and description
+    from chart of accounts table. Returns a list of dictionaries."""
     try:
         with conn.cursor(dictionary=True) as cursor:
             cursor.execute("""
@@ -165,7 +196,7 @@ def fetch_chart_of_accounts(conn):
             accounts = cursor.fetchall()
             return accounts, []
     except Exception as e:
-        return f"Error fetching chart of accounts: {str(e)}", []
+        return f"Error fetching chart of accounts: {str(e)}.", []
 
 def fetch_journal_lines_by_account_code(conn, account_code):
     """Fetch journal account and account name for specific account code."""
@@ -186,22 +217,24 @@ def fetch_journal_lines_by_account_code(conn, account_code):
             results = cursor.fetchall()
             return results
     except Exception as e:
-        return f"Error fetching journal lines: {str(e)}"
+        return f"Error fetching journal lines: {str(e)}."
 
-def reverse_journal_entry(conn, original_journal_id):
+def reverse_journal_entry(conn, original_journal_id, username):
     """Reverses a journal entry by inserting a new entry with opposite
     debit/ credit values."""
     try:
         with conn.cursor(dictionary=True) as cursor:
             cursor.execute("""
-                SELECT jel.account_code, jel.description, jel.debit, jel.credit, je.reference_no
-                FROM journal_entry_lines jel
-                JOIN journal_entries je ON jel.journal_id = je.journal_id
-                WHERE jel.journal_id=%s
+            SELECT jel.account_code, jel.description, jel.debit, jel.credit,
+                je.reference_no
+            FROM journal_entry_lines jel
+            JOIN journal_entries je ON jel.journal_id = je.journal_id
+            WHERE jel.journal_id=%s
                 """, (original_journal_id,))
             original_lines = cursor.fetchall()
             if not original_lines:
-                return f"No journal found for journal ID {original_journal_id}."
+                or_id = original_journal_id
+                return False, f"No Journal Found of ID {or_id}."
             # Create reversal entry
             today = date.today()
             reversal_reference = f"Reversal of #{original_journal_id}"
@@ -211,19 +244,27 @@ def reverse_journal_entry(conn, original_journal_id):
                 """, (today, reversal_reference))
             new_journal_id = cursor.lastrowid
             for line in original_lines:
+                code = line["account_code"]
                 cursor.execute("""
-                    INSERT INTO journal_entry_lines (journal_id, account_code,
-                        description, debit, credit)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """, (
+                INSERT INTO journal_entry_lines
+                    (journal_id, account_code, description, debit, credit)
+                VALUES (%s, %s, %s, %s, %s)
+                """, (
                     new_journal_id,
-                    line["account_code"],
+                    code,
                     f"Reversal: {line['description']}",
                     line["credit"], # Reversed
                     line["debit"] # Reversed
                 ))
+                action = f"Reversed Entry of Account {code}."
+                success, msg = insert_finance_log(
+                    conn, username, code, action
+                )
+                if not success:
+                    conn.rollback()
+                    return False, f"Error Recording Logs: {msg}."
         conn.commit()
-        return True, f"Reversed journal successfully for original ID #{original_journal_id}."
+        return True, f"Reversed Journal ID #{original_journal_id}."
     except Exception as e:
         conn.rollback()
         return False, f"Error reversing journal entry: {str(e)}."
@@ -337,7 +378,7 @@ def get_balance_sheet(conn):
     except Exception as e:
         return f"Error fetching balance sheet: {str(e)}"
 
-def delete_journal_entry(conn, journal_id):
+def delete_journal_entry(conn, journal_id, code, username):
     try:
         with conn.cursor() as cursor:
             # Delete related journal entry lines first
@@ -350,11 +391,18 @@ def delete_journal_entry(conn, journal_id):
                 DELETE FROM journal_entries
                 WHERE journal_id = %s
                 """, (journal_id,))
+        action = f"Deleted Entry ID {journal_id} From Account {code}."
+        success, msg = insert_finance_log(
+            conn, username, code, action
+        )
+        if not success:
+            conn.rollback()
+            return False, f"Error Recording Logs: {msg}."
         conn.commit()
-        return f"Journal entry {journal_id} deleted successfully."
+        return True, f"Journal Entry {journal_id} Deleted."
     except Exception as e:
         conn.rollback()
-        return f"Error deleting journal entry: {str(e)}"
+        return False, f"Error Deleting Journal Entry: {str(e)}."
 
 
 class SalesJournalRecorder:
@@ -365,9 +413,10 @@ class SalesJournalRecorder:
         "Revenue": 4,
         "Expense": 5
     }
-    def __init__(self, conn):
+    def __init__(self, conn, user):
         """Initialize with a Mysql connection."""
         self.conn = conn
+        self.user = user
     def ensure_accounts_exist(self, account_details):
         """
         Ensure all accounts in account_details exist in chart of accounts.
@@ -390,7 +439,11 @@ class SalesJournalRecorder:
                     code = int(f"{prefix * 10}{count + 1:03d}")
                     # Insert new account
                     descr = info.get("description", "")
-                    insert_account(self.conn, name, account_type, code, descr)
+                    success, msg = insert_account(
+                        self.conn, name, account_type, code, descr, self.user
+                    )
+                    if not success:
+                        return False, f"Error Creating Account: {msg}."
                     # store code for later use
                     account_codes[name] = code
             return True, account_codes
@@ -411,14 +464,14 @@ class SalesJournalRecorder:
         except Exception as e:
             return False, str(e)
 
-    def insert_journal_lines(self, journal_id, lines, account_codes):
+    def insert_journal_lines(self, journal_id, lines, account_codes, receipt):
         """Insert debit and credit lines into journal_entry_lines."""
         try:
             with self.conn.cursor() as cursor:
                 for line in lines:
                     acc_name = line["account_name"]
-                    account_code = account_codes.get(acc_name)
-                    if not account_code:
+                    acc_code = account_codes.get(acc_name)
+                    if not acc_code:
                         raise ValueError(f"Acc Code of  {acc_name} not found")
                     cursor.execute("""
                     INSERT INTO journal_entry_lines(journal_id, account_code,
@@ -426,11 +479,18 @@ class SalesJournalRecorder:
                     VALUES (%s, %s, %s, %s, %s)
                     """, (
                         journal_id,
-                        account_code,
+                        acc_code,
                         line.get("description", ""),
                         line.get("debit", 0.00),
                         line.get("credit", 0.00)
                     ))
+                    action = f"Recorded Sale Receipt No.{receipt}."
+                    success, msg = insert_finance_log(
+                        self.conn, self.user, acc_code, action
+                    )
+                    if not success:
+                        self.conn.rollback()
+                        return False, f"Error Recording Logs: {msg}."
                 self.conn.commit()
                 return True, "Journal Recorded Successfully."
         except Exception as e:
@@ -452,10 +512,112 @@ class SalesJournalRecorder:
                 return False, journal_result
             journal_id = journal_result
             # 3. Insert journal lines
-            ok, msg = self.insert_journal_lines(journal_id, transaction_lines, codes)
+            ok, msg = self.insert_journal_lines(
+                journal_id, transaction_lines, codes, reference_no
+            )
             if not ok:
                 return False, msg
+
             return True, "Sales transaction recorded successfully."
         except Exception as e:
             self.conn.rollback()
             return False, f"Error: {str(e)}"
+
+def insert_finance_log(conn, username, receipt_no, action):
+    """Insert a record into finance logs table.
+    Returns: (True, message) on Success, (False, error_message) on failure"""
+    try:
+        now = datetime.now()
+        log_date = now.date()
+        log_time = now.time().strftime("%H:%M:%S")
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO finance_logs
+                    (log_date, log_time, username, receipt_no, action)
+                VALUES (%s, %s, %s, %s, %s);
+            """, (log_date, log_time, username, receipt_no, action))
+        action = f"{action.title()}"
+        success, msg = insert_logs(conn, username, "Finance", action)
+        if not success:
+            conn.rollback()
+            return False, f"Failed to Log Action: {msg}."
+        conn.commit()
+        return True, "Finance log inserted."
+    except Exception as e:
+        conn.rollback()
+        return False, f"Error inserting Finance Log: {str(e)}."
+
+def fetch_finance_logs(conn, year, month=None, username=None):
+    """Fetch logs from Finance logs table filtered by year, and optionally
+    by month, username and section.
+    Returns: (bool, list or str): (True, [rows]) on success,
+    (False, error_msg) on failure."""
+    try:
+        with conn.cursor(dictionary=True) as cursor:
+            query = """
+                SELECT log_date, log_time, username, receipt_no, action
+                FROM finance_logs
+                WHERE YEAR(log_date) = %s
+            """
+            params = [year]
+
+            # Optional filters
+            if month:
+                query += " AND MONTH(log_date) = %s"
+                params.append(month)
+            if username:
+                query += " AND username = %s"
+                params.append(username)
+
+            # Order by most recent first
+            query += " ORDER BY log_date DESC, log_time DESC;"
+            cursor.execute(query, tuple(params))
+            rows = cursor.fetchall()
+            return True, rows
+    except Exception as e:
+        return False, f"Error: {str(e)}."
+
+
+def fetch_finance_log_filter_data(conn):
+    """Fetch distinct years, usernames and sections from the logs table.
+    Returns all three in one query for GUI filtering."""
+    try:
+        with conn.cursor() as cursor:
+            # Distinct years
+            cursor.execute("""
+                SELECT DISTINCT YEAR(log_date) as year
+                FROM finance_logs ORDER BY year DESC;
+            """)
+            years = [row[0] for row in cursor.fetchall()]
+            # Distinct usernames
+            cursor.execute("""
+                SELECT DISTINCT username
+                FROM finance_logs ORDER BY username ASC;
+            """)
+            usernames = [row[0] for row in cursor.fetchall()]
+        return True, {
+            "years": years,
+            "usernames": usernames
+        }
+    except Exception as e:
+        return False, f"Error Fetching Data: {str(e)}."
+
+
+def delete_log(conn, id):
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM finance_logs WHERE id = %s;", (id,)
+            )
+            if cursor.rowcount == 0:
+                return False, f"No log found with id: {id}."
+        conn.commit()
+        return True, f"Log id {id} deleted successfully."
+    except Exception as e:
+        conn.rollback()
+        return False, f"Error deleting log: {str(e)}."
+
+# from connect_to_db import connect_db
+# conn=connect_db()
+# success, msg = delete_log(conn, 2)
+# print(success, msg)

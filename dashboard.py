@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox, Menu
-from base_window import BaseWindow
+from authentication import VerifyPrivilegePopup
+from sales_report_gui import SalesGUI
+
 from employee_gui_popup import ChangePasswordPopup
 
 class OrionDashboard:
@@ -8,20 +10,25 @@ class OrionDashboard:
         self.window = tk.Toplevel()
         self.window.title("ORION STAR SYSTEM")
         self.window.iconbitmap("myicon.ico")
-        self.window.configure(bg="#007BFF") # Blue Background
-        # self.center_window(self.window, 1300, 650, master)
+        self.window.configure(bg="blue")
         self.window.state("zoomed")
         # self.window.transient(master)
         self.window.grab_set()
 
         self.user = user
         self.conn = conn
+        self.main_frame = tk.Frame(
+            self.window, bg="blue", bd=4, relief="solid"
+        )
 
         self.create_widgets()
 
     def create_widgets(self):
-        button_frame = tk.Frame(self.window, bg="#28A745") # Header Frame for Buttons
-        button_frame.pack(side="top", fill="x")
+        self.main_frame.pack(fill="both", expand=True, padx=10)
+        button_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=4, relief="ridge"
+        )
+        button_frame.pack(side="top", fill="x", padx=5, ipady=5, ipadx=5)
         # Button Labels and their corresponding command
         buttons = {
             "Sales": self.sales_window,
@@ -33,33 +40,62 @@ class OrionDashboard:
         }
         for text, command in buttons.items():
             tk.Button(
-                button_frame, text=text, font=("Arial", 12, "bold"),
-                width=len(text), height=1, fg="black",
-                command=command, relief="raised", bd=4
-            ).pack(side="left")
-        btn_frame = tk.Frame(button_frame, bg="blue", height=1)
+                button_frame, text=text, command=command, bg="dodgerblue",
+                fg="white", bd=4, relief="groove", width=len(text), height=1,
+                font=("Arial", 12, "bold")
+            ).pack(side="left", ipadx=5)
+        btn_frame = tk.Frame(button_frame, height=1)
         btn_frame.pack(side="left")
         power_btn = tk.Button(
-            btn_frame, text="⭕", font=("Arial", 16, "bold"), bg="blue",
-            fg="red", width=2, height=1, relief="flat",
+            btn_frame, text="⭕", font=("Arial", 16, "bold"),
+            fg="red", width=2, height=1, relief="ridge",
             command=self.window.destroy
         )
         power_btn.pack(side="left")
         arrow_btn = tk.Menubutton(
-            btn_frame, text="▽", font=("Arial", 10), relief="flat", bg="blue", anchor="sw", fg="#FF6666")
+            btn_frame, text="▽", font=("Arial", 11), relief="ridge",
+            anchor="sw", fg="#FF6666"
+        )
         arrow_menu = Menu(arrow_btn, tearoff=0)
-        arrow_menu.add_command(label="Log Out", command=self.window.destroy)
-        arrow_menu.add_command(label="Change Password", command=self.change_password)
+        arrow_menu.add_command(
+            label="Log Out", command=self.window.destroy
+        )
+        arrow_menu.add_command(
+            label="Change Password", command=self.change_password
+        )
         arrow_btn.config(menu=arrow_menu)
         arrow_btn.pack(side="bottom")
-        foot_frame = tk.Frame(self.window, bg="white")
-        foot_frame.pack(side="bottom", fill="x")
-        tk.Label(foot_frame, text=f"User: {self.user}", bg="white", fg="#007BFF").pack(side="left", padx=5)
-        footer = tk.Label(foot_frame, text="ORION SYSTEM v1.0", bg="white", fg="#007BFF")
-        footer.pack(side="left", padx=5)
-    # Command methods
+        foot_frame = tk.Frame(self.window, bg="white", bd=2, relief="ridge")
+        foot_frame.pack(side="bottom", fill="x", padx=10)
+        tk.Label(
+            foot_frame, text=f"User: {self.user}", bg="white",
+            fg="#007BFF", font=("Arial", 9)
+        ).pack(side="left", padx=(5, 40))
+        footer = tk.Label(
+            foot_frame, text="ORION SYSTEM v1.0", bg="white", fg="#007BFF",
+            font=("Arial", 11)
+        )
+        footer.pack(side="left", padx=40)
+
+    def has_privilege(self, privilege: str) -> bool:
+        """Check if the current user has the required privilege."""
+        dialog = VerifyPrivilegePopup(
+            self.window, self.conn, self.user, privilege
+        )
+        if dialog.result != "granted":
+            messagebox.showwarning(
+                "Access Denied",
+                f"You do not have permission to {privilege}.",
+                parent=self.window
+            )
+            return False
+        return True
+
     def sales_window(self):
-        messagebox.showinfo("Sales", "Sales Button Clicked.")
+        if not self.has_privilege("Export Products Records"):
+            return
+        SalesGUI(self.window, self.conn, self.user)
+
     def stock_window(self):
         messagebox.showinfo("Stock", "Stock Button Clicked.")
     def reports_window(self):
@@ -78,7 +114,7 @@ if __name__ == "__main__":
     conn=connect_db()
     root = tk.Tk()
     root.withdraw()
-    app = OrionDashboard(conn, "sniffy")
+    app = OrionDashboard(conn, "Sniffy")
     root.mainloop()
 
 

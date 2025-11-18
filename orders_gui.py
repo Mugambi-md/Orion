@@ -6,9 +6,10 @@ from base_window import BaseWindow
 from new_order_gui import NewOrderWindow
 from order_utils import OrderItemsGui
 from authentication import VerifyPrivilegePopup
+from log_popups_gui import OrderLogsWindow
 from order_windows import (
     OrderedItemsWindow, UnpaidOrdersWindow, PendingOrdersWindow,
-    EditOrdersWindow, OrderLogsWindow
+    EditOrdersWindow,
 )
 from report_preview import ReportPreviewer
 from working_on_orders import fetch_all_orders
@@ -18,7 +19,7 @@ class OrdersWindow(BaseWindow):
     def __init__(self, parent, conn, user):
         self.window = tk.Toplevel(parent)
         self.window.title("Order Management")
-        self.center_window(self.window, 1300, 700, parent)
+        self.center_window(self.window, 1100, 700, parent)
         self.window.configure(bg="blue")
         self.window.transient(parent)
         self.window.grab_set()
@@ -39,10 +40,9 @@ class OrdersWindow(BaseWindow):
         ]
         # Bold Table Headings and content font
         style = ttk.Style(self.window)
-        style.configure("Treeview", rowheight=25, font=("Arial", 10))
-        style.configure(
-            "Treeview.Heading", font=("Arial", 11, "bold", "underline")
-        )
+        style.theme_use("clam")
+        style.configure("Treeview", rowheight=20, font=("Arial", 11))
+        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
         self.main_frame = tk.Frame(
             self.window, bg="blue", bd=4, relief="solid"
         )
@@ -57,9 +57,7 @@ class OrdersWindow(BaseWindow):
         self.load_orders()
 
     def setup_ui(self):
-        self.main_frame.pack(
-            side="top", fill="both", expand=True, padx=10, pady=(0, 10)
-        )
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         top_frame = tk.Frame(self.main_frame, bg="blue") # Top frame for buttons
         top_frame.pack(side=tk.TOP, fill=tk.X, padx=5)
         for text, command in self.buttons.items():
@@ -67,8 +65,7 @@ class OrdersWindow(BaseWindow):
                 top_frame, text=text, command=command, bd=4, relief="raised"
             ).pack(side=tk.LEFT)
         # Orders Table (left)
-        self.orders_frame.pack(fill=tk.BOTH, expand=True, padx=10,
-                               pady=(0, 10))
+        self.orders_frame.pack(fill=tk.BOTH, expand=True)
         self.button_frame.pack(side=tk.TOP, fill=tk.X, padx=5)
         title_frame = tk.Frame(self.button_frame, bg="blue")
         title_frame.pack(side="left", padx=20)
@@ -99,6 +96,8 @@ class OrdersWindow(BaseWindow):
                 -1 * (e.delta // 120), "units"
             )
         )
+        self.tree.tag_configure("evenrow", background="#fffde7")
+        self.tree.tag_configure("oddrow", background="#e0f7e9")
 
     def load_orders(self):
         """Populate the orders table."""
@@ -106,16 +105,17 @@ class OrdersWindow(BaseWindow):
             self.tree.delete(row)
         orders = fetch_all_orders(self.conn)
         for i, order in enumerate(orders, start=1):
+            tag = "evenrow" if i % 2 == 0 else "oddrow"
             self.tree.insert("", "end", values=(
                 i,
                 order["order_id"],
                 order["customer_name"],
                 order["contact"],
-                order["date_placed"],
-                order["deadline"],
+                order["date_placed"].strftime("%d/%m/%Y"),
+                order["deadline"].strftime("%d/%m/%Y"),
                 f"{order["amount"]:,.2f}",
                 order["status"]
-            ))
+            ), tags=(tag,))
         self.autosize_columns()
 
     def view_order_details(self):
@@ -156,7 +156,7 @@ class OrdersWindow(BaseWindow):
                 cell_width = font.measure(cell_value)
                 if cell_width > max_width:
                     max_width = cell_width
-            self.tree.column(col, width=max_width + 5)
+            self.tree.column(col, width=max_width)
 
     def has_privilege(self, privilege: str) -> bool:
         """Check if the current user has the required privilege."""

@@ -4,11 +4,12 @@ import tkinter.font as tkFont
 from tkinter import messagebox
 from base_window import BaseWindow
 from accounting_export import ReportExporter
-from authentication import VerifyPrivilegePopup
+from authentication import VerifyPrivilegePopup, DescriptionFormatter
 from working_on_employee import fetch_log_filter_data, fetch_logs
 from stock_popups import ProductLogsWindow
-from order_windows import OrderLogsWindow
-from sales_popup import MonthlyReversalLogs
+from log_popups_gui import (
+    FinanceLogsWindow, OrderLogsWindow, MonthlyReversalLogs, SalesLogsWindow
+)
 
 
 class SystemLogsWindow(BaseWindow):
@@ -16,7 +17,7 @@ class SystemLogsWindow(BaseWindow):
         self.top = tk.Toplevel(parent)
         self.top.title("System Logs")
         self.top.configure(bg="lightblue")
-        self.center_window(self.top, 1250, 700, parent)
+        self.center_window(self.top, 1200, 700, parent)
         self.top.transient(parent)
         self.top.grab_set()
 
@@ -37,32 +38,32 @@ class SystemLogsWindow(BaseWindow):
         self.selected_section = tk.StringVar()
         self.title = None
         self.months = [
-            ("January", 1), ("February", 2), ("March", 3), ("April", 4),
-            ("May", 5), ("June", 6), ("July", 7), ("August", 8),
-            ("September", 9), ("October", 10), ("November", 11),
-            ("December", 12),
+            ("", None), ("January", 1), ("February", 2), ("March", 3),
+            ("April", 4), ("May", 5), ("June", 6), ("July", 7),
+            ("August", 8), ("September", 9), ("October", 10),
+            ("November", 11), ("December", 12),
         ]
         self.columns = ["No", "Date", "Time", "User", "Section", "Operation"]
         style = ttk.Style(self.top)
         style.theme_use("clam")
         style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", rowheight=20, font=("Arial", 10))
+        style.configure("Treeview", rowheight=45, font=("Arial", 10))
         self.main_frame = tk.Frame(
             self.top, bg="lightblue", bd=4, relief="solid"
         )
         self.top_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.filter_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.year_cb = ttk.Combobox(
-            self.top_frame, textvariable=self.selected_year, state="readonly",
-            width=10, values=self.years, font=("Arial", 10)
+            self.top_frame, textvariable=self.selected_year, width=5,
+            state="readonly", values=self.years, font=("Arial", 10)
         )
         self.user_cb = ttk.Combobox(
-            self.filter_frame, textvariable=self.selected_user, width=15,
+            self.filter_frame, textvariable=self.selected_user, width=8,
             state="disabled", values=self.usernames, font=("Arial", 10)
         )
         self.month_cb = ttk.Combobox(
             self.filter_frame, values=[name for name, _num in self.months],
-            width=12, state="disabled", font=("Arial", 10)
+            width=10, state="disabled", font=("Arial", 10)
         )
         self.section_cb = ttk.Combobox(
             self.filter_frame, width=12, state="disabled",
@@ -74,8 +75,6 @@ class SystemLogsWindow(BaseWindow):
             font=("Arial", 16, "bold", "underline"), relief="raised"
         )
         self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
-
-
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
@@ -85,23 +84,18 @@ class SystemLogsWindow(BaseWindow):
 
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
-        self.top_frame.pack(side="top", fill="x", pady=(10, 5))
-        self.title_label.pack(side="left", padx=10)
-        # Year Selector
-        tk.Label(
-            self.top_frame, text="Select Year:", bg="lightblue",
-            font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(5, 0))
-        self.year_cb.pack(side="left", padx=(0, 5))
+        self.top_frame.pack(side="top", fill="x", pady=(5, 0), padx=5)
+        self.title_label.pack(anchor="center", ipadx=5)
         # Navigation Frame
         top_btn_frame = tk.Frame(
             self.top_frame, bg="lightblue", bd=4, relief="groove"
         )
-        top_btn_frame.pack(side="right", padx=10)
+        top_btn_frame.pack(side="left", padx=5)
         navigation_btn = {
             "Stock Logs": self.stock_logs,
             "Sales Logs": self.sales_logs,
             "Sales Reversal Logs": self.sales_reversal_logs,
+            "Finance Logs": self.finance_logs,
             "Order Logs": self.order_logs
         }
         for text, command in navigation_btn.items():
@@ -109,6 +103,13 @@ class SystemLogsWindow(BaseWindow):
                 top_btn_frame, text=text, bd=2, relief="groove", bg="green",
                 fg="white", font=("Arial", 11, "bold"), command=command
             ).pack(side="left")
+
+        # Year Selector
+        tk.Label(
+            self.top_frame, text="Select Year:", bg="lightblue",
+            font=("Arial", 12, "bold")
+        ).pack(side="left", padx=(5, 0))
+        self.year_cb.pack(side="left", padx=(0, 5))
         if self.years:
             self.year_cb.set(self.years[0])
         else:
@@ -119,7 +120,7 @@ class SystemLogsWindow(BaseWindow):
             "<<ComboboxSelected>>", lambda e: self.refresh_table()
         )
         # Filter Frame
-        self.filter_frame.pack(fill="x", padx=5, pady=(5, 0))
+        self.filter_frame.pack(fill="x", padx=5)
         # Filter Checkbox Frame
         filter_outer = tk.Frame(
             self.filter_frame, bg="lightblue", bd=2, relief="groove"
@@ -164,7 +165,7 @@ class SystemLogsWindow(BaseWindow):
         tk.Button(
             self.filter_frame, text="Refresh", bd=2, relief="raised",
             command=self.refresh_table, bg="blue", fg="white"
-        ).pack(side="left", padx=0)
+        ).pack(side="left")
         btn_frame = tk.Frame(self.filter_frame, bg="lightblue")
         btn_frame.pack(side="right", padx=5)
         action_btn = {
@@ -246,15 +247,17 @@ class SystemLogsWindow(BaseWindow):
         for row in self.tree.get_children():
             self.tree.delete(row)
 
+        formatter = DescriptionFormatter(50, 10)
         for i, row in enumerate(logs, start=1):
             tag = "evenrow" if i % 2 == 0 else "oddrow"
+            action = formatter.format(row["action"])
             self.tree.insert("", "end", values=(
                 i,
-                row["log_date"],
+                row["log_date"].strftime("%d/%m/%Y"),
                 row["log_time"],
                 row["username"],
                 row["section"],
-                row["action"]
+                action
             ), tags=(tag,))
         self.auto_resize()
 
@@ -322,7 +325,9 @@ class SystemLogsWindow(BaseWindow):
         ProductLogsWindow(self.top, self.conn, self.user)
 
     def sales_logs(self):
-        pass
+        if not self.has_privilege("View Products Logs"):
+            return
+        SalesLogsWindow(self.top, self.conn, self.user)
 
     def order_logs(self):
         if not self.has_privilege("View Order Logs"):
@@ -330,9 +335,15 @@ class SystemLogsWindow(BaseWindow):
         OrderLogsWindow(self.top, self.conn, self.user)
 
     def sales_reversal_logs(self):
-        if not self.has_privilege("View Logs"):
+        if not self.has_privilege("View Sales Logs"):
             return
         MonthlyReversalLogs(self.top, self.conn, self.user)
+
+    def finance_logs(self):
+        if not self.has_privilege("View Finance Logs"):
+            return
+        FinanceLogsWindow(self.top, self.conn, self.user)
+
 
 
 if __name__ == "__main__":
