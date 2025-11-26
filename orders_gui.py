@@ -12,7 +12,7 @@ from order_windows import (
     EditOrdersWindow,
 )
 from report_preview import ReportPreviewer
-from working_on_orders import fetch_all_orders
+from working_on_orders import fetch_orders_by_year, fetch_order_years
 
 
 class OrdersWindow(BaseWindow):
@@ -20,7 +20,7 @@ class OrdersWindow(BaseWindow):
         self.window = tk.Toplevel(parent)
         self.window.title("Order Management")
         self.center_window(self.window, 1100, 700, parent)
-        self.window.configure(bg="blue")
+        self.window.configure(bg="lightblue")
         self.window.transient(parent)
         self.window.grab_set()
 
@@ -38,17 +38,39 @@ class OrdersWindow(BaseWindow):
             "No", "Order ID", "Customer", "Contact", "Date", "Deadline",
             "Amount", "Status"
         ]
+        self.year_var = tk.StringVar()
+        self.all_orders = None
+        years = fetch_order_years(self.conn)
+        if isinstance(years, str):
+            messagebox.showerror(
+                "Error", f"Failed to Fetch Years:\n{years}.",
+                parent=self.window
+            )
+            self.years = []
+            return
+        if not years:
+            messagebox.showwarning(
+                "No Data", "No Years Found In Orders.", parent=self.window
+            )
+            self.years = []
+            return
+        self.years = years
         # Bold Table Headings and content font
         style = ttk.Style(self.window)
         style.theme_use("clam")
         style.configure("Treeview", rowheight=20, font=("Arial", 11))
         style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
         self.main_frame = tk.Frame(
-            self.window, bg="blue", bd=4, relief="solid"
+            self.window, bg="lightblue", bd=4, relief="solid"
         )
-        self.orders_frame = tk.Frame(self.main_frame, bg="blue")
-        self.button_frame = tk.Frame(self.orders_frame, bg="blue")
-        self.table_frame = tk.Frame(self.orders_frame, bg="blue")
+        self.orders_frame = tk.Frame(self.main_frame, bg="lightblue")
+        self.button_frame = tk.Frame(self.orders_frame, bg="lightblue")
+        self.year_cb = ttk.Combobox(
+            self.button_frame, textvariable=self.year_var, state="readonly",
+            width=5, font=("Arial", 11), values=self.years
+        )
+        self.year_cb.current(0)
+        self.table_frame = tk.Frame(self.orders_frame, bg="lightblue")
         self.tree = ttk.Treeview(
             self.table_frame, show="headings", columns=self.columns
         )
@@ -58,27 +80,40 @@ class OrdersWindow(BaseWindow):
 
     def setup_ui(self):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        top_frame = tk.Frame(self.main_frame, bg="blue") # Top frame for buttons
+        top_frame = tk.Frame(self.main_frame, bg="lightblue") # Top frame for buttons
         top_frame.pack(side=tk.TOP, fill=tk.X, padx=5)
         for text, command in self.buttons.items():
             tk.Button(
-                top_frame, text=text, command=command, bd=4, relief="raised"
+                top_frame, text=text, command=command, bd=4, relief="groove",
+                bg="dodgerblue", fg="white", font=("Arial", 10, "bold")
             ).pack(side=tk.LEFT)
         # Orders Table (left)
         self.orders_frame.pack(fill=tk.BOTH, expand=True)
         self.button_frame.pack(side=tk.TOP, fill=tk.X, padx=5)
         title_frame = tk.Frame(self.button_frame, bg="blue")
         title_frame.pack(side="left", padx=20)
+        year = self.year_cb.get()
+        title_t = f"All Pending & Delivered Orders in {year}."
         tk.Label(
-            title_frame, text="All Current Orders Pending & Delivered",
-            bg="blue", fg="white", font=("Arial", 16, "bold", "underline")
-        ).pack(anchor="center")
+            title_frame, text=title_t, bd=4, relief="ridge", bg="lightblue",
+            fg="blue", font=("Arial", 16, "bold", "underline")
+        ).pack(anchor="center", ipadx=10)
+        tk.Label(
+            self.button_frame, text="Select Year:", bg="lightblue",
+            font=("Arial", 11, "bold")
+        ).pack(side="left", padx=(5, 0))
+        self.year_cb.pack(side="left", padx=(0, 5))
+        self.year_cb.bind(
+            "<<ComboboxSelected>>", lambda e: self.load_orders()
+        )
         tk.Button(
-            self.button_frame, text="View Report", bd=2, relief="solid",
+            self.button_frame, text="View Report", bg="blue", fg="white",
+            bd=2, relief="groove", font=("Arial", 10, "bold"),
             command=self.view_orders_report
         ).pack(side="right")
         tk.Button(
-            self.button_frame, text="View Details", bd=2, relief="solid",
+            self.button_frame, text="View Details", bg="blue", fg="white",
+            bd=2, relief="groove", font=("Arial", 10, "bold"),
             command=self.view_order_details
         ).pack(side="right")
         self.table_frame.pack(fill=tk.BOTH, expand=True)
@@ -101,10 +136,17 @@ class OrdersWindow(BaseWindow):
 
     def load_orders(self):
         """Populate the orders table."""
+        selected_year = self.year_var.get()
+        year = int(selected_year)
+        success, orders = fetch_orders_by_year(self.conn, year)
+        if not success:
+            messagebox.showerror("Error", orders, parent=self.window)
+            return
+        self.all_orders = orders
         for row in self.tree.get_children():
             self.tree.delete(row)
-        orders = fetch_all_orders(self.conn)
-        for i, order in enumerate(orders, start=1):
+
+        for i, order in enumerate(self.all_orders, start=1):
             tag = "evenrow" if i % 2 == 0 else "oddrow"
             self.tree.insert("", "end", values=(
                 i,
@@ -113,7 +155,7 @@ class OrdersWindow(BaseWindow):
                 order["contact"],
                 order["date_placed"].strftime("%d/%m/%Y"),
                 order["deadline"].strftime("%d/%m/%Y"),
-                f"{order["amount"]:,.2f}",
+                f"{order['amount']:,.2f}",
                 order["status"]
             ), tags=(tag,))
         self.autosize_columns()
@@ -132,9 +174,8 @@ class OrdersWindow(BaseWindow):
 
 
     def view_orders_report(self):
-        orders = fetch_all_orders(self.conn)
         data = []
-        for order in orders:
+        for order in self.all_orders:
             data.append({
                 "Order ID": order["order_id"],
                 "Customer": order["customer_name"],
@@ -196,7 +237,7 @@ class OrdersWindow(BaseWindow):
     def work_on_orders(self):
         if not self.has_privilege("Manage Orders"):
             return
-        PendingOrdersWindow(self.window, conn, self.user)
+        PendingOrdersWindow(self.window, self.conn, self.user)
 
     def view_logs(self):
         if not self.has_privilege("View Order Logs"):

@@ -26,10 +26,9 @@ class ProductsDetailsWindow(BaseWindow):
             "Wholesale Price", "Retail Price", "Min Stock"
         ]
         style = ttk.Style(self.window)
-        style.configure(
-            "Treeview.Heading", font=("Arial", 12, "bold", "underline")
-        )
-        style.configure("Treeview", font=("Arial", 10))
+        style.theme_use("clam")
+        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
+        style.configure("Treeview", font=("Arial", 11))
         self.main_frame = tk.Frame(
             self.window, bg="green", bd=4, relief="solid"
         )

@@ -2,9 +2,13 @@ import tkinter as tk
 from tkinter import messagebox
 from datetime import date, datetime, timedelta
 import re, string
-from working_on_employee import fetch_logins_by_username, update_login_password
-from dashboard import OrionDashboard
 from base_window import BaseWindow
+from working_on_employee import (
+    fetch_logins_by_username, update_login_password
+)
+from dashboard import OrionDashboard
+from admin_gui import AdminWindow
+
 
 class LoginWindow(BaseWindow):
     def __init__(self, master, conn, update_pass_callback=None):
@@ -57,7 +61,8 @@ class LoginWindow(BaseWindow):
         self.login_btn.grid(row=3, column=0, columnspan=2, pady=5)
         self.login_btn.bind("<Return>", lambda e: self.handle_login())
 
-    def has_six_consecutive_same_chars(self, password):
+    @staticmethod
+    def has_six_consecutive_same_chars(password):
         """Check if password has 6 consecutive identical characters."""
         return re.search(r'(.)\1{5}', password) is not None
 
@@ -119,7 +124,7 @@ class LoginWindow(BaseWindow):
 
 
 class UpdatePasswordWindow(BaseWindow):
-    def __init__(self, master, conn, username, password, login_callback=None):
+    def __init__(self, master, conn, username, password, callback):
         self.window = tk.Toplevel(master)
         self.window.title("Update Password")
         self.window.configure(bg="lightgray")
@@ -130,7 +135,7 @@ class UpdatePasswordWindow(BaseWindow):
         self.conn = conn
         self.username = username
         self.current_password = password
-        self.login_callback = login_callback
+        self.callback = callback
 
         self.entries = {}
 
@@ -171,7 +176,8 @@ class UpdatePasswordWindow(BaseWindow):
             command=self.update_action
         ).grid(row=3, column=0, columnspan=2, pady=10)
 
-    def is_strong_password(self, password):
+    @staticmethod
+    def is_strong_password(password):
         """Check if password is strong."""
         return (
             len(password) >= 6 and any(c.isupper() for c in password)
@@ -205,14 +211,17 @@ class UpdatePasswordWindow(BaseWindow):
                 parent=self.window
             )
             return
-        msg = update_login_password(self.conn, self.username, new_pass)
-        if msg == "Password updated successfully.":
+        success, msg = update_login_password(
+            self.conn, self.username, new_pass
+        )
+        if success:
             messagebox.showinfo(
                 "Success", f"{msg} for {self.username}", parent=self.window
             )
+            self.callback()
             self.window.destroy()
-            if self.login_callback:
-                self.login_callback()
+        else:
+            messagebox.showerror("Error", msg, parent=self.window)
 
 
 class AdminLoginWindow(BaseWindow):
@@ -266,7 +275,8 @@ class AdminLoginWindow(BaseWindow):
         self.login_btn.grid(row=3, column=0, columnspan=2, pady=5)
         self.login_btn.bind("<Return>", lambda e: self.handle_login())
 
-    def has_six_consecutive_same_chars(self, password):
+    @staticmethod
+    def has_six_consecutive_same_chars(password):
         """Check if password has 6 consecutive identical characters."""
         return re.search(r'(.)\1{5}', password) is not None
 
@@ -325,7 +335,7 @@ class AdminLoginWindow(BaseWindow):
         messagebox.showinfo(
             "Success", f"Welcome {username}.", parent=self.window
         )
-        OrionDashboard(self.conn, username)
+        AdminWindow(self.conn, username)
         self.window.destroy()
 
 

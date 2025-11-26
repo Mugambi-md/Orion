@@ -205,6 +205,7 @@ def fetch_journal_lines_by_account_code(conn, account_code):
             cursor.execute("""
                 SELECT
                     jel.journal_id,
+                    je.entry_date,
                     jel.account_code,
                     coa.account_name,
                     jel.description,
@@ -212,7 +213,9 @@ def fetch_journal_lines_by_account_code(conn, account_code):
                     jel.credit
                 FROM journal_entry_lines jel
                 JOIN chart_of_accounts coa ON jel.account_code = coa.code
+                JOIN journal_entries je ON jel.journal_id = je.journal_id
                 WHERE jel.account_code=%s
+                ORDER BY jel.journal_id DESC
                 """, (account_code,))
             results = cursor.fetchall()
             return results
@@ -325,7 +328,7 @@ class CashFlowStatement:
                     "cash_outflows": outflows
                 }
         except Exception as e:
-            return f"Error fetching cash flow statement: {str(e)}"
+            return f"Error fetching cash flow statement: {str(e)}."
 
 def get_balance_sheet(conn):
     try:

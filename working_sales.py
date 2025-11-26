@@ -242,7 +242,9 @@ def fetch_sales_by_month_and_user(conn, year, month, user=None):
 def fetch_all_sales_users(conn):
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT DISTINCT user FROM sales ORDER BY user ASC")
+            cursor.execute(
+                "SELECT DISTINCT user FROM sales ORDER BY user ASC"
+            )
             rows = cursor.fetchall()
             return [row[0] for row in rows if row[0]]
     except Exception as e:

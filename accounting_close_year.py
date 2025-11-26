@@ -10,13 +10,18 @@ class YearEndProcessor:
             cursor = self.conn.cursor()
             # 1. Ensure Retained Earnings Account Exists
             retained_code = "3000"
-            retained_name = "Retained Earnings"
-            cursor.execute("SELECT * FROM chart_of_accounts WHERE code=%s", (retained_code,))
+            retained_name = f"Retained Earnings For {date.today().year}"
+            cursor.execute(
+                "SELECT * FROM chart_of_accounts WHERE code=%s;",
+                (retained_code,)
+            )
             if not cursor.fetchone():
+                desc = "Year-end retained earnings"
                 cursor.execute("""
-                        INSERT INTO chart_of_accounts(account_name, account_type, code, description)
-                        VALUES (%s, %s, %s, %s)
-                        """, (retained_name, 'Equity', retained_code, "Year-end retained earnings"))
+                INSERT INTO chart_of_accounts(account_name, account_type,
+                    code, description)
+                VALUES (%s, %s, %s, %s)
+                """, (retained_name, 'Equity', retained_code, desc))
             # 2. Calculate Balances per Account
             cursor.execute("""
                 SELECT
@@ -34,7 +39,8 @@ class YearEndProcessor:
             balances = cursor.fetchall()
             # 3. Archive to journal archive
             cursor.execute("""
-            INSERT INTO journal_archive (date, account_code, account_name, description, debit, credit, period_end_year)
+            INSERT INTO journal_archive (date, account_code, account_name,
+                description, debit, credit, period_end_year)
             SELECT
                 j.entry_date,
                 l.account_code,
@@ -50,10 +56,13 @@ class YearEndProcessor:
             """, (closing_year, closing_year))
             # 4. Clear existing journal data
             cursor.execute("""
-                DELETE FROM journal_entry_lines
-                WHERE journal_id IN (SELECT journal_id FROM journal_entries WHERE YEAR(entry_date) = %s)
-                """, (closing_year,))
-            cursor.execute("DELETE FROM journal_entries WHERE YEAR(entry_date) = %s", (closing_year,))
+            DELETE FROM journal_entry_lines
+            WHERE journal_id IN (SELECT journal_id FROM journal_entries WHERE YEAR(entry_date) = %s)
+            """, (closing_year,))
+            cursor.execute(
+                "DELETE FROM journal_entries WHERE YEAR(entry_date) = %s;",
+                (closing_year,)
+            )
             # 5. Insert opening balances for Asset, Liability and Equity
             today = date.today()
             cursor.execute("""
@@ -94,10 +103,11 @@ class YearEndProcessor:
                             VALUES (%s, %s, %s, %s, %s)
                             """, (opening_journal_id, retained_code, desc, abs(retained_earnings), 0.00))
                 self.conn.commit()
-                return f"Year {closing_year} closed successfully. Opening balances set and retained earnings posted."
+                text = "Opening Balances Set and Retained Earnings Posted."
+                return True, f"Year Closed Successfully. {text}"
         except Exception as e:
             self.conn.rollback()
-            return f"Year End closing Failed: {str(e)}"
+            return False, f"Year End Closing Failed: {str(e)}."
 
 class YearEndReversalManager:
     def __init__(self, conn):
@@ -112,10 +122,10 @@ class YearEndReversalManager:
             self.cleanup_year_plus_one(year)
             self.delete_orphan_journal_entries(year + 1)
             self.conn.commit()
-            return f"year {year} successfully reversed and restored."
+            return True, f"year {year} successfully reversed and restored."
         except Exception as e:
             self.conn.rollback()
-            return f"Error reversing year {year}: {str(e)}"
+            return False, f"Error reversing year {year}: {str(e)}."
     def fetch_archive_data(self, year):
         with self.conn.cursor(dictionary=True) as cursor:
             # 1. Get all journal_ids for the year

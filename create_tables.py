@@ -156,16 +156,17 @@ def create_tables():
             print(f"Error creating payments table: {e}")
 
         try:
-            cursor.execute("""CREATE TABLE IF NOT EXISTS orders (
-                           order_id INT AUTO_INCREMENT PRIMARY KEY,
-                           customer_name VARCHAR(70) NOT NULL,
-                           contact VARCHAR(20) NOT NULL,
-                           date_placed DATE NOT NULL,
-                           deadline DATE NOT NULL,
-                           amount DECIMAL(10, 2) NOT NULL,
-                           status ENUM('Pending', 'Delivered') NOT NULL DEFAULT 'Pending'
-                           );
-                        """)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS orders (
+                order_id INT AUTO_INCREMENT PRIMARY KEY,
+                customer_name VARCHAR(70) NOT NULL,
+                contact VARCHAR(20) NOT NULL,
+                date_placed DATE NOT NULL,
+                deadline DATE NOT NULL,
+                amount DECIMAL(10, 2) NOT NULL,
+                status ENUM('Pending', 'Delivered') NOT NULL DEFAULT 'Pending'
+                );
+            """)
             conn.commit()
             print("Orders table created successfully.")
         except Exception as e:

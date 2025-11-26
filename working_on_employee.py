@@ -337,7 +337,7 @@ def insert_user_privilege(conn, user_code, access_id, pname, name, user):
             if cursor.rowcount == 0:
                 return False, f"Privilege already assigned to '{user_code}'."
         action = f"Assigned Privilege to '{pname}' To {name}."
-        success, msg = insert_logs(conn, user, "Human Resource", action)
+        success, msg = insert_logs(conn, user, "System Privilege", action)
         if not success:
             conn.rollback()
             return False, f"Failed to Log Action: {msg}."
@@ -383,7 +383,7 @@ def remove_user_privilege(conn, user_code, access_id, pname, name, user):
             if cursor.rowcount == 0:
                 return False, f"No Privilege Found For '{user_code}'."
         action = f"Removed Privilege to '{pname}' From {name}."
-        success, msg = insert_logs(conn, user, "Human Resource", action)
+        success, msg = insert_logs(conn, user, "System Privilege", action)
         if not success:
             conn.rollback()
             return False, f"Failed to Log Action: {msg}."
@@ -716,7 +716,3 @@ def delete_log(conn, id):
         conn.rollback()
         return False, f"Error deleting log: {str(e)}."
 
-# from connect_to_db import connect_db
-# conn=connect_db()
-# success, msg = delete_log(conn, 58)
-# print(success, msg)

@@ -9,16 +9,14 @@ from accounting_export import ReportExporter
 from working_on_stock import fetch_all_products
 from stock_details_window import ProductsDetailsWindow
 from stock_update_popups import UpdateQuantityWindow, AddStockPopup
-from stock_popups1 import (
-    DeleteProductPopup
-)
+from stock_popups1 import DeleteProductPopup
 from stock_popups import (
     NewProductPopup, ProductLogsWindow, ReconciliationWindow,
     ProductUpdateWindow, DeletedItemsWindow
 )
 
 
-class OrionStock(BaseWindow):
+class StockWindow(BaseWindow):
     def __init__(self, parent, conn, user):
         self.master = tk.Toplevel(parent)
         self.master.title("ORION STOCK")
@@ -46,20 +44,18 @@ class OrionStock(BaseWindow):
             "Wholesale Price", "Retail Price", "Min Stock", "Restocked"
         ]
         style = ttk.Style()
+        style.theme_use("clam")
         style.configure("Treeview", rowheight=20, font=("Arial", 10))
-        style.configure(
-            "Treeview.Heading", font=("Arial", 12, "bold", "underline")
-        )
-        style.configure("Treeview", font=("Arial", 10))
+        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
 
         self.search_type = tk.StringVar(value="Name")
         self.search_var = tk.StringVar()
         self.search_option = ttk.Combobox(
-            self.search_frame, textvariable=self.search_type, width=10,
-            values=["Name", "Code"], state="readonly"
+            self.search_frame, textvariable=self.search_type, width=5,
+            values=["Name", "Code"], state="readonly", font=("Arial", 11)
         )
         self.search_entry = tk.Entry(
-            self.search_frame, textvariable=self.search_var, width=25, bd=4,
+            self.search_frame, textvariable=self.search_var, width=20, bd=4,
             relief="raised", font=("Arial", 11)
         )
         self.tree = ttk.Treeview(
@@ -88,8 +84,8 @@ class OrionStock(BaseWindow):
         }
         for text, action in button_actions.items():
             tk.Button(
-                action_frame, text=text, bd=4, relief="raised",
-                command=action, width=len(text)
+                action_frame, text=text, bd=4, relief="raised", fg="white",
+                bg="dodgerblue", command=action, width=len(text)
             ).pack(side="left")
         # Center frame for table and tittle
         self.center_frame.pack(side="left", fill="both", expand=True)
@@ -321,5 +317,5 @@ if __name__ == "__main__":
     from connect_to_db import connect_db
     conn = connect_db()
     root = tk.Tk()
-    app=OrionStock(root, conn, "sniffy")
+    StockWindow(root, conn, "sniffy")
     root.mainloop()

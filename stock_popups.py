@@ -496,9 +496,8 @@ class ProductLogsWindow(BaseWindow):
             "Quantity", "Amount"
         ]
         style = ttk.Style(self.top)
-        style.configure(
-            "Treeview.Heading", font=("Arial", 12, "bold", "underline")
-        )
+        style.theme_use("clam")
+        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
         style.configure("Treeview", font=("Arial", 10))
         self.main_frame = tk.Frame(self.top, bg="lightblue", bd=4, relief="solid")
         self.top_frame = tk.Frame(
@@ -506,12 +505,12 @@ class ProductLogsWindow(BaseWindow):
         )
         self.filter_frame = tk.Frame(self.top_frame, bg="lightblue")
         self.year_cb = ttk.Combobox(
-            self.filter_frame, textvariable=self.selected_year, width=10,
-            state="readonly", values=self.years,
+            self.filter_frame, textvariable=self.selected_year, width=5,
+            state="readonly", values=self.years, font=("Arial", 11)
         )
         self.month_cb = ttk.Combobox(
             self.filter_frame, values=[name for name, _num in self.months],
-            width=12, state="readonly",
+            width=10, state="readonly", font=("Arial", 11),
         )
         self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.title_label = tk.Label(
@@ -697,10 +696,9 @@ class DeletedItemsWindow(BaseWindow):
         self.conn = conn
         self.user = user
         style = ttk.Style()
+        style.theme_use("clam")
         style.configure("Treeview", rowheight=20, font=("Arial", 10))
-        style.configure(
-            "Treeview.Heading", font=("Arial", 12, "bold", "underline")
-        )
+        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
         self.columns = [
             "No", "Code", "Name", "Description", "Quantity", "Cost",
             "Wholesale Price", "Retail Price", "Min Stock", "Restocked"
@@ -881,14 +879,20 @@ class ProductUpdateWindow(BaseWindow):
         self.search_var = tk.StringVar()
         self.product_id = None
         # Frames
-        self.top_frame = tk.Frame(self.window, bg="lightblue")
-        self.details_frame = tk.Frame(self.window, bg="lightblue", bd=4,
-                                      relief="groove")
+        self.main_frame = tk.Frame(
+            self.window, bg="lightblue", bd=4, relief="solid"
+        )
+        self.top_frame = tk.Frame(self.main_frame, bg="lightblue")
+        self.details_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=4, relief="groove"
+        )
         self.entry = tk.Entry(
             self.top_frame, textvariable=self.search_var, width=30,
             font=("Arial", 11)
         )
-        self.suggestion_box = tk.Listbox(self.top_frame, bg="light grey", width=30)
+        self.suggestion_box = tk.Listbox(
+            self.top_frame, bg="light grey", width=30, bd=2, relief="ridge"
+        )
         self.search_btn = tk.Button(
             self.top_frame, text="Search", command=self.search, width=10,
             bd=4, relief="groove"
@@ -914,9 +918,10 @@ class ProductUpdateWindow(BaseWindow):
         self.set_fields_state("disabled")
 
     def build_ui(self):
+        self.main_frame.pack(fill="both", expand=True, padx=5, pady=(0, 5))
         self.top_frame.pack(fill="x", padx=10, pady=5)
         tk.Label(
-            self.top_frame, text="Enter Product Name/ Code:", bg="lightblue",
+            self.top_frame, text="Enter Item's Name/Code:", bg="lightblue",
             font=("Arial", 11, "bold")
         ).pack(pady=(5, 0), anchor="w", padx=10)
         self.entry.pack(pady=(0, 5), padx=10)
@@ -978,7 +983,7 @@ class ProductUpdateWindow(BaseWindow):
             entry.bind("<Return>", lambda e, idx=i: self.focus_next(idx))
 
         tk.Button(
-            self.window, text="Update Product", bg="dodgerblue",
+            self.main_frame, text="Update Product", bg="dodgerblue",
             command=self.post_updates, bd=4, relief="raised", width=20
         ).pack(pady=10, anchor="center")
 
@@ -1133,9 +1138,9 @@ class ProductUpdateWindow(BaseWindow):
             entry.config(state=state)
 
 
-if __name__ == "__main__":
-    from connect_to_db import connect_db
-    conn=connect_db()
-    root=tk.Tk()
-    ReconciliationWindow(root, conn, "sniffy")
-    root.mainloop()
+# if __name__ == "__main__":
+#     from connect_to_db import connect_db
+#     conn=connect_db()
+#     root=tk.Tk()
+#     ProductLogsWindow(root, conn, "sniffy")
+#     root.mainloop()

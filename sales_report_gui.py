@@ -17,7 +17,7 @@ from sales_popup import (
 class SalesGUI(BaseWindow):
     def __init__(self, parent, conn, user):
         self.master = tk.Toplevel(parent)
-        self.master.title("Sale and Sales Report Module")
+        self.master.title("Sale and Sales Report Window")
         self.center_window(self.master, 1350, 700, parent)
         self.master.configure(bg="blue")
         self.master.transient(parent)

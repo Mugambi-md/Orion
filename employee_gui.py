@@ -67,23 +67,22 @@ class EmployeeManagementWindow(BaseWindow):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
         # Left Frame With action buttons
         top_frame = tk.Frame(self.main_frame, bg="lightgreen")
-        top_frame.pack(side="top", fill="x", padx=5, pady=5)
+        top_frame.pack(side="top", fill="x", padx=5, pady=(0, 5))
         actions = [
             ("Departments", self.departments),
             ("Create Privilege", self.create_priv),
-            ("Add New Employee", self.add_employee),
+            ("Add New\nEmployee", self.add_employee),
             ("Assigned Privilege", self.view_user_priv),
             ("Assign Privilege", self.give_priv),
             ("Remove Privilege", self.remove_privilege),
-            ("Deactivate Employee", self.deactivate_employee),
-            ("Activate Employee", self.activate_employee),
-            ("Edit Employee Info", self.edit_employee),
-            ("Reset User Password", self.reset_pass)
+            ("Deactivate/Activate\nEmployee", self.deactivate_employee),
+            ("Edit Employee\nInformation", self.edit_employee),
+            ("Reset User\nPassword", self.reset_pass)
         ]
         for text, command in actions:
             tk.Button(
                 top_frame, text=text, command=command, bd=4, relief="groove",
-                bg="blue", fg="white", font=("Arial", 9, "bold")
+                bg="blue", fg="white", font=("Arial", 10, "bold"), height=2
             ).pack(side="left")
         # Right Frame
         self.right_frame.pack(side="left", expand=True, fill="both")
@@ -252,18 +251,12 @@ class EmployeeManagementWindow(BaseWindow):
         # Verify user privilege
         if not self.has_privilege("View User Privilege"):
             return
-
         UserPrivilegesPopup(self.window, self.conn, self.user)
 
     def deactivate_employee(self):
         # Verify user privilege
-        if not self.has_privilege("Deactivate User"):
-            return
-        LoginStatusPopup(self.window, self.conn, self.user)
-
-    def activate_employee(self):
-        # Verify user privilege
-        if not self.has_privilege("Activate User"):
+        privilege = "Deactivate User" or "Activate User"
+        if not self.has_privilege(privilege):
             return
         LoginStatusPopup(self.window, self.conn, self.user)
 

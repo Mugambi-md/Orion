@@ -176,21 +176,43 @@ def fetch_order_product(conn, product_code):
     except Exception as e:
         raise e
 
-def fetch_all_orders(conn):
+def fetch_orders_by_year(conn, year):
+    """Fetch orders placed in the given year but always include all
+    pending orders from any year."""
     try:
         with conn.cursor(dictionary=True) as cursor:
-            cursor.execute("""SELECT * FROM orders
-                           ORDER BY
-                                CASE status
-                                    WHEN 'Pending' THEN 0
-                                    WHEN 'Delivered' THEN 1
-                                    ELSE 2
-                                END,
-                                order_id DESC
-                           """)
-            return cursor.fetchall()
+            cursor.execute("""
+            SELECT order_id, customer_name, contact, date_placed, deadline,
+                amount, status
+            FROM orders
+            WHERE YEAR(date_placed) = %s OR status = 'Pending'
+            ORDER BY
+                CASE status
+                    WHEN 'Pending' THEN 0
+                    WHEN 'Delivered' THEN 1
+                    ELSE 2
+                END,
+                order_id DESC
+            """, (year,))
+            return True, cursor.fetchall()
     except Exception as e:
-        return f"Error fetching orders: {e}"
+        return False, f"Error fetching orders: {str(e)}."
+
+def fetch_order_years(conn):
+    """Fetch all years from orders table."""
+    try:
+        with conn.cursor(dictionary=True) as cursor:
+            cursor.execute("""
+                SELECT DISTINCT YEAR(date_placed) AS year
+                FROM orders
+                ORDER BY year DESC;
+            """)
+            results = cursor.fetchall()
+            years = [row["year"] for row in results]
+            return years
+    except Exception as e:
+        return f"Error Fetching Years: {str(e)}."
+
 def fetch_pending_orders(conn):
     try:
         with conn.cursor(dictionary=True) as cursor:
@@ -203,7 +225,8 @@ def fetch_pending_orders(conn):
             """)
             return cursor.fetchall()
     except Exception as e:
-        return f"Error fetching pending orders: {e}"
+        return f"Error fetching pending orders: {str(e)}."
+
 def fetch_all_order_items(conn):
     try:
         with conn.cursor(dictionary=True) as cursor:
