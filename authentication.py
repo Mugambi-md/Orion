@@ -23,18 +23,17 @@ class VerifyPrivilegePopup(simpledialog.Dialog):
             font=("Arial", 11, "bold")
         ).grid(row=0, column=0, sticky="w", padx=(5, 0), pady=5)
         self.username_entry = tk.Entry(
-            master, bd=2, relief="raised", font=("Arial", 11, "bold")
+            master, bd=4, relief="raised", font=("Arial", 11, "bold")
         )
         self.username_entry.insert(0, self.username)
         self.username_entry.config(state="readonly")
         self.username_entry.grid(row=0, column=1, padx=(0, 5), pady=5)
-
         tk.Label(
             master, text="Password:", bg="lightgreen",
             font=("Arial", 11, "bold")
         ).grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.password_entry = tk.Entry(master, show="*", relief="raised",
-                                       bd=2, font=("Arial", 11, "bold"))
+        self.password_entry = tk.Entry(
+            master, show="*", bd=4, relief="raised", font=("Arial", 11, "bold"))
         self.password_entry.grid(row=1, column=1, padx=(0, 5), pady=5)
         self.password_entry.bind("<Return>", self.check_credentials)
         self.password_entry.focus_set()
@@ -52,7 +51,9 @@ class VerifyPrivilegePopup(simpledialog.Dialog):
             self.cancel()
             return
 
-        status, privileges, role, error = get_assigned_privileges(self.conn, self.username)
+        status, privileges, role, error = get_assigned_privileges(
+            self.conn, self.username
+        )
         if error:
             messagebox.showerror(
                 "Error",

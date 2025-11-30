@@ -6,9 +6,9 @@ from base_window import BaseWindow
 from accounting_export import ReportExporter
 from authentication import VerifyPrivilegePopup, DescriptionFormatter
 from working_on_employee import fetch_log_filter_data, fetch_logs
-from stock_popups import ProductLogsWindow
 from log_popups_gui import (
-    FinanceLogsWindow, OrderLogsWindow, MonthlyReversalLogs, SalesLogsWindow
+    FinanceLogsWindow, OrderLogsWindow, MonthlyReversalLogs, SalesLogsWindow,
+    ProductLogsWindow
 )
 
 
@@ -17,7 +17,7 @@ class SystemLogsWindow(BaseWindow):
         self.top = tk.Toplevel(parent)
         self.top.title("System Logs")
         self.top.configure(bg="lightblue")
-        self.center_window(self.top, 1200, 700, parent)
+        self.center_window(self.top, 1330, 700, parent)
         self.top.transient(parent)
         self.top.grab_set()
 
@@ -46,15 +46,15 @@ class SystemLogsWindow(BaseWindow):
         self.columns = ["No", "Date", "Time", "User", "Section", "Operation"]
         style = ttk.Style(self.top)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", rowheight=45, font=("Arial", 10))
+        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
+        style.configure("Treeview", rowheight=30, font=("Arial", 11))
         self.main_frame = tk.Frame(
             self.top, bg="lightblue", bd=4, relief="solid"
         )
         self.top_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.filter_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.year_cb = ttk.Combobox(
-            self.top_frame, textvariable=self.selected_year, width=5,
+            self.filter_frame, textvariable=self.selected_year, width=5,
             state="readonly", values=self.years, font=("Arial", 10)
         )
         self.user_cb = ttk.Combobox(
@@ -85,12 +85,12 @@ class SystemLogsWindow(BaseWindow):
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
         self.top_frame.pack(side="top", fill="x", pady=(5, 0), padx=5)
-        self.title_label.pack(anchor="center", ipadx=5)
+        self.title_label.pack(side="left", ipadx=5)
         # Navigation Frame
         top_btn_frame = tk.Frame(
             self.top_frame, bg="lightblue", bd=4, relief="groove"
         )
-        top_btn_frame.pack(side="left", padx=5)
+        top_btn_frame.pack(side="right", padx=5)
         navigation_btn = {
             "Stock Logs": self.stock_logs,
             "Sales Logs": self.sales_logs,
@@ -103,10 +103,11 @@ class SystemLogsWindow(BaseWindow):
                 top_btn_frame, text=text, bd=2, relief="groove", bg="green",
                 fg="white", font=("Arial", 11, "bold"), command=command
             ).pack(side="left")
-
+        # Filter Frame
+        self.filter_frame.pack(fill="x")
         # Year Selector
         tk.Label(
-            self.top_frame, text="Select Year:", bg="lightblue",
+            self.filter_frame, text="Select Year:", bg="lightblue",
             font=("Arial", 12, "bold")
         ).pack(side="left", padx=(5, 0))
         self.year_cb.pack(side="left", padx=(0, 5))
@@ -119,8 +120,6 @@ class SystemLogsWindow(BaseWindow):
         self.year_cb.bind(
             "<<ComboboxSelected>>", lambda e: self.refresh_table()
         )
-        # Filter Frame
-        self.filter_frame.pack(fill="x", padx=5)
         # Filter Checkbox Frame
         filter_outer = tk.Frame(
             self.filter_frame, bg="lightblue", bd=2, relief="groove"
@@ -192,7 +191,7 @@ class SystemLogsWindow(BaseWindow):
         )
         for col in self.columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", width=50)
+            self.tree.column(col, anchor="w", width=30)
         self.tree.configure(yscrollcommand=y_scroll.set)
         y_scroll.pack(side="right", fill="y")
         self.tree.pack(fill="both", expand=True)
@@ -247,7 +246,7 @@ class SystemLogsWindow(BaseWindow):
         for row in self.tree.get_children():
             self.tree.delete(row)
 
-        formatter = DescriptionFormatter(50, 10)
+        formatter = DescriptionFormatter(70, 10)
         for i, row in enumerate(logs, start=1):
             tag = "evenrow" if i % 2 == 0 else "oddrow"
             action = formatter.format(row["action"])

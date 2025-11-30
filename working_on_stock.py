@@ -4,8 +4,7 @@ from working_on_employee import insert_logs
 
 def insert_new_product(conn, product, user):
     """Insert a new product into stock and product tables.
-    ARGS:
-        conn: Active DB connection.
+    ARGS: conn: Active DB connection.
         product: dictionary containing product fields
                     {"product_code": str,
                     "product_name": str,
@@ -32,13 +31,14 @@ def insert_new_product(conn, product, user):
             """,(code, name, retail, wholesale))
             cursor.execute("""
             INSERT INTO products (product_code, product_name, description,
-                quantity, cost, wholesale_price,retail_price, min_stock_level,
-                date_replenished)
+                quantity, cost, wholesale_price,retail_price,
+                min_stock_level, date_replenished)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
-            """, (code, name, desc, qty, cost, wholesale, retail, min_stock, now))
+            """, (code, name, desc, qty, cost, wholesale, retail, min_stock,
+                now))
         data = {
             "product_code": code,
-            "description": "Added New Product",
+            "description": f"Added New Product; {name} : {code}",
             "quantity": qty,
             "total": cost,
             "user": user
@@ -61,16 +61,14 @@ def insert_new_product(conn, product, user):
                  "description": "Replenishment (New Product)."}
             ]
             success, err = recorder.record_sales(accounts, lines, ref)
-            if success:
-                conn.commit()
-                return f"New Product '{name}' inserted successfully."
-            else:
+            if not success:
                 conn.rollback()
-                return f"Error Recording Books of Accounts: {err}"
+                return False, f"Error Recording Books of Accounts: {err}."
+            conn.commit()
+            return True, f"New Product '{name}' inserted successfully."
     except Exception as e:
         conn.rollback()
-        return f"Error Inserting New Product: {str(e)}"
-
+        return False, f"Error Inserting New Product: {str(e)}."
 
 def delete_product(conn, code, user):
     try:

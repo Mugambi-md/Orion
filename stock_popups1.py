@@ -22,23 +22,24 @@ class DeleteProductPopup(BaseWindow):
         self.product_code_var = tk.StringVar()
         self.refresh = refresh if refresh else None
         self.products = None
-
+        self.product_name = None
         self.main_frame = tk.Frame(
             self.window, bg="skyblue", bd=4, relief="solid"
         )
         self.entry_frame = tk.Frame(self.main_frame, bg="skyblue")
         self.entry = tk.Entry(
-            self.entry_frame, textvariable=self.product_code_var, width=25,
-            bd=2, relief="solid", font=("Arial", 11)
+            self.entry_frame, textvariable=self.product_code_var, width=20,
+            bd=2, relief="raised", font=("Arial", 11)
         )
         self.listbox = tk.Listbox(
-            self.entry_frame, bg="lightgray", width=25, bd=2, relief="raised",
+            self.entry_frame, bg="lightgray", width=20, bd=2, relief="ridge",
             font=("Arial", 11)
         )
         # Delete button (initially hidden)
         self.delete_btn = tk.Button(
-            self.main_frame, text="Delete Product", bg="dodgerblue", width=10,
-            command=self.delete_selected, bd=4, relief="raised"
+            self.main_frame, text="Delete Product", bd=4, relief="groove",
+            bg="dodgerblue", fg="white", command=self.delete_selected,
+            font=("Arial", 10, "bold")
         )
 
 
@@ -51,7 +52,7 @@ class DeleteProductPopup(BaseWindow):
     def setup_widgets(self):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
         # Label and Entry
-        l_text = "Deleting Product Completely."
+        l_text = "Deleting Product From Stock."
         tk.Label(
             self.main_frame, text=l_text, bg="skyblue", fg="red",
             font=("Arial", 12, "italic", "underline"), wraplength=250
@@ -59,15 +60,15 @@ class DeleteProductPopup(BaseWindow):
         self.entry_frame.pack(padx=5)
         tk.Label(
             self.entry_frame, text="Enter Product Code:", bg="skyblue",
-            font=("Arial", 10, "bold")
-        ).pack(pady=(5, 0), padx=3)
-        self.entry.pack(padx=3)
+            font=("Arial", 11, "bold")
+        ).pack(pady=(5, 0), padx=5)
+        self.entry.pack(padx=5)
         self.entry.focus_set()
         self.entry.bind("<KeyRelease>", self.uppercase_and_search)
         self.entry.bind("<Return>", lambda e: self.delete_selected())
         # Listbox
         self.listbox.bind("<<ListboxSelect>>", self.on_select)
-        self.listbox.pack(padx=3)
+        self.listbox.pack(padx=5)
         self.listbox.pack_forget()
 
     def uppercase_and_search(self, event=None):
@@ -92,11 +93,13 @@ class DeleteProductPopup(BaseWindow):
                     self.products = results
                     self.listbox.insert(tk.END, display)
                 self.listbox.config(height=min(len(results), 4))
-                self.listbox.pack()
+                self.listbox.pack(padx=5)
             else:
                 self.listbox.pack_forget()
         except Exception as err:
-            messagebox.showerror("Database Error", str(err))
+            messagebox.showerror(
+                "Database Error", str(err), parent=self.window
+            )
 
     def on_select(self, event):
         if self.listbox.curselection():
@@ -104,14 +107,17 @@ class DeleteProductPopup(BaseWindow):
             product = self.products[index]
             product_code = product["product_code"]
             self.product_code_var.set(product_code)
+            self.product_name = product["product_name"]
             self.listbox.pack_forget()
             self.entry.icursor(tk.END)
             self.delete_btn.pack(pady=10)
 
     def delete_selected(self):
         # Verify Privilege
-        priv = "Delete Product"
-        verify = VerifyPrivilegePopup(self.window, self.conn, self.user, priv)
+        priv = "Admin Delete Product"
+        verify = VerifyPrivilegePopup(
+            self.window, self.conn, self.user, priv
+        )
         if verify.result != "granted":
             messagebox.showwarning(
                 "Access Denied",
@@ -127,7 +133,8 @@ class DeleteProductPopup(BaseWindow):
             return
         confirm = messagebox.askyesno(
             "Confirm Delete",
-            f"You want to delete '{code}'?", default="no", parent=self.window
+            f"Delete '{self.product_name}'; {code}?", default="no",
+            parent=self.window
         )
         if confirm:
             try:
@@ -159,24 +166,24 @@ class RestoreProductPopup(BaseWindow):
         self.product_code_var = tk.StringVar()
         self.refresh = callback if callback else None
         self.products = None
-
+        self.product_name = None
         self.main_frame = tk.Frame(
             self.window, bg="skyblue", bd=4, relief="solid"
         )
         self.entry_frame = tk.Frame(self.main_frame, bg="skyblue")
         self.entry = tk.Entry(
-            self.entry_frame, textvariable=self.product_code_var, width=25,
-            bd=2, relief="solid", font=("Arial", 11)
+            self.entry_frame, textvariable=self.product_code_var, width=20,
+            bd=2, relief="raised", font=("Arial", 11)
         )
         self.listbox = tk.Listbox(
-            self.entry_frame, bg="lightgray", width=25, bd=2, relief="raised",
+            self.entry_frame, bg="lightgray", width=20, bd=2, relief="raised",
             font=("Arial", 11)
         )
-
         # Delete button (initially hidden)
         self.delete_btn = tk.Button(
-            self.main_frame, text="Restore Product", bg="dodgerblue",
-            width=10, command=self.restore_selected, bd=4, relief="raised"
+            self.main_frame, text="Restore Product", bd=4, relief="raised",
+            bg="dodgerblue", fg="white", command=self.restore_selected,
+            font=("Arial", 10, "bold")
         )
 
 
@@ -198,15 +205,15 @@ class RestoreProductPopup(BaseWindow):
         self.entry_frame.pack(padx=5)
         tk.Label(
             self.entry_frame, text="Enter Product Code:", bg="skyblue",
-            font=("Arial", 10, "bold")
-        ).pack(pady=(5, 0), padx=3)
-        self.entry.pack(padx=3)
+            font=("Arial", 11, "bold")
+        ).pack(pady=(5, 0), padx=5)
+        self.entry.pack(padx=5)
         self.entry.focus_set()
         self.entry.bind("<KeyRelease>", self.uppercase_and_search)
         self.entry.bind("<Return>", lambda e: self.restore_selected())
         # Listbox
         self.listbox.bind("<<ListboxSelect>>", self.on_select)
-        self.listbox.pack(padx=3)
+        self.listbox.pack(padx=5)
         self.listbox.pack_forget()
 
     def uppercase_and_search(self, event=None):
@@ -244,6 +251,7 @@ class RestoreProductPopup(BaseWindow):
             index = self.listbox.curselection()[0]
             product = self.products[index]
             product_code = product["product_code"]
+            self.product_name = product["product_name"]
             self.product_code_var.set(product_code)
             self.listbox.pack_forget()
             self.entry.icursor(tk.END)
@@ -251,7 +259,7 @@ class RestoreProductPopup(BaseWindow):
 
     def restore_selected(self):
         # Verify Privilege
-        priv = "Restore Product"
+        priv = "Admin Restore Product"
         verify = VerifyPrivilegePopup(self.window, self.conn, self.user, priv)
         if verify.result != "granted":
             messagebox.showwarning(
@@ -267,8 +275,9 @@ class RestoreProductPopup(BaseWindow):
             )
             return
         confirm = messagebox.askyesno(
-            "Confirm Delete",
-            f"You Want to Restore '{code}'?", default="no", parent=self.window
+            "Confirm Restore",
+            f"Restore '{code}'; {self.product_name}?", default="no",
+            parent=self.window
         )
         if confirm:
             try:
@@ -289,3 +298,9 @@ class RestoreProductPopup(BaseWindow):
                     "Database Error", str(err), parent=self.window
                 )
 
+if __name__ == "__main__":
+    from connect_to_db import connect_db
+    conn=connect_db()
+    root=tk.Tk()
+    RestoreProductPopup(root, conn, "sniffy")
+    root.mainloop()

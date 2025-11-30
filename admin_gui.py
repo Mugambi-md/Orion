@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
-from scrollable_frame import ScrollableFrame
+from windows_utils import ScrollableFrame
 from authentication import VerifyPrivilegePopup
 from sales_report_gui import SalesGUI
 from stock_gui import StockWindow
@@ -10,14 +10,15 @@ from employee_gui import EmployeeManagementWindow
 from new_order_gui import NewOrderWindow
 from logs_gui import SystemLogsWindow
 from log_popups_gui import (
-    SalesLogsWindow, MonthlyReversalLogs, OrderLogsWindow, FinanceLogsWindow
+    SalesLogsWindow, MonthlyReversalLogs, OrderLogsWindow, FinanceLogsWindow,
+    ProductLogsWindow
 )
 from sales_popup import (
     MonthlySalesSummary, YearlySalesWindow, YearlyProductSales
 )
-from stock_popups1 import DeleteProductPopup
+from stock_popups1 import DeleteProductPopup, RestoreProductPopup
 from stock_popups import (
-    NewProductPopup, ProductLogsWindow, ReconciliationWindow,
+    NewProductPopup, ReconciliationWindow,
     DeletedItemsWindow
 )
 from order_windows import OrderedItemsWindow, EditOrdersWindow
@@ -59,9 +60,6 @@ class AdminWindow:
         btn_frame.pack(side="left", fill="y")
         btn_area = btn_frame.scrollable_frame
         self.center_frame.pack(side="left", fill="both", expand=True)
-        right_frame = ScrollableFrame(self.main_frame, "lightblue", 180)
-        right_frame.pack(side="right", fill="y")
-        right_area = right_frame.scrollable_frame
         nav_frame = tk.Frame(
             self.center_frame, bg="lightblue", bd=2, relief="ridge"
         )
@@ -110,6 +108,7 @@ class AdminWindow:
             "Reconcile Stock": self.reconciliation_window,
             "Delete Item": self.delete_item_window,
             "Deleted Items": self.deleted_products_gui,
+            "Restore Item": self.restore_item_gui,
             "Stock Logs": self.stock_logs_window
         }
         for text, command in stock_btns.items():
@@ -249,14 +248,19 @@ class AdminWindow:
         SalesLogsWindow(self.master, self.conn, self.user)
 
     def new_product_window(self):
-        if not self.has_privilege("Add New Product"):
+        if not self.has_privilege("Admin New Product"):
             return
         NewProductPopup(self.master, self.conn, self.user)
 
     def delete_item_window(self):
-        if not self.has_privilege("Delete Product"):
+        if not self.has_privilege("Admin Delete Product"):
             return
         DeleteProductPopup(self.master, self.conn, self.user)
+
+    def restore_item_gui(self):
+        if not self.has_privilege("Admin Restore Product"):
+            return
+        RestoreProductPopup(self.master, self.conn, self.user)
 
     def deleted_products_gui(self):
         if not self.has_privilege("Manage Stock"):

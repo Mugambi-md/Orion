@@ -467,13 +467,13 @@ class SalesJournalRecorder:
         except Exception as e:
             return False, str(e)
 
-    def insert_journal_lines(self, journal_id, lines, account_codes, receipt):
+    def insert_journal_lines(self, id, lines, acc_codes, receipt, desc):
         """Insert debit and credit lines into journal_entry_lines."""
         try:
             with self.conn.cursor() as cursor:
                 for line in lines:
                     acc_name = line["account_name"]
-                    acc_code = account_codes.get(acc_name)
+                    acc_code = acc_codes.get(acc_name)
                     if not acc_code:
                         raise ValueError(f"Acc Code of  {acc_name} not found")
                     cursor.execute("""
@@ -481,13 +481,13 @@ class SalesJournalRecorder:
                         description, debit, credit)
                     VALUES (%s, %s, %s, %s, %s)
                     """, (
-                        journal_id,
+                        id,
                         acc_code,
                         line.get("description", ""),
                         line.get("debit", 0.00),
                         line.get("credit", 0.00)
                     ))
-                    action = f"Recorded Sale Receipt No.{receipt}."
+                    action = f"{desc}.{receipt}."
                     success, msg = insert_finance_log(
                         self.conn, self.user, acc_code, action
                     )
@@ -500,7 +500,7 @@ class SalesJournalRecorder:
             self.conn.rollback()
             return False, f"Error: {str(e)}."
 
-    def record_sales(self, account_details, transaction_lines, reference_no):
+    def record_sales(self, account_details, transaction_lines, reference_no, desc):
         """Records a sales transaction.
         Returns True if successful, False otherwise."""
         try:
@@ -516,7 +516,7 @@ class SalesJournalRecorder:
             journal_id = journal_result
             # 3. Insert journal lines
             ok, msg = self.insert_journal_lines(
-                journal_id, transaction_lines, codes, reference_no
+                journal_id, transaction_lines, codes, reference_no, desc
             )
             if not ok:
                 return False, msg

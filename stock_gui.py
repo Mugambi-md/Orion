@@ -10,9 +10,10 @@ from working_on_stock import fetch_all_products
 from stock_details_window import ProductsDetailsWindow
 from stock_update_popups import UpdateQuantityWindow, AddStockPopup
 from stock_popups1 import DeleteProductPopup
+from log_popups_gui import ProductLogsWindow
 from stock_popups import (
-    NewProductPopup, ProductLogsWindow, ReconciliationWindow,
-    ProductUpdateWindow, DeletedItemsWindow
+    NewProductPopup, ReconciliationWindow, ProductUpdateWindow,
+    DeletedItemsWindow
 )
 
 
@@ -223,9 +224,9 @@ class StockWindow(BaseWindow):
         return True
 
     def open_new_product_popup(self):
-        if not self.has_privilege("Add New Product"):
+        if not self.has_privilege("Admin New Product"):
             return
-        NewProductPopup(self.master, self.conn, self.user, self.refresh)
+        NewProductPopup(self.master, self.conn, self.user)
 
     def open_reconciliation(self):
         if not self.has_privilege("Manage Stock"):
@@ -248,12 +249,12 @@ class StockWindow(BaseWindow):
         AddStockPopup(self.master, self.conn, self.user, self.refresh)
 
     def delete_product(self):
-        if not self.has_privilege("Delete Product"):
+        if not self.has_privilege("Admin Delete Product"):
             return
         DeleteProductPopup(self.master, self.conn, self.user, self.refresh)
 
     def update_products(self):
-        if not self.has_privilege("Update Product Details"):
+        if not self.has_privilege("Admin Product Details"):
             return
         ProductUpdateWindow(self.master, self.conn, self.user)
 

@@ -185,6 +185,7 @@ def create_tables():
                 FOREIGN KEY (order_id) REFERENCES orders(order_id)
                     ON DELETE CASCADE,
                 FOREIGN KEY (product_code) REFERENCES products(product_code)
+                    ON UPDATE CASCADE
                     ON DELETE CASCADE
                 );
             """)

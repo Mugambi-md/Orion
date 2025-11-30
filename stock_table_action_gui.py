@@ -115,7 +115,7 @@ class UpdatePriceWindow(BaseWindow):
                 "Please enter Valid numeric prices", parent=self.window
             )
             return
-        priv = "Update Product Price"
+        priv = "Admin Product Price"
         dialog = VerifyPrivilegePopup(
             self.window, self.conn, self.user, priv
         )
