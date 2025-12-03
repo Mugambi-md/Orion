@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 from base_window import BaseWindow
 from authentication import VerifyPrivilegePopup
+from windows_utils import SentenceCapitalizer
 from working_on_stock import (
     update_quantity, update_price, update_description
 )
@@ -267,6 +268,7 @@ class UpdateDescriptionPopup(BaseWindow):
         ).pack(pady=(5, 0))
         self.desc_text.pack(pady=(0, 5))
         self.desc_text.focus_set()
+        SentenceCapitalizer.bind(self.desc_text)
         # Button to update
         update_btn = tk.Button(
             self.main_frame, text="Update Description", bd=2, relief="groove",
@@ -282,7 +284,6 @@ class UpdateDescriptionPopup(BaseWindow):
                 "Description Cannot be Empty.", parent=self.window
             )
             return
-        new_description = description[0].upper() + description[1:] if description else ""
         product_code = str(self.product_code)
         priv = "Update Product Details"
         dialog = VerifyPrivilegePopup(
@@ -295,7 +296,7 @@ class UpdateDescriptionPopup(BaseWindow):
             )
             return
         result = update_description(
-            self.conn, product_code, new_description, self.user
+            self.conn, product_code, description, self.user
         )
         if result:
             name = self.product_name
@@ -307,5 +308,4 @@ class UpdateDescriptionPopup(BaseWindow):
             self.window.destroy()
         else:
             messagebox.showerror("Error", str(result), parent=self.window)
-
 

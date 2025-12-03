@@ -298,9 +298,3 @@ class RestoreProductPopup(BaseWindow):
                     "Database Error", str(err), parent=self.window
                 )
 
-if __name__ == "__main__":
-    from connect_to_db import connect_db
-    conn=connect_db()
-    root=tk.Tk()
-    RestoreProductPopup(root, conn, "sniffy")
-    root.mainloop()

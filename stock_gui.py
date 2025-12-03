@@ -8,12 +8,12 @@ from base_window import BaseWindow
 from accounting_export import ReportExporter
 from working_on_stock import fetch_all_products
 from stock_details_window import ProductsDetailsWindow
-from stock_update_popups import UpdateQuantityWindow, AddStockPopup
+from stock_update_popups import UpdateQuantityWindow
 from stock_popups1 import DeleteProductPopup
 from log_popups_gui import ProductLogsWindow
 from stock_popups import (
     NewProductPopup, ReconciliationWindow, ProductUpdateWindow,
-    DeletedItemsWindow
+    DeletedItemsWindow, AddStockPopup
 )
 
 

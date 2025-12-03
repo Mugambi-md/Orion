@@ -216,7 +216,9 @@ def add_to_existing_product(conn, product: dict, user: str):
                 {"account_name": "Inventory", "debit": cost, "credit": 0,
                  "description": f"Replenishment {code}."}
             ]
-            success, err = recorder.record_sales(accounts, lines, ref)
+            success, err = recorder.record_sales(
+                accounts, lines, ref, "Replenishment"
+            )
             if success:
                 conn.commit()
                 return True, f"Product '{code}' Replenished Successfully."

@@ -7,7 +7,7 @@ from working_on_orders import search_product_codes
 from accounting_export import ReportExporter
 from stock_popups1 import DeleteProductPopup, RestoreProductPopup
 from authentication import VerifyPrivilegePopup, DescriptionFormatter
-from window_functionality import to_uppercase, only_digits
+from window_functionality import to_uppercase, only_digits, auto_manage_focus
 from windows_utils import (
     CurrencyFormatter, capitalize_customer_name, SentenceCapitalizer
 )
@@ -16,7 +16,8 @@ from stock_table_action_gui import (
 )
 from working_on_stock import (
     fetch_all_products, insert_new_product, fetch_deleted_products,
-    search_product_codes, update_product_details, search_product_details,
+    add_to_existing_product, search_product_codes, update_product_details,
+    search_product_details, get_product_codes,
 )
 
 
@@ -382,7 +383,7 @@ class ReconciliationWindow(BaseWindow):
                 row["quantity"],
                 f"{row["retail_price"]:,}",
                 f"{row["wholesale_price"]:,}",
-                row["date_replenished"]
+                row["date_replenished"].strftime("%d/%m/%Y")
             ), tags=(tag,))
         self.auto_resize()
 
@@ -489,7 +490,7 @@ class ReconciliationWindow(BaseWindow):
                 "Please Select Item to Update Quantity.", parent=self.window
             )
             return
-        if not self.has_privilege("Admin Product Price"):
+        if not self.has_privilege("Admin Product Quantity"):
             return
         UpdateQuantityPopup(
             self.window, self.conn, self.user, item, self.refresh
@@ -503,6 +504,8 @@ class ReconciliationWindow(BaseWindow):
                 "Please Select Item to Update Price.", parent=self.window
             )
             return
+        if not self.has_privilege("Admin Product Price"):
+            return
         UpdatePriceWindow(
             self.window, self.conn, self.user, item, self.refresh
         )
@@ -515,6 +518,8 @@ class ReconciliationWindow(BaseWindow):
                 "Please select Item to update Description.",
                 parent=self.window
             )
+            return
+        if not self.has_privilege("Update Product Details"):
             return
         UpdateDescriptionPopup(
             self.window, self.conn, item, self.refresh, self.user
@@ -792,7 +797,7 @@ class ProductUpdateWindow(BaseWindow):
             font=("Arial", 10, "bold")
         ).pack(anchor="w", pady=(5, 0), padx=5)
         name_entry = tk.Entry(
-            self.details_frame, textvariable=self.fields["Product Name:"], width=40,
+            self.details_frame, textvariable=self.fields["Product Name:"], width=30,
             bd=2, relief="raised", font=("Arial", 11)
         )
         name_entry.bind("<KeyRelease>", capitalize_customer_name)
@@ -818,6 +823,7 @@ class ProductUpdateWindow(BaseWindow):
         col2.pack(side="left", padx=(5, 10))
         keys = ["Product Code:", "Quantity:", "Cost:", "Retail Price:",
                 "Wholesale Price:", "Min Stock Level:"]
+        currency_fields = {"Cost:", "Wholesale Price:", "Retail Price:"}
         mid = len(keys) // 2
         for key in keys[:mid]:
             tk.Label(
@@ -830,6 +836,8 @@ class ProductUpdateWindow(BaseWindow):
             entry.pack(anchor="w", pady=(0, 5), padx=5)
             self.entries[key] = entry
             self.entry_order.append(entry)
+            if key in currency_fields:
+                CurrencyFormatter.add_currency_trace(self.fields[key], entry)
         for key in keys[mid:]:
             tk.Label(
                 col2, text=key, bg="lightblue", font=("Arial", 10, "bold")
@@ -841,6 +849,8 @@ class ProductUpdateWindow(BaseWindow):
             entry.pack(anchor="w", pady=(0, 5), padx=5)
             self.entries[key] = entry
             self.entry_order.append(entry)
+            if key in currency_fields:
+                CurrencyFormatter.add_currency_trace(self.fields[key], entry)
         code_entry = self.entries["Product Code:"]
         code_entry.bind("<KeyRelease>", lambda e: to_uppercase(code_entry))
         for i, entry in enumerate(self.entry_order):
@@ -979,12 +989,14 @@ class ProductUpdateWindow(BaseWindow):
                 "product_name": self.fields["Product Name:"].get().strip(),
                 "description": desc,
                 "quantity": int(self.fields["Quantity:"].get().strip() or 0),
-                "cost": float(self.fields["Cost:"].get().strip() or 0.0),
+                "cost": float(
+                    self.fields["Cost:"].get().replace(",", "") or 0.0
+                ),
                 "retail_price": float(
-                    self.fields["Retail Price:"].get().strip() or 0.0
+                    self.fields["Retail Price:"].get().replace(",", "") or 0.0
                 ),
                 "wholesale_price": float(
-                    self.fields["Wholesale Price:"].get().strip() or 0.0
+                    self.fields["Wholesale Price:"].get().replace(",", "") or 0.0
                 ),
                 "min_stock_level": int(
                     self.fields["Min Stock Level:"].get().strip() or 0
@@ -1014,9 +1026,196 @@ class ProductUpdateWindow(BaseWindow):
         for entry in self.entries.values():
             entry.config(state=state)
 
+class AddStockPopup(BaseWindow):
+    def __init__(self, master, conn, user, refresh_callback=None):
+        self.window = tk.Toplevel(master)
+        self.window.title("Restocking Products")
+        self.center_window(self.window, 300, 300, master)
+        self.window.configure(bg="skyblue")
+        self.window.transient(master)
+        self.window.grab_set()
+
+        self.user = user
+        self.conn = conn
+        if refresh_callback:
+            self.refresh_callback = refresh_callback
+        else:
+            self.refresh_callback = None
+        self.cost_var = tk.StringVar()
+        self.wholesale_var = tk.StringVar()
+        self.retail_var = tk.StringVar()
+        self.labels = [
+            "Product Code", "Quantity", "Cost", "Wholesale Price",
+            "Retail Price", "Min Stock Level"
+        ]
+        self.entries = {}
+        self.main_frame = tk.Frame(
+            self.window, bg="skyblue", bd=4, relief="solid"
+        )
+        self.code_entry = tk.Entry(
+            self.main_frame, bd=2, relief="raised", width=15,
+            font=("Arial", 11)
+        )
+        # Label for feedback initially hidden
+        self.label = tk.Label(
+            self.main_frame, text="", bg="skyblue", fg="red",
+            font=("Arial", 9, "italic", "underline")
+        )
+
+        self.build_ui()
+
+    def build_ui(self):
+        """Creating and placing widgets in two columns."""
+        self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
+        tk.Label(
+            self.main_frame, bg="skyblue", text="Product Code:",
+            font=("Arial", 10, "bold")
+        ).pack(pady=(5, 0))
+        self.code_entry.pack(pady=(0, 2))
+        self.code_entry.focus_set()
+        self.entries["Product Code"] = self.code_entry
+        self.code_entry.bind("<KeyRelease>", self.check_product_code)
+        self.label.pack(pady=(2, 0))
+        entry_frame = tk.Frame(self.main_frame, bg="skyblue")
+        entry_frame.pack(expand=True)
+        vcmd = (self.window.register(only_digits), '%S')
+        col1_labels = self.labels[1:4]
+        col2_labels = self.labels[4:]
+
+        # left column
+        for i, label in enumerate(col1_labels):
+            tk.Label(
+                entry_frame, bg="skyblue", text=f"{label}:",
+                font=("Arial", 10, "bold")
+            ).grid(row=i*2, column=0, sticky="w", pady=(5, 0), padx=5)
+            entry = tk.Entry(
+                entry_frame, bd=2, relief="raised", width=10,
+                font=("Arial", 11)
+            )
+            entry.config(validate="key", validatecommand=vcmd)
+            entry.grid(row=i*2+1, column=0, padx=10, pady=(0, 5), sticky="w")
+            self.entries[label] = entry
+
+        # Right Column
+        for i, label in enumerate(col2_labels):
+            tk.Label(
+                entry_frame, bg="skyblue", text=f"{label}:",
+                font=("Arial", 10, "bold")
+            ).grid(row=i*2, column=1, sticky="w", pady=(5, 0), padx=5)
+            entry = tk.Entry(
+                entry_frame, bd=2, relief="raised", width=10,
+                font=("Arial", 11)
+            )
+            entry.config(validate="key", validatecommand=vcmd)
+            entry.grid(row=i*2+1, column=1, padx=10, pady=(0, 5), sticky="w")
+            self.entries[label] = entry
+        self.entries["Cost"].config(textvariable=self.cost_var)
+        self.entries["Wholesale Price"].config(textvariable=self.wholesale_var)
+        self.entries["Retail Price"].config(textvariable=self.retail_var)
+        CurrencyFormatter.add_currency_trace(
+            self.cost_var, self.entries["Cost"]
+        )
+        CurrencyFormatter.add_currency_trace(
+            self.wholesale_var, self.entries["Wholesale Price"]
+        )
+        CurrencyFormatter.add_currency_trace(
+            self.retail_var, self.entries["Retail Price"]
+        )
+        self.entries['Min Stock Level'].bind(
+            "<Return>", lambda e: self.submit()
+        )
+        # Button centered across both columns
+        post_btn = tk.Button(
+            entry_frame, text="Post Restock", width=15, command=self.submit,
+            bg="dodgerblue"
+        )
+        post_btn.grid(row=6, column=0, columnspan=2, pady=(10, 5))
+        post_btn.bind("<Return>", lambda e: self.submit())
+        # Expand nicely
+        self.main_frame.grid_columnconfigure(0, weight=1)
+        self.main_frame.grid_rowconfigure(0, weight=1)
+        auto_manage_focus(self.window)
+
+
+    def check_product_code(self, event):
+        current_text = self.code_entry.get()
+        uppercase_text = current_text.upper()
+        if current_text != uppercase_text:
+            self.code_entry.delete(0, tk.END)
+            self.code_entry.insert(0, uppercase_text)
+        code = uppercase_text.strip()
+        self.code_entry.configure(bg="white")
+        self.label.configure(text="")
+        if not code:
+            return # Empty input, reset look
+
+        success, result = get_product_codes(self.conn, code)
+        # Handle DB or Logic errors
+        if not success:
+            self.label.configure(text=result, fg="red")
+            return
+        # Check if code exists among fetched items
+        found = any(item["product_code"].startswith(code) for item in result)
+        if not found:
+            # Show Error feedback
+            self.code_entry.configure(bg="#ffcccc") # Light red
+            self.label.configure(text="Product Code Not Found.", fg="red")
+        else:
+            self.code_entry.configure(bg="white")
+            self.label.configure(text="")
+
+    def submit(self):
+        # Verify Privilege
+        priv = "Add Stock"
+        verify = VerifyPrivilegePopup(self.window, self.conn, self.user, priv)
+        if verify.result != "granted":
+            messagebox.showwarning(
+                "Access Denied",
+                f"Access Denied to {priv}.", parent=self.window
+            )
+            return
+        try:
+            code = str(self.entries['Product Code'].get().strip().upper())
+            added_quantity = int(self.entries['Quantity'].get().strip())
+            def safe_float(val):
+                return float(val.strip()) if val.strip() else None
+            cost = safe_float(self.cost_var.get().replace(",", ""))
+            wholesale = safe_float(self.wholesale_var.get().replace(",", ""))
+            retail = safe_float(self.retail_var.get().replace(",", ""))
+            min_stock = safe_float(self.entries['Min Stock Level'].get())
+            data = {
+                "product_code": code,
+                "quantity": added_quantity,
+                "cost": cost,
+                "wholesale_price": wholesale,
+                "retail_price": retail,
+                "min_stock_level": min_stock
+            }
+            success, msg = add_to_existing_product(self.conn, data, self.user)
+            if success:
+                messagebox.showinfo("Success", msg, parent=self.window)
+                if messagebox.askyesno(
+                        "Add Another", "Do you want to add Another?",
+                        default='yes', parent=self.window):
+                    for entry in self.entries.values():
+                        entry.delete(0, tk.END)
+                    self.entries['Product Code'].focus_set()
+                else:
+                    self.window.destroy()
+                    if self.refresh_callback is not None:
+                        self.refresh_callback()
+            else:
+                messagebox.showerror("Error", msg)
+        except ValueError:
+            messagebox.showerror(
+                "Invalid Input",
+                "Please enter valid numeric values where required.",
+                parent=self.window
+            )
+
 if __name__ == "__main__":
     from connect_to_db import connect_db
-    conn = connect_db()
-    root = tk.Tk()
-    ProductUpdateWindow(root, conn, "sniffy")
+    conn=connect_db()
+    root=tk.Tk()
+    AddStockPopup(root, conn, "Sniffy")
     root.mainloop()
