@@ -272,18 +272,16 @@ def get_login_status_and_name(conn, identifier):
     except Exception as e:
         raise e
 
-def insert_privilege(conn, privilege, user):
+def insert_privilege(conn, privilege, description, user):
     """Insert new privilege into access table.
     Return success message or error string."""
-    if not privilege.strip():
-        return "Privilege cannot be empty."
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-                INSERT INTO access (privilege)
-                VALUES (%s)
-            """, (privilege.strip(),))
-        action = f"Created New Privilege to: {privilege}."
+                INSERT INTO access (privilege, clearance)
+                VALUES (%s, %s)
+            """, (privilege, description))
+        action = f"Created New Privilege {privilege} to: {description}."
         success, msg = insert_logs(conn, user, "Human Resource", action)
         if not success:
             conn.rollback()

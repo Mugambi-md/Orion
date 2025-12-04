@@ -5,7 +5,7 @@ from tkinter import ttk, messagebox
 from datetime import datetime
 from authentication import VerifyPrivilegePopup
 from accounting_export import ReportExporter
-from windows_utils import CurrencyFormatter
+from windows_utils import CurrencyFormatter, SentenceCapitalizer
 from working_on_accounting import (
     count_accounts_by_type, check_account_name_exists, insert_account,
     get_account_name_and_code, insert_opening_balance, insert_journal_entry,
@@ -375,6 +375,7 @@ class JournalEntryPopup(BaseWindow):
             font=("Arial", 11, "bold"),
         ).grid(row=1, column=0, columnspan=2, pady=(5, 0), sticky="w")
         self.desc_entry.grid(row=2, column=0, columnspan=2, pady=(0, 5))
+        SentenceCapitalizer.bind(self.desc_entry)
         tk.Button(
             self.bottom_frame,
             text="Post",

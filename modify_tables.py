@@ -38,14 +38,42 @@ def modify_column(conn):
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                "ALTER TABLE orders_logs MODIFY COLUMN action TEXT NOT NULL;"
+                "ALTER TABLE access ADD COLUMN clearance TEXT;"
             )
             conn.commit()
-            return True, "Table Column Modified Successfully."
+            return True, "Table Column Added Successfully."
     except Exception as e:
         conn.rollback()
         return False, f"Error Modifying: {str(e)}"
 
+def update_privileges(conn, descriptions):
+    try:
+        with conn.cursor() as cursor:
+            for privilege, desc in descriptions.items():
+                cursor.execute("""
+                    UPDATE access
+                    SET clearance = %s
+                    WHERE privilege = %s;
+                """, (desc, privilege))
+        conn.commit()
+        return True, "Clearance description updated successfully."
+    except Exception as e:
+        return False, f"Error Updating description: {str(e)}."
+
+
+descriptions = {
+    "Add User": "Add new user Account",
+    "Manage User": "Access Employees window",
+    "Assign Privilege": "Assigning Privileges to employees.",
+    "General Product Report": "View Sales Product performance",
+    "Change Product Price": "Change Product Prices",
+    "General Sales Report": "View sales reports.",
+    "View Finacial Accounts": "View Financial accounts Record",
+    "Manage Finacial Accounts": "Access Accounting window",
+    "Make Sale": "Allows user to make sale"
+}
+#
 # from connect_to_db import connect_db
 # conn=connect_db()
-# keep_logs_after_order_delete(conn)
+# success, msg = update_privileges(conn, descriptions)
+# print(success, msg)

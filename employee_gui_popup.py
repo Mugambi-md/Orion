@@ -5,7 +5,8 @@ from tkinter import ttk, messagebox
 from base_window import BaseWindow
 from authentication import VerifyPrivilegePopup
 from windows_utils import (
-    only_digits, capitalize_customer_name, is_valid_email, CurrencyFormatter
+    only_digits, capitalize_customer_name, is_valid_email, CurrencyFormatter,
+    SentenceCapitalizer
 )
 from working_on_employee import (
     get_departments, username_exists, insert_privilege, get_user_info,
@@ -138,7 +139,7 @@ class EmployeePopup(BaseWindow):
         data = {k: v.get() for k, v in self.entries.items()}
         missing_fields = [k for k, v in data.items() if not v]
         # Verify user privilege
-        priv = "Add User"
+        priv = "Admin Add User"
         verify_dialog = VerifyPrivilegePopup(
             self.window, self.conn, self.user, priv
         )
@@ -311,9 +312,9 @@ class LoginStatusPopup(BaseWindow):
         new_status = self.status_var.get().lower()
         # Verify User privilege
         if new_status == "active":
-            priv = "Activate User"
+            priv = "Admin Activate User"
         else:
-            priv = "Deactivate User"
+            priv = "Admin Deactivate User"
         verify = VerifyPrivilegePopup(self.window, self.conn, self.user, priv)
         if verify.result != "granted":
             messagebox.showwarning(
@@ -340,7 +341,7 @@ class PrivilegePopup(BaseWindow):
     def __init__(self, master, conn, user):
         self.window = tk.Toplevel(master)
         self.window.title("Add Privileges")
-        self.center_window(self.window, 300, 150, master)
+        self.center_window(self.window, 350, 250, master)
         self.window.configure(bg="lightblue")
         self.window.transient(master)
         self.window.grab_set()
@@ -352,8 +353,12 @@ class PrivilegePopup(BaseWindow):
             self.window, bg="lightblue", bd=4, relief="solid"
         )
         self.entry = tk.Entry(
-            self.main_frame, textvariable=self.privilege_var, width=30, bd=2,
+            self.main_frame, textvariable=self.privilege_var, width=25, bd=2,
             relief="raised", font=("Arial", 11)
+        )
+        self.desc_entry = tk.Text(
+            self.main_frame, width=40, height=4, bd=4, relief="ridge",
+            font=("Arial", 11)
         )
 
         self.build_form()
@@ -364,17 +369,28 @@ class PrivilegePopup(BaseWindow):
         tk.Label(
             self.main_frame, text="Enter Privilege:", bg="lightblue",
             font=("Arial", 12, "bold")
-        ).pack(pady=(10, 0))
+        ).pack(anchor="w", pady=(5, 0))
         # Entry field
-        self.entry.pack(pady=(0, 10), padx=10)
+        self.entry.pack(pady=(0, 5), padx=10)
         self.entry.bind("<KeyRelease>", capitalize_customer_name)
-        self.entry.bind("<Return>", self.submit) # Press Enter to submit
+        self.entry.bind("<Return>", self.focus_description)
         self.entry.focus_set()
+        tk.Label(
+            self.main_frame, text="Privilege Description:", bg="lightblue",
+            font=("Arial", 12, "bold")
+        ).pack(anchor="w", pady=(5, 0))
+        self.desc_entry.pack(pady=(0, 5))
+        SentenceCapitalizer.bind(self.desc_entry)
         # Submit Button
         tk.Button(
             self.main_frame, text="Add Privilege", bd=2, relief="groove",
-            bg="green", fg="white", command=self.submit
+            bg="green", fg="white", command=self.submit, font=("Arial", 10, "bold")
         ).pack(pady=5)
+
+    def focus_description(self, event):
+        self.desc_entry.focus_set()
+        self.desc_entry.mark_set("insert", "end")
+        return "break"
 
     def submit(self, event=None):
         privilege = self.privilege_var.get().strip()
@@ -385,7 +401,7 @@ class PrivilegePopup(BaseWindow):
             )
             return
         # Verify user privilege
-        priv = "Create Privilege"
+        priv = "Admin Create Privilege"
         verify = VerifyPrivilegePopup(self.window, self.conn, self.user, priv)
         if verify.result != "granted":
             messagebox.showwarning(
@@ -394,10 +410,14 @@ class PrivilegePopup(BaseWindow):
             )
             return
         # Proceed to insert if access is granted
-        success, result = insert_privilege(self.conn, privilege, self.user)
+        desc = self.desc_entry.get("1.0", tk.END).strip()
+        success, result = insert_privilege(
+            self.conn, privilege, desc, self.user
+        )
         if success:
             messagebox.showinfo("Success", result, parent=self.window)
             self.privilege_var.set("") # Clear input
+            self.desc_entry.delete("1.0", tk.END)
             self.entry.focus_set()
         else:
             messagebox.showerror("Error", result, parent=self.window)
@@ -590,7 +610,7 @@ class AssignPrivilegePopup(BaseWindow):
             )
             return
         # Verify user privilege
-        priv = "Assign Privilege"
+        priv = "Admin Assign Privilege"
         verify = VerifyPrivilegePopup(self.window, self.conn, self.user, priv)
         if verify.result != "granted":
             messagebox.showwarning(
@@ -815,7 +835,7 @@ class RemovePrivilegePopup(BaseWindow):
                 "Please Search User and Select at Least 1 Privilege.", parent=self.window
             )
             return
-        priv = "Remove Privilege"
+        priv = "Admin Remove Privilege"
         verify = VerifyPrivilegePopup(self.window, self.conn, self.user, priv)
         if verify.result != "granted":
             messagebox.showwarning(
@@ -1480,7 +1500,7 @@ class DepartmentsPopup(BaseWindow):
             )
             return
         # Verify user privilege
-        priv = "Add Department"
+        priv = "Admin Add Department"
         verify_dialog = VerifyPrivilegePopup(
             self.window, self.conn, self.user, priv
         )
@@ -1767,9 +1787,9 @@ class EditEmployeeWindow(BaseWindow):
             messagebox.showerror("Error", msg, parent=self.window)
 
 
-# if __name__ == "__main__":
-#     from connect_to_db import connect_db
-#     conn=connect_db()
-#     root=tk.Tk()
-#     EditEmployeeWindow(root, conn, "Sniffy")
-#     root.mainloop()
+if __name__ == "__main__":
+    from connect_to_db import connect_db
+    conn=connect_db()
+    root=tk.Tk()
+    PrivilegePopup(root, conn, "Sniffy")
+    root.mainloop()

@@ -44,11 +44,13 @@ def create_tables(conn):
             """)
             print("Logins table created successfully.")
 
-            cursor.execute("""CREATE TABLE IF NOT EXISTS access (
-                        no INT AUTO_INCREMENT PRIMARY KEY,
-                        privilege VARCHAR(70) NOT NULL UNIQUE
-                        );
-                        """)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS access (
+                no INT AUTO_INCREMENT PRIMARY KEY,
+                privilege VARCHAR(70) NOT NULL UNIQUE,
+                clearance TEXT
+                );
+            """)
             print("Access table created successfully.")
 
             cursor.execute("""CREATE TABLE IF NOT EXISTS login_access (

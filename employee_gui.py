@@ -231,19 +231,19 @@ class EmployeeManagementWindow(BaseWindow):
 
     def create_priv(self):
         # Verify user privilege
-        if not self.has_privilege("Create Privilege"):
+        if not self.has_privilege("Admin Create Privilege"):
             return
         PrivilegePopup(self.window, self.conn, self.user)
 
     def add_employee(self):
         # Verify user privilege
-        if not self.has_privilege("Add User"):
+        if not self.has_privilege("Admin Add User"):
             return
         EmployeePopup(self.window, self.conn, self.user)
 
     def give_priv(self):
         # Verify user privilege
-        if not self.has_privilege("Assign Privilege"):
+        if not self.has_privilege("Admin Assign Privilege"):
             return
         AssignPrivilegePopup(self.window, self.conn, self.user)
 
@@ -255,19 +255,19 @@ class EmployeeManagementWindow(BaseWindow):
 
     def deactivate_employee(self):
         # Verify user privilege
-        privilege = "Deactivate User" or "Activate User"
+        privilege = "Admin Deactivate User" or "Admin Activate User"
         if not self.has_privilege(privilege):
             return
         LoginStatusPopup(self.window, self.conn, self.user)
 
     def departments(self):
         # Verify user privilege
-        if not self.has_privilege("Add Department"):
+        if not self.has_privilege("Admin Add Department"):
             return
         DepartmentsPopup(self.window, self.conn, self.user)
 
     def remove_privilege(self):
-        if not self.has_privilege("Remove Privilege"):
+        if not self.has_privilege("Admin Remove Privilege"):
             return
         RemovePrivilegePopup(self.window, self.conn, self.user)
 
