@@ -4,9 +4,10 @@ import tkinter.font as tkFont
 from tkinter import ttk, messagebox
 from base_window import BaseWindow
 from analysis_gui_pie import AnalysisWindow
-from working_on_stock import view_all_products
+from working_on_stock import view_all_products, fetch_deleted_products
 from accounting_export import ReportExporter
 from authentication import VerifyPrivilegePopup, DescriptionFormatter
+from stock_popups import RestoreProductPopup
 
 
 class ProductsDetailsWindow(BaseWindow):
@@ -244,12 +245,181 @@ class ProductsDetailsWindow(BaseWindow):
         AnalysisWindow(self.window, title, products, metrics, field)
 
 
+class DeletedItemsWindow(BaseWindow):
+    def __init__(self, root, conn, user):
+        self.top = tk.Toplevel(root)
+        self.top.title("Deleted Products")
+        self.center_window(self.top, 1200, 650, root)
+        self.top.configure(bg="lightblue")
+        self.top.transient(root)
+        self.top.grab_set()
+
+        self.conn = conn
+        self.user = user
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
+        style.configure("Treeview", font=("Arial", 11))
+        self.columns = [
+            "No", "Code", "Name", "Description", "Quantity", "Cost",
+            "Wholesale Price", "Retail Price", "Min Stock", "Restocked"
+        ]
+        self.main_frame = tk.Frame(
+            self.top, bg="lightblue", bd=4, relief="solid"
+        )
+        self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
+        self.tree = ttk.Treeview(
+            self.table_frame, columns=self.columns, show="headings"
+        )
 
 
-if __name__ == "__main__":
-    from connect_to_db import connect_db
-    conn=connect_db()
-    root = tk.Tk()
-    # root.withdraw()
-    app=ProductsDetailsWindow(root, "sniffy", conn)
-    root.mainloop()
+        self.build_ui()
+        self.load_data()
+
+    def build_ui(self):
+        """UI set up."""
+        self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
+        top_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=4, relief="ridge"
+        )
+        top_frame.pack(side="top", fill="x")
+        l_text = "Previously Deleted Products."
+        tk.Label(
+            top_frame, text=l_text, bg="lightblue", fg="blue", bd=4,
+            relief="groove", font=("Arial", 16, "bold", "underline")
+        ).pack(side="left", ipadx=20, padx=10)
+        btn_frame = tk.Frame(top_frame, bg="lightblue")
+        btn_frame.pack(side="right")
+        buttons = {
+            "Restore": self.restore_product,
+            "Export PDF": self.on_export_pdf,
+            "Print": self.on_print
+        }
+        for text, command in buttons.items():
+            tk.Button(
+                btn_frame, text=text, command=command, bd=4, relief="groove",
+                bg="green", fg="white", font=("Arial", 10, "bold")
+            ).pack(side="left")
+        self.table_frame.pack(side="left", fill="both", expand=True)
+        scroll = ttk.Scrollbar(
+            self.table_frame, orient="vertical", command=self.tree.yview
+        )
+        # Set Headings
+        for col in self.columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, anchor="center", width=50)
+        self.tree.configure(yscrollcommand=scroll.set)
+        self.tree.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+        alt_colors = ("#ffffff", "#e6f2ff")  # White and light blueish
+        self.tree.tag_configure("evenrow", background=alt_colors[0])
+        self.tree.tag_configure("oddrow", background=alt_colors[1])
+
+    def load_data(self):
+        """Load data into table."""
+        for row in self.tree.get_children():
+            self.tree.delete(row)
+        items = fetch_deleted_products(self.conn)
+        formatter = DescriptionFormatter(50, 10)
+        for i, row in enumerate(items, start=1):
+            name = re.sub(r"\s+", " ", str(row["product_name"])).strip()
+            desc = formatter.format(row["description"])
+            tag = "evenrow" if i % 2 == 0 else "oddrow"
+            self.tree.insert("", "end", values=(
+                i,
+                row["product_code"],
+                name,
+                desc,
+                row["quantity"],
+                f"{row["cost"]:,}",
+                f"{row["wholesale_price"]:,}",
+                f"{row["retail_price"]:,}",
+                row["min_stock_level"],
+                row["date_replenished"].strftime("%d/%m/%Y")
+            ), tags=(tag,))
+        self.autosize_columns()
+
+    def has_privilege(self, privilege: str) -> bool:
+        """Check if the current user has the required privilege."""
+        dialog = VerifyPrivilegePopup(
+            self.top, self.conn, self.user, privilege
+        )
+        if dialog.result != "granted":
+            messagebox.showwarning(
+                "Access Denied",
+                f"You do not have permission to {privilege}.",
+                parent=self.top
+            )
+            return False
+        return True
+
+    def _collect_current_rows(self):
+        rows = []
+        for item in self.tree.get_children():
+            vals = self.tree.item(item, "values")
+            rows.append({
+                "No": vals[0],
+                "Code": vals[1],
+                "Name": vals[2],
+                "Description": vals[3],
+                "Quantity": vals[4],
+                "Cost": vals[5],
+                "Wholesale Price": vals[6],
+                "Retail Price": vals[7],
+                "Min Stock": vals[8],
+                "Restocked": vals[9]
+            })
+        return rows
+
+    def _make_exporter(self):
+        title = "Stock Items Report."
+        columns = [
+            "No", "Code", "Name", "Description", "Quantity", "Cost",
+            "Wholesale Price", "Retail Price", "Min Stock", "Restocked"
+        ]
+        rows = self._collect_current_rows()
+        return ReportExporter(self.top, title, columns, rows)
+
+    def on_export_pdf(self):
+        if not self.has_privilege("View Products"):
+            return
+        exporter = self._make_exporter()
+        exporter.export_pdf()
+
+    def on_print(self):
+        if not self.has_privilege("View Products"):
+            return
+        exporter = self._make_exporter()
+        exporter.print()
+
+    def restore_product(self):
+        if not self.has_privilege("Admin Restore Product"):
+            return
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showinfo(
+                "Advice",
+                "Optionally, Select Item to Restore.", parent=self.top
+            )
+            RestoreProductPopup(
+                self.top, self.conn, self.user, self.load_data
+            )
+            return
+        code = self.tree.item(selected[0])["values"][1]
+        RestoreProductPopup(
+            self.top, self.conn, self.user, self.load_data, code
+        )
+
+    def autosize_columns(self):
+        """Auto-resize columns based on the content."""
+        font = tkFont.Font()
+        for col in self.columns:
+            max_width = font.measure(col)
+            for item in self.tree.get_children():
+                text = str(self.tree.set(item, col))
+                width = font.measure(text)
+                if width > max_width:
+                    max_width = width
+            self.tree.column(col, width=max_width)
+
+

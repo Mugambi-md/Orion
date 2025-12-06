@@ -16,11 +16,9 @@ from log_popups_gui import (
 from sales_popup import (
     MonthlySalesSummary, YearlySalesWindow, YearlyProductSales
 )
-from stock_popups1 import DeleteProductPopup, RestoreProductPopup
-from stock_popups import (
-    NewProductPopup, ReconciliationWindow,
-    DeletedItemsWindow
-)
+from stock_reconciliation_gui import ReconciliationWindow
+from stock_popups import DeleteProductPopup, NewProductPopup, RestoreProductPopup
+from stock_windows import DeletedItemsWindow, ProductsDetailsWindow
 from order_windows import OrderedItemsWindow, EditOrdersWindow
 from account_popups import (
     OpeningBalancePopup, CloseYearPopup, InsertAccountPopup,
@@ -105,6 +103,7 @@ class AdminWindow:
         ).pack(anchor="w", pady=(5, 0))
         stock_btns = {
             "New Product": self.new_product_window,
+            "Stock Details": self.stock_details_window,
             "Reconcile Stock": self.reconciliation_window,
             "Delete Item": self.delete_item_window,
             "Deleted Items": self.deleted_products_gui,
@@ -203,6 +202,12 @@ class AdminWindow:
         if not self.has_privilege("Manage Orders"):
             return
         OrdersWindow(self.master, self.conn, self.user)
+
+    def stock_details_window(self):
+        # Verify user privilege
+        if not self.has_privilege("Manage Stock"):
+            return
+        ProductsDetailsWindow(self.master, self.conn, self.user)
 
     def employee_window(self):
         # Verify user privilege

@@ -88,7 +88,7 @@ class VerifyPrivilegePopup(simpledialog.Dialog):
 
 
 class DescriptionFormatter:
-    DEFAULT_MAX_LEN = 30
+    DEFAULT_MAX_LEN = 35
     DEFAULT_MIN_SECOND = 5
     def __init__(self, max_len=None, min_second=None):
         """

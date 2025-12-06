@@ -1,23 +1,20 @@
-import re
 import tkinter as tk
-from tkinter import ttk, messagebox
-import tkinter.font as tkFont
+from tkinter import messagebox
 from base_window import BaseWindow
 from working_on_orders import search_product_codes
-from accounting_export import ReportExporter
-from stock_popups1 import DeleteProductPopup, RestoreProductPopup
-from authentication import VerifyPrivilegePopup, DescriptionFormatter
-from window_functionality import to_uppercase, only_digits, auto_manage_focus
+from working_sales import search_product
+from authentication import VerifyPrivilegePopup
+from window_functionality import (
+    to_uppercase, only_digits, auto_manage_focus
+)
 from windows_utils import (
     CurrencyFormatter, capitalize_customer_name, SentenceCapitalizer
 )
-from stock_table_action_gui import (
-    UpdateQuantityPopup, UpdatePriceWindow, UpdateDescriptionPopup
-)
 from working_on_stock import (
-    fetch_all_products, insert_new_product, fetch_deleted_products,
-    add_to_existing_product, search_product_codes, update_product_details,
-    search_product_details, get_product_codes,
+    insert_new_product, delete_product, restore_deleted_product,
+    search_deleted_product_codes, add_to_existing_product, get_product_codes,
+    search_product_codes, update_product_details, search_product_details,
+    update_min_stock_level
 )
 
 
@@ -227,497 +224,7 @@ class NewProductPopup(BaseWindow):
         return "break"
 
 
-class ReconciliationWindow(BaseWindow):
-    def __init__(self, master, conn, user):
-        self.window = tk.Toplevel(master)
-        self.window.title("Product Reconciliation")
-        self.center_window(self.window, 1200, 650, master)
-        self.window.configure(bg="lightblue")
-        self.window.transient(master)
-        self.window.grab_set()
 
-        self.conn = conn
-        self.user = user
-        self.search_by_var = tk.StringVar()
-        self.search_var = tk.StringVar()
-        self.data = fetch_all_products(self.conn)
-        self.current_products = self.data
-        self.product_code = None
-        # Search Frame
-        self.main_frame = tk.Frame(
-            self.window, bg="lightblue", bd=4, relief="solid"
-        )
-        self.search_frame = tk.Frame(self.main_frame, bg="lightblue")
-        self.search_label = tk.Label(
-            self.search_frame, text="Enter Product Name:", bg="lightblue",
-            font=("Arial", 12, "bold")
-        )
-        self.columns = [
-            "No", "Product Code", "Product Name", "Description", "Quantity",
-            "Retail Price", "Wholesale Price", "Restocked"
-        ]
-        self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
-        self.tree = ttk.Treeview(
-            self.table_frame, columns=self.columns, show="headings", height=20
-        )
-
-        self.setup_widgets()
-        self.populate_table()
-
-    def setup_widgets(self):
-        self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        # Title
-        action_frame = tk.Frame(
-            self.main_frame, bg="lightblue", bd=2, relief="flat"
-        )
-        action_frame.pack(side="top", fill="x")
-        self.search_frame.pack(side="top", fill="x")
-        label_text = "Available Products To Reconcile"
-        tk.Label(
-            action_frame, text=label_text, bd=4, relief="groove",
-            bg="lightblue", font=("Arial", 16, "bold", "underline")
-        ).pack(side="left", padx=20)
-        tk.Label(
-            action_frame, text="Select Product to Edit", fg="blue",
-            font=("Arial", 13, "italic", "underline"), bg="lightblue",
-            bd=2, relief="flat"
-        ).pack(side="left", padx=20)  # italic Note
-        export_btns = {
-            "Export PDF": self.on_export_pdf,
-            "Export Excel": self.on_export_excel,
-            "Print": self.on_print,
-        }
-        for text, action in export_btns.items():
-            tk.Button(
-                action_frame, text=text, bd=2, relief="groove", fg="white",
-                bg="dodgerblue", command=action, font=("Arial", 10, "bold")
-            ).pack(side="right")
-        tk.Label(
-            self.search_frame, text="Search by:", bg="lightblue",
-            font=("Arial", 12, "bold")
-        ).pack(side="left", padx=(5, 0))
-        search_options = ttk.Combobox(
-            self.search_frame, width=6, textvariable=self.search_by_var,
-            values=["Name", "Code"], state="readonly", font=("Arial", 11)
-        )
-        search_options.current(0)
-        search_options.pack(side="left", padx=(0, 5))
-        search_options.bind("<<ComboboxSelected>>", self.update_search_label)
-        self.search_label.pack(side="left", padx=(5, 0))
-        search_entry = tk.Entry(
-            self.search_frame, textvariable=self.search_var, width=15, bd=2,
-            relief="raised", font=("Arial", 11)
-        )
-        search_entry.pack(side="left", padx=(0, 5))
-        search_entry.bind("<KeyRelease>", self.filter_table)
-
-        btn_frame = tk.Frame(self.search_frame, bg="lightblue")
-        btn_frame.pack(side="right", padx=5)
-        action_btn = {
-            "Update Quantity": self.update_quantity,
-            "Update Price": self.update_price,
-            "Update Description": self.update_description,
-            "Delete Product": self.delete_product,
-            "Refresh": self.refresh,
-        }
-        for text, action in action_btn.items():
-            tk.Button(
-                btn_frame, text=text, bd=4, relief="groove", bg="lightgreen",
-                command=action, font=("Arial", 10, "bold")
-            ).pack(side="right")
-
-
-        # Table Frame
-        self.table_frame.pack(fill=tk.BOTH, expand=True)
-        # Style
-        style = ttk.Style()
-        style.configure(
-            "Treeview.Heading", font=("Arial", 12, "bold", "underline")
-        )
-        style.configure("Treeview", rowheight=20, font=("Arial", 10))
-        # Scrollbar
-        scrollbar = ttk.Scrollbar(
-            self.table_frame, orient="vertical", command=self.tree.yview
-        )
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        self.tree.pack(side="left", fill="both", expand=True)
-        # Columns config
-
-        for col in self.columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", width=30)
-        self.tree.bind(
-            "<MouseWheel>",
-            lambda e: self.tree.yview_scroll(int(-1 * (e.delta / 120)), "units"),
-        )
-
-    def update_search_label(self, event=None):
-        selected = self.search_by_var.get()
-        if selected == "Name":
-            label = "Enter Product Name:"
-        else:
-            label = "Enter Product Code:"
-        self.search_label.config(text=label)
-
-    def populate_table(self, products=None):
-        for row in self.tree.get_children():
-            self.tree.delete(row)
-        if products is None:
-            self.current_products = self.data[:]
-        else:
-            self.current_products = products[:]
-        alt_colors = ("#ffffff", "#e6f2ff")  # White and light blueish
-        self.tree.tag_configure("evenrow", background=alt_colors[0])
-        self.tree.tag_configure("oddrow", background=alt_colors[1])
-        formatter = DescriptionFormatter()
-        for index, row in enumerate(self.current_products, start=1):
-            tag = "evenrow" if index % 2 == 0 else "oddrow"
-            desc = formatter.format(row["description"])
-            name = re.sub(r"\s+", " ", str(row["product_name"])).strip()
-            self.tree.insert("", "end", values=(
-                index,
-                row["product_code"],
-                name,
-                desc,
-                row["quantity"],
-                f"{row["retail_price"]:,}",
-                f"{row["wholesale_price"]:,}",
-                row["date_replenished"].strftime("%d/%m/%Y")
-            ), tags=(tag,))
-        self.auto_resize()
-
-    def auto_resize(self):
-        """Resize columns to fit content."""
-        font = tkFont.Font()
-        for col in self.columns:
-            # Start with the column header width
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                max_width = max(max_width, font.measure(text))
-            # Add Padding for readability
-            self.tree.column(col, width=max_width)
-
-    def filter_table(self, event=None):
-        keyword = self.search_var.get().lower()
-        search_field = self.search_by_var.get()
-        search_field = (
-            "product_name" if search_field == "Name" else "product_code"
-        )
-        filtered = [r for r in self.data if keyword in str(r[search_field]).lower()]
-        self.populate_table(filtered)
-
-    def get_selected_item(self):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showwarning(
-                "No Selection", "Please select a product from the table.",
-                parent=self.window
-            )
-            return None
-        self.product_code = self.tree.item(selected[0])["values"][1]
-        return self.tree.item(selected[0])["values"]
-
-    def refresh(self):
-        data = fetch_all_products(self.conn)
-        self.populate_table(data)
-
-    def has_privilege(self, privilege: str) -> bool:
-        """Check if the current user has the required privilege."""
-        dialog = VerifyPrivilegePopup(
-            self.window, self.conn, self.user, privilege
-        )
-        if dialog.result != "granted":
-            messagebox.showwarning(
-                "Access Denied",
-                f"You do not have permission to {privilege}.",
-                parent=self.window
-            )
-            return False
-        return True
-
-    def _collect_rows(self):
-        rows = []
-        for item in self.tree.get_children():
-            vals = self.tree.item(item, "values")
-            rows.append(
-                {
-                    "No": vals[0],
-                    "Product Code": vals[1],
-                    "Product Name": vals[2],
-                    "Description": vals[3],
-                    "Quantity": vals[4],
-                    "Retail Price": vals[5],
-                    "Wholesale Price": vals[6],
-                    "Restocked": vals[7],
-                }
-            )
-        return rows
-
-    def _make_exporter(self):
-        title = "Available Products To Reconcile."
-        columns = [
-            "No", "Product Code", "Product Name", "Description", "Quantity",
-            "Retail Price", "Wholesale Price", "Restocked"
-        ]
-        rows = self._collect_rows()
-        return ReportExporter(self.window, title, columns, rows)
-
-    def on_export_excel(self):
-        if not self.has_privilege("Export Products Records"):
-            return
-        exporter = self._make_exporter()
-        exporter.export_excel()
-
-    def on_export_pdf(self):
-        if not self.has_privilege("Export Products Records"):
-            return
-        exporter = self._make_exporter()
-        exporter.export_pdf()
-
-    def on_print(self):
-        if not self.has_privilege("Export Products Records"):
-            return
-        exporter = self._make_exporter()
-        exporter.print()
-
-    def update_quantity(self):
-        item = self.get_selected_item()
-        if not item:
-            messagebox.showerror(
-                "No Selection",
-                "Please Select Item to Update Quantity.", parent=self.window
-            )
-            return
-        if not self.has_privilege("Admin Product Quantity"):
-            return
-        UpdateQuantityPopup(
-            self.window, self.conn, self.user, item, self.refresh
-        )
-
-    def update_price(self):
-        item = self.get_selected_item()
-        if not item:
-            messagebox.showerror(
-                "No Selection",
-                "Please Select Item to Update Price.", parent=self.window
-            )
-            return
-        if not self.has_privilege("Admin Product Price"):
-            return
-        UpdatePriceWindow(
-            self.window, self.conn, self.user, item, self.refresh
-        )
-
-    def update_description(self):
-        item = self.get_selected_item()
-        if not item:
-            messagebox.showerror(
-                "No Selection",
-                "Please select Item to update Description.",
-                parent=self.window
-            )
-            return
-        if not self.has_privilege("Update Product Details"):
-            return
-        UpdateDescriptionPopup(
-            self.window, self.conn, item, self.refresh, self.user
-        )
-
-    def delete_product(self):
-        if not self.has_privilege("Delete Product"):
-            return
-        if not self.product_code:
-            messagebox.showinfo(
-                "Advice",
-                "Optionally, Select Product to Delete.", parent=self.window
-            )
-            DeleteProductPopup(
-                self.window, self.conn, self.user, self.refresh
-            )
-        else:
-            code = self.product_code
-            DeleteProductPopup(
-                self.window, self.conn, self.user, self.refresh, code
-            )
-
-class DeletedItemsWindow(BaseWindow):
-    def __init__(self, root, conn, user):
-        self.top = tk.Toplevel(root)
-        self.top.title("Deleted Products")
-        self.center_window(self.top, 1200, 650, root)
-        self.top.configure(bg="lightblue")
-        self.top.transient(root)
-        self.top.grab_set()
-
-        self.conn = conn
-        self.user = user
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("Treeview", rowheight=20, font=("Arial", 10))
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        self.columns = [
-            "No", "Code", "Name", "Description", "Quantity", "Cost",
-            "Wholesale Price", "Retail Price", "Min Stock", "Restocked"
-        ]
-        self.main_frame = tk.Frame(
-            self.top, bg="lightblue", bd=4, relief="solid"
-        )
-        self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
-        self.tree = ttk.Treeview(
-            self.table_frame, columns=self.columns, show="headings"
-        )
-
-
-        self.build_ui()
-        self.load_data()
-
-    def build_ui(self):
-        """UI set up."""
-        self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
-        top_frame = tk.Frame(
-            self.main_frame, bg="lightblue", bd=4, relief="groove"
-        )
-        top_frame.pack(side="top", fill="x")
-        tk.Label(
-            top_frame, text="Previously Deleted Products", bg="lightblue",
-            bd=4, relief="groove", font=("Arial", 16, "bold", "underline")
-        ).pack(side="left", padx=20)
-        btn_frame = tk.Frame(top_frame, bg="lightblue")
-        btn_frame.pack(side="right", padx=10)
-        # btn_frame.pack_propagate(False)
-        buttons = {
-            "Restore": self.restore_product,
-            "Export PDF": self.on_export_pdf,
-            "Print": self.on_print
-        }
-        for text, command in buttons.items():
-            tk.Button(
-                btn_frame, text=text, command=command, bd=2, relief="raised",
-                height=1, width=len(text)
-            ).pack(side="left")
-        self.table_frame.pack(side="left", fill="both", expand=True)
-        scroll = ttk.Scrollbar(
-            self.table_frame, orient="vertical", command=self.tree.yview
-        )
-        # Set Headings
-        for col in self.columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", width=50)
-        self.tree.configure(yscrollcommand=scroll.set)
-        self.tree.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
-        alt_colors = ("#ffffff", "#e6f2ff")  # White and light blueish
-        self.tree.tag_configure("evenrow", background=alt_colors[0])
-        self.tree.tag_configure("oddrow", background=alt_colors[1])
-
-    def load_data(self):
-        """Load data into table."""
-        for row in self.tree.get_children():
-            self.tree.delete(row)
-        items = fetch_deleted_products(self.conn)
-        formatter = DescriptionFormatter()
-        for i, row in enumerate(items, start=1):
-            name = re.sub(r"\s+", " ", str(row["product_name"])).strip()
-            desc = formatter.format(row["description"])
-            tag = "evenrow" if i % 2 == 0 else "oddrow"
-            self.tree.insert("", "end", values=(
-                i,
-                row["product_code"],
-                name,
-                desc,
-                row["quantity"],
-                f"{row["cost"]:,}",
-                f"{row["wholesale_price"]:,}",
-                f"{row["retail_price"]:,}",
-                row["min_stock_level"],
-                row["date_replenished"]
-            ), tags=(tag,))
-        self.autosize_columns()
-
-    def has_privilege(self, privilege: str) -> bool:
-        """Check if the current user has the required privilege."""
-        dialog = VerifyPrivilegePopup(
-            self.top, self.conn, self.user, privilege
-        )
-        if dialog.result != "granted":
-            messagebox.showwarning(
-                "Access Denied",
-                f"You do not have permission to {privilege}.",
-                parent=self.top
-            )
-            return False
-        return True
-
-    def _collect_current_rows(self):
-        rows = []
-        for item in self.tree.get_children():
-            vals = self.tree.item(item, "values")
-            rows.append({
-                "No": vals[0],
-                "Code": vals[1],
-                "Name": vals[2],
-                "Description": vals[3],
-                "Quantity": vals[4],
-                "Cost": vals[5],
-                "Wholesale Price": vals[6],
-                "Retail Price": vals[7],
-                "Min Stock": vals[8],
-                "Restocked": vals[9]
-            })
-        return rows
-
-    def _make_exporter(self):
-        title = "Stock Items Report."
-        columns = [
-            "No", "Code", "Name", "Description", "Quantity", "Cost",
-            "Wholesale Price", "Retail Price", "Min Stock", "Restocked"
-        ]
-        rows = self._collect_current_rows()
-        return ReportExporter(self.top, title, columns, rows)
-
-    def on_export_pdf(self):
-        if not self.has_privilege("View Products"):
-            return
-        exporter = self._make_exporter()
-        exporter.export_pdf()
-
-    def on_print(self):
-        if not self.has_privilege("View Products"):
-            return
-        exporter = self._make_exporter()
-        exporter.print()
-
-    def restore_product(self):
-        if not self.has_privilege("Admin Restore Product"):
-            return
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showinfo(
-                "Advice",
-                "Optionally, Select Item to Restore.", parent=self.top
-            )
-            RestoreProductPopup(
-                self.top, self.conn, self.user, self.load_data
-            )
-            return
-        code = self.tree.item(selected[0])["values"][1]
-        RestoreProductPopup(
-            self.top, self.conn, self.user, self.load_data, code
-        )
-
-    def autosize_columns(self):
-        """Auto-resize columns based on the content."""
-        font = tkFont.Font()
-        for col in self.columns:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                width = font.measure(text)
-                if width > max_width:
-                    max_width = width
-            self.tree.column(col, width=max_width)
 
 
 class ProductUpdateWindow(BaseWindow):
@@ -1213,9 +720,492 @@ class AddStockPopup(BaseWindow):
                 parent=self.window
             )
 
+class UpdateStockLevelPopup(BaseWindow):
+    def __init__(self, parent, conn, user):
+        self.window = tk.Toplevel(parent)
+        self.window.title("Update Minimum Quantity")
+        self.center_window(self.window, 350, 350, parent)
+        self.window.configure(bg="lightblue")
+        self.window.transient(parent)
+        self.window.grab_set()
+
+        self.conn = conn
+        self.user = user
+
+        self.search_var = tk.StringVar()
+        self.new_qty_var = tk.StringVar()
+        self.product_code = None
+        self.validate_cmd = self.window.register(only_digits)
+        self.main_frame = tk.Frame(
+            self.window, bg="lightblue", bd=4, relief="solid"
+        )
+        self.entry_frame = tk.Frame(self.main_frame, bg="lightblue")
+        self.entry = tk.Entry(
+            self.entry_frame, textvariable=self.search_var, width=15, bd=4,
+            relief="raised", font=("Arial", 11)
+        )
+        self.suggestion_box = tk.Listbox(
+            self.entry_frame, bg="light grey", width=20, font=("Arial", 10),
+            bd=4, relief="ridge"
+        )
+        self.search_btn = tk.Button(
+            self.entry_frame, text="Search", command=self.search, bg="blue",
+            fg="white", bd=4, relief="groove", font=("Arial", 10, "bold")
+        )
+        self.details_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=2, relief="ridge"
+        )
+        self.title = tk.Label(
+            self.details_frame, text="", bg="lightblue", fg="blue",
+            font=("Arial", 11, "italic", "underline"), wraplength=330
+        )
+        self.qty_entry = tk.Entry(
+            self.details_frame, textvariable=self.new_qty_var, width=10,
+            bd=4, relief="raised", font=("Arial", 11)
+        )
+
+        self.build_ui()
+
+    def build_ui(self):
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        text_l = "Update Items' Min Stock Level."
+        tk.Label(
+            self.main_frame, text=text_l, bg="lightblue", fg="blue",
+            font=("Arial", 14, "italic", "underline")
+        ).pack(pady=(5, 0))
+        self.entry_frame.pack()
+        tk.Label(
+            self.entry_frame, text="Name/Code to Search:", bg="lightblue",
+            font=("Arial", 11, "bold")
+        ).pack(pady=(5, 0), padx=10)
+        self.entry.pack(pady=(0, 5), padx=10)
+        self.entry.focus_set()
+        self.entry.bind("<KeyRelease>", self.on_keypress)
+        self.entry.bind("<Return>", lambda e: self.search())
+        # Suggestion listbox (initially hidden)
+        self.suggestion_box.pack_forget()
+        self.suggestion_box.bind("<<ListboxSelect>>", self.on_select)
+        self.search_btn.pack(pady=(5, 0))
+        # Details Frame
+        self.details_frame.pack(expand=True, fill="both")
+        self.title.pack(anchor="center", padx=5)
+        tk.Label(
+            self.details_frame, text="New Minimum Quantity:", bg="lightblue",
+            font=("Arial", 11, "bold")
+        ).pack(pady=(5, 0), padx=5)
+        self.qty_entry.pack(pady=(0, 5), padx=5)
+        self.qty_entry.config(
+            validate="key", validatecommand=(self.validate_cmd, "%S")
+        )
+        self.qty_entry.bind("<Return>", lambda e: self.update_quantity())
+        post_btn = tk.Button(
+            self.details_frame, text="Update Quantity", bg="dodgerblue",
+            fg="white", bd=2, relief="groove", font=("Arial", 10, "bold"),
+            command=self.update_quantity
+        )
+        post_btn.pack(pady=5)
+        self.details_frame.pack_forget()
+
+    def on_keypress(self, event):
+        """Show suggestion box under entry."""
+        to_uppercase(self.entry)
+        keyword = self.search_var.get().strip()
+        self.suggestion_box.delete(0, tk.END)
+        self.search_btn.pack_forget()
+        if not keyword:
+            self.suggestion_box.pack_forget()
+            self.search_btn.pack(pady=(5, 0))
+            return
+        results = search_product_codes(self.conn, keyword)
+        if isinstance(results, str):
+            messagebox.showerror("Error", results, parent=self.window)
+            return
+        if results:
+            # Adjust height dynamically (max 8)
+            height = min(len(results), 4)
+            self.suggestion_box.config(height=height)
+            self.suggestion_box.pack(padx=5)
+            for row in results:
+                code = row['product_code']
+                name = row['product_name']
+                self.suggestion_box.insert(
+                    tk.END, f"{code} - {name}"
+                )
+        else:
+            self.suggestion_box.pack_forget()
+            self.search_btn.pack(pady=(5, 0))
+
+    def on_select(self, event):
+        """Fill entry with selected value when chosen."""
+        if not self.suggestion_box.curselection():
+            return
+        value = self.suggestion_box.get(self.suggestion_box.curselection())
+        code, name = value.split(" - ", 1)
+        # Auto-complete entry with product code (or name)
+        self.search_var.set(code)
+        self.suggestion_box.pack_forget()
+        self.search_btn.pack(pady=(5, 0))
+        self.entry.focus_set()
+        self.entry.icursor(tk.END)
+
+    def search(self):
+        """Search button handler."""
+        keyword = self.search_var.get().strip()
+        if not keyword:
+            messagebox.showwarning(
+                "Warning", "Please Enter a Keyword.", parent=self.window
+            )
+            return
+        self.load_product_details(keyword)
+
+    def load_product_details(self, keyword):
+        """Populate details form with product details."""
+        row, err = search_product_details(self.conn, keyword)
+        if err:
+            messagebox.showerror("Error", err, parent=self.window)
+            return
+        if not row:
+            messagebox.showinfo(
+                "Not Found", "No Product Found.", parent=self.window
+            )
+            return
+        name = row["product_name"]
+        self.product_code = row["product_code"]
+        p_code = self.product_code
+        min_qty = row["min_stock_level"]
+        text = f"Min Stock Level For {name} ({p_code}) Is {min_qty}."
+        self.title.configure(text=text)
+        self.details_frame.pack(expand=True, fill="both")
+        self.qty_entry.focus_set()
+
+    def update_quantity(self):
+        new_qty = self.new_qty_var.get().strip()
+        if not new_qty.isdigit():
+            messagebox.showerror(
+                "Invalid Input",
+                "Please enter a valid number.", parent=self.window
+            )
+            return
+        product_code = self.search_var.get()
+        qty = int(new_qty)
+        priv = "Update Product Details"
+        dialog = VerifyPrivilegePopup(
+            self.window, self.conn, self.user, priv
+        )
+        if dialog.result != "granted":
+            messagebox.showwarning(
+                "Access Denied",
+                f"You do not have permission to {priv}.", parent=self.window
+            )
+            return
+        try:
+            success, msg = update_min_stock_level(
+                self.conn, product_code, qty, self.user
+            )
+            if success:
+                messagebox.showinfo(
+                    "Success",
+                    "Quantity Updated Successfully.", parent=self.window
+                )
+                self.window.destroy()
+            else:
+                messagebox.showerror(
+                    "Error Updating", msg, parent=self.window
+                )
+        except Exception as e:
+            messagebox.showerror("Database Error", str(e), parent=self.window)
+
+class DeleteProductPopup(BaseWindow):
+    def __init__(self, master, conn, user, refresh=None, item_code=None):
+        self.window = tk.Toplevel(master)
+        self.window.title("Delete Product")
+        self.center_window(self.window, 300, 220, master)
+        self.window.configure(bg="skyblue")
+        self.window.transient(master)
+        self.window.grab_set()
+
+        self.conn = conn
+        self.user = user
+        self.product_code_var = tk.StringVar()
+        self.refresh = refresh if refresh else None
+        self.products = None
+        self.product_name = None
+        self.main_frame = tk.Frame(
+            self.window, bg="skyblue", bd=4, relief="solid"
+        )
+        self.entry_frame = tk.Frame(self.main_frame, bg="skyblue")
+        self.entry = tk.Entry(
+            self.entry_frame, textvariable=self.product_code_var, width=20,
+            bd=4, relief="raised", font=("Arial", 11)
+        )
+        self.listbox = tk.Listbox(
+            self.entry_frame, bg="lightgray", width=20, bd=2, relief="ridge",
+            font=("Arial", 11)
+        )
+        # Delete button (initially hidden)
+        self.delete_btn = tk.Button(
+            self.entry_frame, text="Delete Product", bd=4, relief="groove",
+            bg="dodgerblue", fg="white", command=self.delete_selected,
+            font=("Arial", 10, "bold")
+        )
+
+        self.setup_widgets()
+        if item_code:
+            self.product_code_var.set(item_code.upper())
+            self.search_product()
+            self.entry.icursor(tk.END)
+
+    def setup_widgets(self):
+        self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
+        # Label and Entry
+        l_text = "Deleting Product From Stock."
+        tk.Label(
+            self.main_frame, text=l_text, bg="skyblue", fg="red",
+            font=("Arial", 14, "italic", "underline")
+        ).pack(pady=(5, 0), anchor="center")
+        self.entry_frame.pack(fill="both", expand=True)
+        tk.Label(
+            self.entry_frame, text="Product Code:", bg="skyblue",
+            font=("Arial", 11, "bold")
+        ).pack(pady=(5, 0), padx=5)
+        self.entry.pack(padx=5)
+        self.entry.focus_set()
+        self.entry.bind("<KeyRelease>", self.uppercase_and_search)
+        self.entry.bind("<Return>", lambda e: self.delete_selected())
+        # Listbox
+        self.listbox.bind("<<ListboxSelect>>", self.on_select)
+        self.listbox.pack(padx=5, pady=(0, 5))
+        self.listbox.pack_forget()
+
+    def uppercase_and_search(self, event=None):
+        content = self.entry.get().upper()
+        self.entry.delete(0, tk.END)
+        self.entry.insert(0, content)
+        self.search_product()
+
+    def search_product(self):
+        self.listbox.delete(0, tk.END)
+        product_code = self.product_code_var.get().strip()
+        if not product_code:
+            self.listbox.pack_forget()
+            return
+        try:
+            results = search_product(self.conn, "product_code", product_code)
+            if results:
+                for product in results:
+                    code = product['product_code']
+                    name = product['product_name']
+                    display = f"{code} - {name}"
+                    self.products = results
+                    self.listbox.insert(tk.END, display)
+                self.listbox.config(height=min(len(results), 4))
+                self.listbox.pack(padx=5, pady=(0, 5))
+            else:
+                self.listbox.pack_forget()
+        except Exception as err:
+            messagebox.showerror(
+                "Database Error", str(err), parent=self.window
+            )
+
+    def on_select(self, event):
+        if self.listbox.curselection():
+            index = self.listbox.curselection()[0]
+            product = self.products[index]
+            product_code = product["product_code"]
+            self.product_code_var.set(product_code)
+            self.product_name = product["product_name"]
+            self.listbox.pack_forget()
+            self.entry.icursor(tk.END)
+            self.delete_btn.pack(pady=5)
+
+    def delete_selected(self):
+        code = self.product_code_var.get().strip()
+        if not code:
+            messagebox.showerror(
+                "No Product",
+                "Please Enter a Valid Product Code.", parent=self.window
+            )
+            return
+        # Verify Privilege
+        priv = "Admin Delete Product"
+        verify = VerifyPrivilegePopup(
+            self.window, self.conn, self.user, priv
+        )
+        if verify.result != "granted":
+            messagebox.showwarning(
+                "Access Denied",
+                f"Access Denied to {priv}.", parent=self.window
+            )
+            return
+
+        confirm = messagebox.askyesno(
+            "Confirm Delete",
+            f"Delete '{self.product_name}'; {code}?", default="no",
+            parent=self.window
+        )
+        if confirm:
+            try:
+                success, msg = delete_product(self.conn, code, self.user)
+                if success:
+                    messagebox.showinfo("Deleted", msg, parent= self.window)
+                    self.product_code_var.set("")
+                    if self.refresh:
+                        self.refresh()
+                    self.window.destroy()
+                else:
+                    messagebox.showerror("Error", msg, parent=self.window)
+                    self.entry.focus_set()
+            except Exception as err:
+                messagebox.showerror("Database Error", str(err))
+
+class RestoreProductPopup(BaseWindow):
+    def __init__(self, master, conn, user, callback=None, item_code=None):
+        self.window = tk.Toplevel(master)
+        self.window.title("Restore Product")
+        self.center_window(self.window, 300, 200, master)
+        self.window.configure(bg="skyblue")
+        self.window.transient(master)
+        self.window.grab_set()
+
+        self.conn = conn
+        self.user = user
+        self.product_code_var = tk.StringVar()
+        self.refresh = callback if callback else None
+        self.products = None
+        self.product_name = None
+        self.main_frame = tk.Frame(
+            self.window, bg="skyblue", bd=4, relief="solid"
+        )
+        self.entry_frame = tk.Frame(self.main_frame, bg="skyblue")
+        self.entry = tk.Entry(
+            self.entry_frame, textvariable=self.product_code_var, width=20,
+            bd=4, relief="raised", font=("Arial", 11)
+        )
+        self.listbox = tk.Listbox(
+            self.entry_frame, bg="lightgray", width=20, bd=2, relief="raised",
+            font=("Arial", 11)
+        )
+        # Delete button (initially hidden)
+        self.delete_btn = tk.Button(
+            self.entry_frame, text="Restore Product", bd=4, relief="raised",
+            bg="dodgerblue", fg="white", command=self.restore_selected,
+            font=("Arial", 10, "bold")
+        )
+
+        self.setup_widgets()
+        if item_code:
+            self.product_code_var.set(item_code.upper())
+            self.search_product()
+            self.entry.icursor(tk.END)
+
+    def setup_widgets(self):
+        """Widgets set up."""
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        # Label and Entry
+        l_text = "Restore Deleted Product."
+        tk.Label(
+            self.main_frame, text=l_text, bg="skyblue", fg="red", bd=2,
+            relief="groove", font=("Arial", 14, "italic", "underline")
+        ).pack(pady=(5, 0), anchor="center")
+        self.entry_frame.pack(fill="both", expand=True)
+        tk.Label(
+            self.entry_frame, text="Product Code:", bg="skyblue",
+            font=("Arial", 11, "bold")
+        ).pack(pady=(5, 0), padx=5)
+        self.entry.pack(padx=5)
+        self.entry.focus_set()
+        self.entry.bind("<KeyRelease>", self.uppercase_and_search)
+        self.entry.bind("<Return>", lambda e: self.restore_selected())
+        # Listbox
+        self.listbox.bind("<<ListboxSelect>>", self.on_select)
+        self.listbox.pack(padx=5, pady=(0, 5))
+        self.listbox.pack_forget()
+
+    def uppercase_and_search(self, event=None):
+        content = self.entry.get().upper()
+        self.entry.delete(0, tk.END)
+        self.entry.insert(0, content)
+        self.search_product()
+
+    def search_product(self):
+        self.listbox.delete(0, tk.END)
+        product_code = self.product_code_var.get().strip()
+        if not product_code:
+            self.listbox.pack_forget()
+            return
+        try:
+            results = search_deleted_product_codes(self.conn, product_code)
+            if results:
+                for product in results:
+                    code = product['product_code']
+                    name = product['product_name']
+                    display = f"{code} - {name}"
+                    self.products = results
+                    self.listbox.insert(tk.END, display)
+                self.listbox.config(height=min(len(results), 4))
+                self.listbox.pack(padx=5, pady=(0, 5))
+            else:
+                self.listbox.pack_forget()
+        except Exception as err:
+            messagebox.showerror(
+                "Database Error", str(err), parent=self.window
+            )
+
+    def on_select(self, event):
+        if self.listbox.curselection():
+            index = self.listbox.curselection()[0]
+            product = self.products[index]
+            product_code = product["product_code"]
+            self.product_name = product["product_name"]
+            self.product_code_var.set(product_code)
+            self.listbox.pack_forget()
+            self.entry.icursor(tk.END)
+            self.delete_btn.pack(pady=5)
+
+    def restore_selected(self):
+        # Verify Privilege
+        priv = "Admin Restore Product"
+        verify = VerifyPrivilegePopup(self.window, self.conn, self.user, priv)
+        if verify.result != "granted":
+            messagebox.showwarning(
+                "Access Denied",
+                f"Access Denied to {priv}.", parent=self.window
+            )
+            return
+        code = self.product_code_var.get().strip()
+        if not code:
+            messagebox.showerror(
+                "No Product",
+                "Please Enter a Valid Product Code.", parent=self.window
+            )
+            return
+        confirm = messagebox.askyesno(
+            "Confirm Restore",
+            f"Restore '{code}'; {self.product_name}?", default="no",
+            parent=self.window
+        )
+        if confirm:
+            try:
+                connect = self.conn
+                user = self.user
+                success, msg = restore_deleted_product(connect, code, user)
+                if success:
+                    messagebox.showinfo("Restored", msg, parent= self.window)
+                    self.product_code_var.set("")
+                    if self.refresh is not None:
+                        self.refresh()
+                    self.window.destroy()
+                else:
+                    messagebox.showerror("Error", msg, parent=self.window)
+                    self.entry.focus_set()
+            except Exception as err:
+                messagebox.showerror(
+                    "Database Error", str(err), parent=self.window
+                )
+
 if __name__ == "__main__":
     from connect_to_db import connect_db
     conn=connect_db()
     root=tk.Tk()
-    AddStockPopup(root, conn, "Sniffy")
+    RestoreProductPopup(root, conn, "Sniffy")
     root.mainloop()

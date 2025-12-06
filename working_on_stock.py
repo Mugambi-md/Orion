@@ -60,7 +60,8 @@ def insert_new_product(conn, product, user):
                 {"account_name": "Inventory", "debit": cost, "credit": 0,
                  "description": "Replenishment (New Product)."}
             ]
-            success, err = recorder.record_sales(accounts, lines, ref)
+            description = f"Added New Product ({name})."
+            success, err = recorder.record_sales(accounts, lines, ref, description)
             if not success:
                 conn.rollback()
                 return False, f"Error Recording Books of Accounts: {err}."
@@ -552,4 +553,29 @@ def get_product_codes(conn, keyword):
     except Exception as e:
         return False, f"Error searching product codes: {str(e)}."
 
+def update_min_stock_level(conn, product_code, quantity, user):
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                UPDATE products
+                SET min_stock_level=%s
+                WHERE product_code=%s
+            """, (quantity, product_code))
+        desc = f"Updated Product{product_code} Min Stock Level to{quantity}."
+        data = {
+            "product_code": product_code,
+            "description": desc,
+            "quantity": 0,
+            "total": 0,
+            "user": user
+        }
+        success, message = log_stock_change(conn, data)
+        if not success:
+            conn.rollback()
+            return False, f"Error Updating Product Log: {message}."
+        conn.commit()
+        return True, "Minimum Quantity updated successfully."
+    except Exception as e:
+        conn.rollback()
+        return False, f"Error updating minimum quantity: {str(e)}."
 

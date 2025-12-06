@@ -7,13 +7,11 @@ from authentication import VerifyPrivilegePopup, DescriptionFormatter
 from base_window import BaseWindow
 from accounting_export import ReportExporter
 from working_on_stock import fetch_all_products
-from stock_details_window import ProductsDetailsWindow
-from stock_update_popups import UpdateQuantityWindow
-from stock_popups1 import DeleteProductPopup
+from stock_windows import ProductsDetailsWindow
 from log_popups_gui import ProductLogsWindow
+from stock_reconciliation_gui import ReconciliationWindow
 from stock_popups import (
-    NewProductPopup, ReconciliationWindow, ProductUpdateWindow,
-    DeletedItemsWindow, AddStockPopup
+    NewProductPopup, AddStockPopup, DeleteProductPopup
 )
 
 
@@ -46,9 +44,8 @@ class StockWindow(BaseWindow):
         ]
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("Treeview", rowheight=20, font=("Arial", 10))
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-
+        style.configure("Treeview", font=("Arial", 11))
+        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
         self.search_type = tk.StringVar(value="Name")
         self.search_var = tk.StringVar()
         self.search_option = ttk.Combobox(
@@ -75,18 +72,15 @@ class StockWindow(BaseWindow):
         button_actions = {
             "New Product": self.open_new_product_popup,
             "Add Stock": self.open_add_stock_popup,
-            "Update Item Details": self.update_products,
-            "Update Quantity": self.open_update_quantity_window,
             "Delete Product": self.delete_product,
-            "Deleted Products": self.deleted_products,
             "Stock Reconciliation": self.open_reconciliation,
             "Products Report": self.open_product_detail_window,
             "Stock Logs": self.open_logs_window
         }
         for text, action in button_actions.items():
             tk.Button(
-                action_frame, text=text, bd=4, relief="raised", fg="white",
-                bg="dodgerblue", command=action, width=len(text)
+                action_frame, text=text, bd=4, relief="groove", fg="white",
+                bg="dodgerblue", command=action, font=("Arial", 10, "bold")
             ).pack(side="left")
         # Center frame for table and tittle
         self.center_frame.pack(side="left", fill="both", expand=True)
@@ -129,7 +123,7 @@ class StockWindow(BaseWindow):
         # Set Headings
         for col in self.columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", width=50)
+            self.tree.column(col, anchor="center", width=30)
         self.tree.configure(yscrollcommand=tree_scroll.set)
         self.tree.pack(side="left", fill="both", expand=True)
         tree_scroll.pack(side="right", fill="y")
@@ -153,7 +147,7 @@ class StockWindow(BaseWindow):
             self.current_products = self.all_products[:]
         else:
             self.current_products = products[:]
-        formatter = DescriptionFormatter()
+        formatter = DescriptionFormatter(40, 10)
         for i, row in enumerate(self.current_products, start=1):
             name = re.sub(r"\s+", " ", str(row["product_name"])).strip()
             desc = formatter.format(row["description"])
@@ -168,7 +162,7 @@ class StockWindow(BaseWindow):
                 f"{row["wholesale_price"]:,}",
                 f"{row["retail_price"]:,}",
                 row["min_stock_level"],
-                row["date_replenished"]
+                row["date_replenished"].strftime("%d/%m/%Y")
             ), tags=(tag,))
 
         self.autosize_columns()
@@ -183,7 +177,7 @@ class StockWindow(BaseWindow):
                 width = font.measure(text)
                 if width > max_width:
                     max_width = width
-            self.tree.column(col, width=max_width)
+            self.tree.column(col, width=max_width + 10)
 
     def perform_search(self):
         keyword = self.search_var.get().strip()
@@ -237,11 +231,6 @@ class StockWindow(BaseWindow):
         if not self.has_privilege("View Products"):
             return
         ProductsDetailsWindow(self.master, self.user, self.conn)
-        
-    def open_update_quantity_window(self):
-        if not self.has_privilege("Change Product Quantity"):
-            return
-        UpdateQuantityWindow(self.master, self.conn, self.user)
 
     def open_add_stock_popup(self):
         if not self.has_privilege("Add Stock"):
@@ -253,20 +242,10 @@ class StockWindow(BaseWindow):
             return
         DeleteProductPopup(self.master, self.conn, self.user, self.refresh)
 
-    def update_products(self):
-        if not self.has_privilege("Admin Product Details"):
-            return
-        ProductUpdateWindow(self.master, self.conn, self.user)
-
     def open_logs_window(self):
         if not self.has_privilege("View Product Logs"):
             return
         ProductLogsWindow(self.master, self.conn, self.user)
-
-    def deleted_products(self):
-        if not self.has_privilege("Manage Stock"):
-            return
-        DeletedItemsWindow(self.master, self.conn, self.user)
 
     def _collect_current_rows(self):
         rows = []
