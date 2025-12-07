@@ -19,7 +19,7 @@ class ReconciliationWindow(BaseWindow):
     def __init__(self, master, conn, user):
         self.window = tk.Toplevel(master)
         self.window.title("Product Reconciliation")
-        self.center_window(self.window, 1200, 700, master)
+        self.center_window(self.window, 1300, 700, master)
         self.window.configure(bg="lightblue")
         self.window.transient(master)
         self.window.grab_set()
@@ -135,8 +135,14 @@ class ReconciliationWindow(BaseWindow):
         scrollbar = ttk.Scrollbar(
             self.table_frame, orient="vertical", command=self.tree.yview
         )
-        self.tree.configure(yscrollcommand=scrollbar.set)
+        scroll = ttk.Scrollbar(
+            self.table_frame, orient="horizontal", command=self.tree.xview
+        )
+        self.tree.configure(
+            yscrollcommand=scrollbar.set, xscrollcommand=scroll.set
+        )
         scrollbar.pack(side="right", fill="y")
+        scroll.pack(side="bottom", fill="x")
         self.tree.pack(side="left", fill="both", expand=True)
         # Columns config
         for col in self.columns:
@@ -165,7 +171,7 @@ class ReconciliationWindow(BaseWindow):
         alt_colors = ("#ffffff", "#e6f2ff")  # White and light blueish
         self.tree.tag_configure("evenrow", background=alt_colors[0])
         self.tree.tag_configure("oddrow", background=alt_colors[1])
-        formatter = DescriptionFormatter(50, 10)
+        formatter = DescriptionFormatter(70, 10)
         for index, row in enumerate(self.current_products, start=1):
             tag = "evenrow" if index % 2 == 0 else "oddrow"
             desc = formatter.format(row["description"])
@@ -343,7 +349,9 @@ class ReconciliationWindow(BaseWindow):
     def delete_product(self):
         if not self.has_privilege("Delete Product"):
             return
-        if not self.product_code:
+        selected = self.tree.selection()
+        product_code = self.tree.item(selected[0])["values"][1]
+        if not product_code:
             messagebox.showinfo(
                 "Advice",
                 "Optionally, Select Product to Delete.", parent=self.window
@@ -352,7 +360,7 @@ class ReconciliationWindow(BaseWindow):
                 self.window, self.conn, self.user, self.refresh
             )
         else:
-            code = self.product_code
+            code = product_code
             DeleteProductPopup(
                 self.window, self.conn, self.user, self.refresh, code
             )

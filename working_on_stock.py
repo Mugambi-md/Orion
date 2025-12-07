@@ -160,20 +160,19 @@ def add_to_existing_product(conn, product: dict, user: str):
         with conn.cursor() as cursor:
             # Fetch current details
             cursor.execute("""
-            SELECT quantity, cost, wholesale_price, retail_price, min_stock_level
+            SELECT quantity, cost, wholesale_price, retail_price
             FROM products WHERE product_code=%s AND is_active = 1;
             """, (code,))
             existing = cursor.fetchone() # Check in products table
             if not existing:
                 return False, f"Product '{code}' not found in database."
             else:
-                curr_quantity, curr_cost, curr_wholesale, curr_retail, curr_min_level = existing
+                curr_quantity, curr_cost, curr_wholesale, curr_retail = existing
             # Use current Values if none provided
             updated_quantity = curr_quantity + add_qty
             updated_cost = product.get("cost", curr_cost)
             updated_wholesale = product.get("wholesale_price", curr_wholesale)
             updated_retail = product.get("retail_price", curr_retail)
-            updated_min_level = product.get("min_stock_level", curr_min_level)
             # Update Products Table
             cursor.execute("""
                 UPDATE products
@@ -181,11 +180,10 @@ def add_to_existing_product(conn, product: dict, user: str):
                     cost = %s,
                     wholesale_price =%s,
                     retail_price = %s,
-                    min_stock_level = %s,
                     date_replenished = %s
                 WHERE product_code = %s;
                 """, (updated_quantity, updated_cost, updated_wholesale,
-                      updated_retail, updated_min_level, date_filled, code))
+                      updated_retail, date_filled, code))
             # Update Stock Table
             cursor.execute("""
                 UPDATE stock
