@@ -78,6 +78,20 @@ def create_tables(conn):
                 );
             """)
             print("Logs table created successfully.")
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS cashier_control (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    username VARCHAR(30) NOT NULL,
+                    date DATE NOT NULL,
+                    time TIME NOT NULL,
+                    description TEXT NOT NULL,
+                    debit DECIMAL(10, 2) DEFAULT 0.00,
+                    credit DECIMAL(10, 2) DEFAULT 0.00,
+                    status ENUM('open', 'closed') NOT NULL DEFAULT 'open'
+                );
+            """)
+            print("Cashier Control table created successfully.")
         conn.commit()
     except Exception as e:
         print(f"Table Error: {e}")

@@ -10,6 +10,7 @@ from working_on_stock import fetch_all_products
 from stock_windows import ProductsDetailsWindow
 from log_popups_gui import ProductLogsWindow
 from stock_reconciliation_gui import ReconciliationWindow
+from sales_popup import YearlyProductSales
 from stock_popups import (
     NewProductPopup, AddStockPopup, DeleteProductPopup
 )
@@ -75,7 +76,8 @@ class StockWindow(BaseWindow):
             "Delete Product": self.delete_product,
             "Stock Reconciliation": self.open_reconciliation,
             "Products Report": self.open_product_detail_window,
-            "Stock Logs": self.open_logs_window
+            "Stock Logs": self.open_logs_window,
+            "Product Impact": self.sales_analysis
         }
         for text, action in button_actions.items():
             tk.Button(
@@ -246,6 +248,12 @@ class StockWindow(BaseWindow):
         if not self.has_privilege("View Product Logs"):
             return
         ProductLogsWindow(self.master, self.conn, self.user)
+
+    def sales_analysis(self):
+        if not self.has_privilege("Sales Report"):
+            return
+        YearlyProductSales(self.master, self.conn, self.user)
+
 
     def _collect_current_rows(self):
         rows = []

@@ -164,7 +164,7 @@ class SalesGUI(BaseWindow):
         else:
             self.current_products = products[:]
         # description formater
-        def format_description(text, max_len=30, min_second=5):
+        def format_description(text, max_len=60, min_second=5):
             if not text:
                 return ""
             text = re.sub(r"\s+", " ", text).strip() # Normalize spaces

@@ -714,3 +714,26 @@ def delete_log(conn, id):
         conn.rollback()
         return False, f"Error deleting log: {str(e)}."
 
+def insert_cashier_sale(conn, username, description, debit):
+    """Insert a transaction into cashier control table."""
+    try:
+        now = datetime.datetime.now()
+        today = now.date()
+        current_time = now.time()
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO cashier_control
+                (username, date, time, description, debit, credit, status)
+                VALUES (%s, %s, %s, %s, %s, %s, 'open')
+            """, (username, today, current_time, description, debit, 0.00))
+        conn.commit()
+        return True, "Cashier control recorded."
+    except Exception as e:
+        conn.rollback()
+        return False, f"Insert Error: {str(e)}."
+
+# from connect_to_db import connect_db
+# conn=connect_db()
+# description= "Sale. 102I250703194605"
+# success, msg = insert_cashier_sale(conn, "Sniffy", description, 30990)
+# print(success, msg)
