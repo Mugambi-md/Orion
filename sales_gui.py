@@ -25,17 +25,30 @@ class MakeSaleWindow(BaseWindow):
             "No", "Product Code", "Product Name", "Quantity", "Price",
             "Total"
         ]
+        style = ttk.Style(self.sale_win)
+        style.theme_use("clam")
+        style.configure("Treeview", rowheight=30, font=("Arial", 10))
+        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
         self.total_cost_var = tk.StringVar(value="0.00")
         self.sales_manager = SalesManager(self.conn)
-        self.left_frame = tk.Frame(self.sale_win, bg="lightblue", width=300)
-        self.add_frame = tk.LabelFrame(self.left_frame, bg="white",
-                                       text="Add To Sales List")
-        self.right_frame = tk.Frame(self.sale_win, bg="white")
+        self.main_frame = tk.Frame(
+            self.sale_win, bg="lightblue", bd=4, relief="solid"
+        )
+        self.left_frame = tk.Frame(self.main_frame, bg="lightblue", width=300)
+        self.add_frame = tk.LabelFrame(
+            self.left_frame, bg="white", text="Add To Sales List"
+        )
+        self.right_frame = tk.Frame(self.main_frame, bg="white")
         self.sale_list = ttk.Treeview(
             self.right_frame, columns=self.columns, show="headings"
         )
-        self.search_entry = tk.Entry(self.add_frame, width=20)
-        self.quantity_entry = tk.Entry(self.add_frame, width=20, state="disabled")
+        self.search_entry = tk.Entry(
+            self.add_frame, width=20, bd=2, relief="ridge", font=("Arial", 11)
+        )
+        self.quantity_entry = tk.Entry(
+            self.add_frame, width=20, state="disabled", bd=2, relief="ridge",
+            font=("Arial", 11)
+        )
         self.add_button = tk.Button(
             self.add_frame, text="Add To List", width=20, state="disabled",
             command=self.add_to_list
@@ -51,17 +64,17 @@ class MakeSaleWindow(BaseWindow):
         self.create_widgets()
 
     def create_widgets(self):
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         # Lef Frame
-        self.left_frame.pack(side="left", fill="y", padx=(5, 0), pady=5)
+        self.left_frame.pack(side="left", fill="y")
         # Right Frame
-        self.right_frame.pack(
-            side="right", expand=True, fill="both", padx=(0, 5), pady=5
-        )
+        self.right_frame.pack(side="right", expand=True, fill="both")
         # Add to sales list section
-        self.add_frame.pack(fill="x", pady=(0, 5))
+        tk.Label(self.left_frame, bg="lightblue", text="").pack(pady=10)
+        self.add_frame.pack(fill="x")
         tk.Label(
             self.add_frame, text="Enter Product Code:", bg="white",
-            font=("Arial", 11)
+            font=("Arial", 11, "bold")
         ).pack(padx=5, pady=(5, 2), anchor="w")
         self.search_entry.pack(padx=5, pady=(2, 5))
         self.search_entry.focus_set()
@@ -70,12 +83,12 @@ class MakeSaleWindow(BaseWindow):
         )
         self.search_entry.bind("<Return>", lambda e: self.search_product())
         tk.Button(
-            self.add_frame, text="Search", width=20,
+            self.add_frame, text="Search", width=20, bd=2, relief="groove",
             command=self.search_product
         ).pack(padx=5, pady=(0, 10))
         tk.Label(
             self.add_frame, text="Enter Product Quantity:", bg="white",
-            font=("Arial", 11)
+            font=("Arial", 11, "bold")
         ).pack(padx=5, pady=(5, 2), anchor="w")
         self.quantity_entry.pack(padx=5, pady=(2, 5))
         self.quantity_entry.bind("<Return>", lambda e: self.add_to_list())
@@ -89,18 +102,16 @@ class MakeSaleWindow(BaseWindow):
             self.left_frame, text="View Logs", width=20, bg="blue",
             fg="white", command=self.logs_window, bd=4, relief="solid"
         ).pack(padx=5)
-        style = ttk.Style(self.sale_win)
-        style.configure("Treeview", rowheight=30, font=("Arial", 10))
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        btn_frame = tk.Frame(self.right_frame, bg="white")
-        btn_frame.pack(side="top", fill="x", padx=5)
+
+        btn_frame = tk.Frame(self.right_frame, bg="lightblue")
+        btn_frame.pack(side="top", fill="x")
         tk.Button(
             btn_frame, text="Remove Item", bg="red", fg="white", bd=4,
             relief="solid", command=self.remove_selected
         ).pack(side="right", padx=5)
         tk.Label(
-            btn_frame, text="Sale List", bg="white",
-            font=("Arial", 14, "bold")
+            btn_frame, text="Sale List", bg="lightblue",
+            font=("Arial", 14, "bold", "underline")
         ).pack(anchor="center", padx=5)
         vsb = ttk.Scrollbar(self.right_frame, orient="vertical",
                             command=self.sale_list.yview)
@@ -110,7 +121,7 @@ class MakeSaleWindow(BaseWindow):
         for col in self.columns:
             self.sale_list.heading(col, text=col)
             self.sale_list.column(col, anchor="center", width=50)
-        self.sale_list.pack(fill="both", expand=True, pady=(5, 0))
+        self.sale_list.pack(fill="both", expand=True)
         self.sale_list.tag_configure(
             "total", font=("Arial", 12, "bold", "underline")
         )
@@ -287,7 +298,9 @@ class MakeSaleWindow(BaseWindow):
                     self.payment_list.append(("mpesa", mpesa))
                     payment_parts.append("Mpesa")
                 payment_method = ",".join(payment_parts)
-                success, result = self.sales_manager.record_sale(self.user, item_list, payment_method, total_required)
+                success, result = self.sales_manager.record_sale(
+                    self.user, item_list, payment_method, total_required
+                )
                 if success:
                     receipt_no = result
                     change = total_entered - total_required
@@ -335,5 +348,5 @@ if __name__ == "__main__":
     from connect_to_db import connect_db
     conn = connect_db()
     root = tk.Tk()
-    app=MakeSaleWindow(root, conn, "sniffy")
+    app=MakeSaleWindow(root, conn, "BKendi")
     root.mainloop()

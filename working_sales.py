@@ -1,7 +1,7 @@
 from datetime import datetime
 from working_on_stock import get_total_cost_by_codes
 from working_on_accounting import SalesJournalRecorder
-from working_on_employee import insert_logs
+from working_on_employee import insert_logs, insert_cashier_sale
 
 class SalesManager:
     def __init__(self, conn):
@@ -110,17 +110,24 @@ class SalesManager:
                     user, receipt_no, sale_date, amount_paid, payment_method
                 ))
 
-            cost, error = get_total_cost_by_codes(self.conn, cogs_items)
-            if error:
-                self.conn.rollback()
-                return False, f"Error Calculating Cost: {error}"
-            # Record Journal entries
-            success, err = self.finalize_sales(
-                receipt_no, amount_paid, cost, user
+            # cost, error = get_total_cost_by_codes(self.conn, cogs_items)
+            # if error:
+            #     self.conn.rollback()
+            #     return False, f"Error Calculating Cost: {error}"
+            # # Record Journal entries
+            # success, err = self.finalize_sales(
+            #     receipt_no, amount_paid, cost, user
+            # )
+            # if not success:
+            #     self.conn.rollback()
+            #     return False, f"Error Recording Books of Accounts: {err}"
+            action = f"Sale. {receipt_no}"
+            success, msg = insert_cashier_sale(
+                self.conn, user, action, amount_paid
             )
             if not success:
                 self.conn.rollback()
-                return False, f"Error Recording Books of Accounts: {err}"
+                return False, f"Error Recording Transaction: {msg}."
             desc = f"Sold Receipt #{receipt_no}. Amounting to {amount_paid}."
             success, msg = insert_logs(self.conn, user, "Sales", desc)
             if not success:
@@ -650,7 +657,9 @@ def update_sale_item(conn, receipt_no, code, quantity, unit_price, user):
             {"account_name": "Inventory", "debit": total_cost, "credit": 0,
              "description": "Sales Reversal."}
         ]
-        success, error =recorder.record_sales(accounts, lines, receipt_no)
+        action = f"Sale Reversal of Product Code: {code}"
+        success, error =recorder.record_sales(accounts, lines, receipt_no,
+                                              action)
         if not success:
             conn.rollback()
             return False, str(error)

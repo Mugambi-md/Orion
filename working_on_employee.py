@@ -732,6 +732,7 @@ def insert_cashier_sale(conn, username, description, debit):
         conn.rollback()
         return False, f"Insert Error: {str(e)}."
 
+
 # from connect_to_db import connect_db
 # conn=connect_db()
 # description= "Sale. 102I250703194605"
