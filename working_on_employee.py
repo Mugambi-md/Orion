@@ -733,8 +733,41 @@ def insert_cashier_sale(conn, username, description, debit):
         return False, f"Insert Error: {str(e)}."
 
 
-# from connect_to_db import connect_db
-# conn=connect_db()
-# description= "Sale. 102I250703194605"
-# success, msg = insert_cashier_sale(conn, "Sniffy", description, 30990)
-# print(success, msg)
+def get_net_sales(conn, username):
+    """Returns Total debit, total credit and net sales
+    for a given username where status = 'open'"""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    IFNULL(SUM(debit), 0) AS total_debit,
+                    IFNULL(SUM(credit), 0) AS total_credit
+                FROM cashier_control
+                WHERE username = %s AND status = 'open';
+            """, (username,))
+            result = cursor.fetchone()
+            total_debit = float(result[0])
+            total_credit = float(result[1])
+            net_sales = total_debit - total_credit
+
+            return True, {
+                "total_debit": total_debit,
+                "total_credit": total_credit,
+                "net_sales": net_sales
+            }
+    except Exception as e:
+        return False, f"Error Getting Net Sales: {str(e)}."
+
+
+
+
+from connect_to_db import connect_db
+conn=connect_db()
+success, result = get_net_sales(conn, "Sniffy")
+
+if success:
+    print("Total Debit:", result["total_debit"])
+    print("Total Credit:", result["total_credit"])
+    print("Net Sales:", result["net_sales"])
+else:
+    print(result)
