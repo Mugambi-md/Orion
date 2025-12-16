@@ -758,16 +758,108 @@ def get_net_sales(conn, username):
     except Exception as e:
         return False, f"Error Getting Net Sales: {str(e)}."
 
+def return_to_treasury(conn, details):
+    """Insert two rows into cashier control: credit entry for 'returned to
+    treasury' and debit entry for 'Balance carried forward'"""
+    try:
+        username = details["cashier"]
+        amount = float(details["amount"])
+        balance = float(details["balance"])
+        now = datetime.datetime.now()
+        sale_day = now.date()
+        sale_time = now.time()
+        desc = "Returned to Treasury"
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO cashier_control
+                (username, date, time, description, debit, credit)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (username, sale_day, sale_time, desc, 0.00, amount))
+            action = "Balance Carried Forward"
+            cursor.execute("""
+                INSERT INTO cashier_control
+                (username, date, time, description, debit, credit)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (username, sale_day, sale_time, action, balance, 0.00))
+            conn.commit()
+            return True, "Cash Return Recorded."
+    except Exception as e:
+        conn.rollback()
+        return False, f"Error Recording Cash Return: {str(e)}."
+
+def fetch_cashier_control_users(conn):
+    """Fetch distinct years, usernames and sections from the logs table.
+    Returns all three in one query for GUI filtering."""
+    try:
+        with conn.cursor() as cursor:
+            # Distinct usernames
+            cursor.execute("""
+                SELECT DISTINCT username
+                FROM cashier_control ORDER BY username ASC;
+            """)
+            usernames = [row[0] for row in cursor.fetchall()]
+        return True, usernames
+    except Exception as e:
+        return False, f"Error Fetching Data: {str(e)}."
+
+def end_transaction_day(conn, details):
+    """Ends Cashier transaction day:
+        - Insert credit row Ended Transaction Day
+        - Insert debit row 'Balance Brought Down'
+        - Closes all open rows for the cashier"""
+    try:
+        username = details["cashier"]
+        amount = float(details["amount"])
+        balance = float(details["balance"])
+        now = datetime.datetime.now()
+        sale_day = now.date()
+        sale_time = now.time()
+        with conn.cursor() as cursor:
+            # 1. Credit entry: Ended transaction day
+            cursor.execute("""
+                INSERT INTO cashier_control
+                (username, date, time, description, debit, credit)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                username,
+                sale_day,
+                sale_time,
+                "Ended Transaction Day",
+                0.00,
+                amount
+            ))
+            # Debit entry: Balance brought down
+            cursor.execute("""
+                INSERT INTO cashier_control
+                (username, date, time, description, debit, credit)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                username,
+                sale_day,
+                sale_time,
+                "Balance Brought Down",
+                balance,
+                0.00
+            ))
+            # 3. Close all open records for cashier
+            cursor.execute("""
+                UPDATE cashier_control
+                SET status = 'closed'
+                WHERE username = %s AND status = 'open'
+            """, (username,))
+        conn.commit()
+        return True, "Ended Transaction Day Successfully."
+    except Exception as e:
+        conn.rollback()
+        return False, f"Error Ending Transaction Day: {str(e)}."
 
 
-
-from connect_to_db import connect_db
-conn=connect_db()
-success, result = get_net_sales(conn, "Sniffy")
-
-if success:
-    print("Total Debit:", result["total_debit"])
-    print("Total Credit:", result["total_credit"])
-    print("Net Sales:", result["net_sales"])
-else:
-    print(result)
+# from connect_to_db import connect_db
+# conn=connect_db()
+# success, result = fetch_cashier_control_users(conn)
+#
+# if success:
+#     for row in result:
+#         print(row)
+# else:
+#     print(result)

@@ -467,7 +467,7 @@ class SalesJournalRecorder:
         except Exception as e:
             return False, str(e)
 
-    def insert_journal_lines(self, id, lines, acc_codes, receipt, desc):
+    def insert_journal_lines(self, aid, lines, acc_codes, receipt, desc):
         """Insert debit and credit lines into journal_entry_lines."""
         try:
             with self.conn.cursor() as cursor:
@@ -481,7 +481,7 @@ class SalesJournalRecorder:
                         description, debit, credit)
                     VALUES (%s, %s, %s, %s, %s)
                     """, (
-                        id,
+                        aid,
                         acc_code,
                         line.get("description", ""),
                         line.get("debit", 0.00),
@@ -500,7 +500,7 @@ class SalesJournalRecorder:
             self.conn.rollback()
             return False, f"Error: {str(e)}."
 
-    def record_sales(self, account_details, transaction_lines, reference_no, desc):
+    def record_sales(self, account_details, transaction_lines, ref_no, desc):
         """Records a sales transaction.
         Returns True if successful, False otherwise."""
         try:
@@ -510,13 +510,13 @@ class SalesJournalRecorder:
                 return False, result
             codes = result
             # 2. Create journal entry
-            ok, journal_result = self.create_journal_entry(reference_no)
+            ok, journal_result = self.create_journal_entry(ref_no)
             if not ok:
                 return False, journal_result
             journal_id = journal_result
             # 3. Insert journal lines
             ok, msg = self.insert_journal_lines(
-                journal_id, transaction_lines, codes, reference_no, desc
+                journal_id, transaction_lines, codes, ref_no, desc
             )
             if not ok:
                 return False, msg
@@ -605,20 +605,6 @@ def fetch_finance_log_filter_data(conn):
     except Exception as e:
         return False, f"Error Fetching Data: {str(e)}."
 
-
-def delete_log(conn, id):
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                "DELETE FROM finance_logs WHERE id = %s;", (id,)
-            )
-            if cursor.rowcount == 0:
-                return False, f"No log found with id: {id}."
-        conn.commit()
-        return True, f"Log id {id} deleted successfully."
-    except Exception as e:
-        conn.rollback()
-        return False, f"Error deleting log: {str(e)}."
 
 # from connect_to_db import connect_db
 # conn=connect_db()

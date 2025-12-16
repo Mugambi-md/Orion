@@ -7,26 +7,31 @@ class SalesManager:
     def __init__(self, conn):
         self.conn = conn
         self.accounts = {
-            "Sales Revenue": {"type": "Revenue",
-                              "description": "Income from sales"},
-            "Cash": {"type": "Asset", "description": "Cash In Hand"},
+            "Sales Revenue": {
+                "type": "Revenue", "description": "Income from sales"
+            },
+            "Sales Control": {
+                "type": "Revenue",
+                "description": "Sales collected by cashier"
+            },
             "Inventory": {"type": "Asset", "description": "Stock Value"}
         }
 
-    def finalize_sales(self, receipt_no, amount_paid, cost, user):
+    def finalize_sales(self, receipt_no, amount_paid, cost, user, desc):
         """Finalize the sale by recording journal entries in the
         accounting system."""
         recorder = SalesJournalRecorder(self.conn, user)
         transaction_lines = [
-            {"account_name": "Cash", "debit": float(amount_paid),
-             "credit": 0, "description": "Cash Sales"},
             {"account_name": "Sales Revenue", "debit": 0,
              "credit": float(amount_paid), "description": "Sales."},
             {"account_name": "Inventory", "debit": 0,
-             "credit": float(cost), "description": "Sales."}
+             "credit": float(cost), "description": "Sales."},
+            {"account_name": "Sales Control", "debit": 0.00,
+             "credit": float(amount_paid), "description": desc}
         ]
-        return recorder.record_sales(self.accounts, transaction_lines,
-                                     receipt_no)
+        return recorder.record_sales(
+            self.accounts, transaction_lines, receipt_no, desc
+        )
 
     def record_sale(self, user, sale_items, payment_method, amount_paid):
         """Record a complete sale transaction including: sales, sales items,
@@ -43,7 +48,7 @@ class SalesManager:
                 if not result:
                     return False, f"User '{user}' not found in logins table."
                 user_code = result[0]
-                # Generate receipt no: <user_code><YYYYMMDD><HHMMSS>
+                # Generate receipt no: <user_code><YMD><HHMMSS>
                 now = datetime.now()
                 receipt_no = f"{user_code}{now.strftime('%y%m%d%H%M%S')}"
                 sale_date = now.date()
@@ -110,17 +115,18 @@ class SalesManager:
                     user, receipt_no, sale_date, amount_paid, payment_method
                 ))
 
-            # cost, error = get_total_cost_by_codes(self.conn, cogs_items)
-            # if error:
-            #     self.conn.rollback()
-            #     return False, f"Error Calculating Cost: {error}"
-            # # Record Journal entries
-            # success, err = self.finalize_sales(
-            #     receipt_no, amount_paid, cost, user
-            # )
-            # if not success:
-            #     self.conn.rollback()
-            #     return False, f"Error Recording Books of Accounts: {err}"
+            cost, error = get_total_cost_by_codes(self.conn, cogs_items)
+            if error:
+                self.conn.rollback()
+                return False, f"Error Calculating Cost: {error}"
+            # Record Journal entries
+            desc = f"Sales {receipt_no}."
+            success, err = self.finalize_sales(
+                receipt_no, amount_paid, cost, user, desc
+            )
+            if not success:
+                self.conn.rollback()
+                return False, f"Error Recording Books of Accounts: {err}."
             action = f"Sale. {receipt_no}"
             success, msg = insert_cashier_sale(
                 self.conn, user, action, amount_paid
