@@ -1,4 +1,5 @@
 from datetime import datetime
+import datetime
 from working_on_stock import get_total_cost_by_codes
 from working_on_accounting import SalesJournalRecorder
 from working_on_employee import insert_logs, insert_cashier_sale
@@ -820,3 +821,179 @@ def fetch_sales_control_log_filter_data(conn):
     except Exception as e:
         return False, f"Error Fetching Data: {str(e)}."
 
+def get_net_sales(conn, username):
+    """Returns Total debit, total credit and net sales
+    for a given username where status = 'open'"""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    IFNULL(SUM(debit), 0) AS total_debit,
+                    IFNULL(SUM(credit), 0) AS total_credit
+                FROM cashier_control
+                WHERE username = %s AND status = 'open';
+            """, (username,))
+            result = cursor.fetchone()
+            total_debit = float(result[0])
+            total_credit = float(result[1])
+            net_sales = total_debit - total_credit
+
+            return True, {
+                "total_debit": total_debit,
+                "total_credit": total_credit,
+                "net_sales": net_sales
+            }
+    except Exception as e:
+        return False, f"Error Getting Net Sales: {str(e)}."
+
+def fetch_cashier_control_users(conn):
+    """Fetch distinct years, usernames and sections from the logs table.
+    Returns all three in one query for GUI filtering."""
+    try:
+        with conn.cursor() as cursor:
+            # Distinct usernames
+            cursor.execute("""
+                SELECT DISTINCT username
+                FROM cashier_control ORDER BY username ASC;
+            """)
+            usernames = [row[0] for row in cursor.fetchall()]
+        return True, usernames
+    except Exception as e:
+        return False, f"Error Fetching Data: {str(e)}."
+
+class CashierControl:
+    def __init__(self, conn, user):
+        self.conn = conn
+        self.user = user
+        self.journal = SalesJournalRecorder(conn, user)
+
+    def _now(self):
+        """Return current date and time."""
+        now = datetime.datetime.now()
+        return now.date(), now.time()
+
+    def _insert_entry(self, cursor, username, date, time, desc, debit, credit):
+        """Internal helper for inserting cashier entries."""
+        cursor.execute("""
+            INSERT INTO cashier_control
+            (username, date, time, description, debit, credit)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (username, date, time, desc, debit, credit))
+
+    def _record_cash_journal(self, amount, reference, desc):
+        account_details = {
+            "Cash": {"type": "Asset", "description": "Cash in Hand"},
+            "Sales Control": {
+                "type": "Revenue",
+                "description": "Sales collected by cashier"
+            }
+        }
+        transaction_lines = [
+            {
+                "account_name": "Cash",
+                "debit": amount,
+                "credit": 0.00,
+                "description": desc
+            },
+            {
+                "account_name": "Sales Control",
+                "debit": 0.00,
+                "credit": amount,
+                "description": desc
+            }
+        ]
+
+        return self.journal.record_sales(
+            account_details,
+            transaction_lines,
+            reference,
+            desc
+        )
+
+    def return_to_treasury(self, details):
+        """Records cash returned to treasury and balance carried forward."""
+        try:
+            username = details["cashier"]
+            amount = float(details["amount"])
+            balance = float(details["balance"])
+            sale_day, sale_time = self._now()
+
+            with self.conn.cursor() as cursor:
+                # Credit: Returned to treasury
+                self._insert_entry(
+                    cursor, username, sale_day, sale_time,
+                    "Returned to Treasury", 0.00, amount
+                )
+                # Debit: Balance Carried Forward
+                self._insert_entry(
+                    cursor, username, sale_day, sale_time,
+                    "Balance Carried Forward", balance, 0.00
+                )
+            ok, msg = self._record_cash_journal(
+                amount,
+                f"TREASURY - {username}.",
+                f"Cash Returned by {username} to {self.user}."
+            )
+            if not ok:
+                self.conn.rollback()
+                return False, msg
+            action = f"Received {amount:,.2f} Sales From Cashier {username}."
+            success, msg = insert_logs(
+                self.conn, self.user, "Sales", action
+            )
+            if not success:
+                self.conn.rollback()
+                return False, f"Failed to Log Action: {msg}."
+            self.conn.commit()
+            return True, "Cash Returned to Treasury Successfully."
+        except Exception as e:
+            self.conn.rollback()
+            return False, f"Error Returning to Treasury: {str(e)}."
+
+    def end_transaction_day(self, details):
+        """Ends cashier transaction day:
+        - Records final cash
+        - Closes all open records"""
+        try:
+            username = details["cashier"]
+            amount = float(details["amount"])
+            balance = float(details["balance"])
+            sale_day, sale_time = self._now()
+
+            with self.conn.cursor() as cursor:
+                # Credit: Ended transaction day
+                self._insert_entry(
+                    cursor, username, sale_day, sale_time,
+                    "Ended Transaction Day", 0.00, amount
+                )
+                # Debit: Balance brought down
+                self._insert_entry(
+                    cursor, username, sale_day, sale_time,
+                    "Balance Brought Down", balance, 0.00
+                )
+                # Close all open rows for cashier
+                cursor.execute("""
+                    UPDATE cashier_control
+                    SET status = 'closed'
+                    WHERE username = %s AND status = 'open'
+                """, (username,))
+            ok, msg = self._record_cash_journal(
+                amount,
+                f"EOD-{username}.",
+                f"End Of Day cash for {username} to {self.user}."
+            )
+            if not ok:
+                self.conn.rollback()
+                return False, msg
+            action = f"Ended Day For {username} with Ksh. {amount:,.2f}."
+            success, msg = insert_logs(
+                self.conn, self.user, "Sales", action
+            )
+            if not success:
+                self.conn.rollback()
+                return False, f"Failed to Log Action: {msg}."
+            self.conn.commit()
+            return True, "Transaction Day Closed Successfully."
+        except Exception as e:
+            self.conn.rollback()
+            return False, f"Error Ending Transaction Day: {str(e)}."
