@@ -1,8 +1,9 @@
-from connect_to_db import connect_db
+import tkinter as tk
+from tkinter import messagebox, ttk
+from base_window import BaseWindow
 import datetime
 from working_on_employee import insert_logs
 from working_on_accounting import  SalesJournalRecorder
-conn = connect_db()
 def search_products(conn, field, keyword):
     """Search products by field (e.g., 'product_name' or 'product_code') using like %keyword%."""
     pattern = f"%{keyword}%"
@@ -23,9 +24,13 @@ def search_products(conn, field, keyword):
 def modify_email(conn):
     try:
         with conn.cursor() as cursor:
-            cursor.execute("DROP TABLE IF EXISTS journal_entry_lines;")
+            cursor.execute("""
+            UPDATE cashier_control
+            SET status='open'
+            WHERE id=19;
+            """)
             conn.commit()
-            print("TABLE DROPPED successfully.")
+            print("Column Updated successfully.")
     except Exception as e:
         print(f"Error: {e}")
 
@@ -47,7 +52,7 @@ def add_sale_time_column_if_missing(conn):
     except Exception as e:
         print(f"Error adding sale time: {e}")
 
-# add_sale_time_column_if_missing(conn)
+
+from connect_to_db import connect_db
+conn=connect_db()
 # modify_email(conn)
-
-

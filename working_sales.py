@@ -924,6 +924,12 @@ class CashierControl:
                     cursor, username, sale_day, sale_time,
                     "Returned to Treasury", 0.00, amount
                 )
+                # Close all open rows for cashier
+                cursor.execute("""
+                    UPDATE cashier_control
+                    SET status = 'closed'
+                    WHERE username = %s AND status = 'open'
+                """, (username,))
                 # Debit: Balance Carried Forward
                 self._insert_entry(
                     cursor, username, sale_day, sale_time,
@@ -966,17 +972,17 @@ class CashierControl:
                     cursor, username, sale_day, sale_time,
                     "Ended Transaction Day", 0.00, amount
                 )
-                # Debit: Balance brought down
-                self._insert_entry(
-                    cursor, username, sale_day, sale_time,
-                    "Balance Brought Down", balance, 0.00
-                )
                 # Close all open rows for cashier
                 cursor.execute("""
                     UPDATE cashier_control
                     SET status = 'closed'
                     WHERE username = %s AND status = 'open'
                 """, (username,))
+                # Debit: Balance brought down
+                self._insert_entry(
+                    cursor, username, sale_day, sale_time,
+                    "Balance Brought Down", balance, 0.00
+                )
             ok, msg = self._record_cash_journal(
                 amount,
                 f"EOD-{username}.",
@@ -997,3 +1003,11 @@ class CashierControl:
         except Exception as e:
             self.conn.rollback()
             return False, f"Error Ending Transaction Day: {str(e)}."
+
+# from connect_to_db import connect_db
+# conn=connect_db()
+# success, result = get_net_sales(conn, "Bkendi")
+# if success:
+#     print(result["net_sales"])
+# else:
+#     print(result)

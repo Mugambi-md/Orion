@@ -11,13 +11,16 @@ from accounting_export import ReportExporter
 from receipt_gui_and_print import ReceiptViewer
 from authentication import VerifyPrivilegePopup
 from log_popups_gui import MonthlyReversalLogs
+from windows_utils import CurrencyFormatter
+from window_functionality import FocusChain
 from working_sales import (
     fetch_sales_last_24_hours, fetch_sale_by_year,
     fetch_sales_summary_by_year, tag_reversal,
     get_retail_price, fetch_pending_reversals,
     reject_tagged_reversal, delete_rejected_reversal, authorize_reversal,
     fetch_filter_values, fetch_sales_by_month_and_user,
-    fetch_all_sales_users, fetch_sales_items, post_reversal
+    fetch_all_sales_users, fetch_sales_items, post_reversal, CashierControl,
+    fetch_cashier_control_users, get_net_sales
 )
 
 
@@ -1723,3 +1726,394 @@ class SalesReversalWindow(BaseWindow):
             self.load_data()
         else:
             messagebox.showerror("Error", msg, parent=self.window)
+
+
+class CashierReturnTreasury(BaseWindow):
+    def __init__(self, parent, conn, user):
+        self.window = tk.Toplevel(parent)
+        self.window.configure(bg="lightblue")
+        self.window.title("Return To Treasury")
+        self.center_window(self.window, 250, 280, parent)
+        self.window.transient(parent)
+        self.window.grab_set()
+
+        self.conn = conn
+        self.user = user
+        self.cashier_var = tk.StringVar()
+        self.balance_var = tk.StringVar()
+        self.amount = tk.StringVar()
+        self.control = CashierControl(conn, user)
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview", font=("Arial", 11))
+        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
+        success, users = fetch_cashier_control_users(conn)
+        if not success:
+            messagebox.showerror("Error", users, parent=self.window)
+        else:
+            self.cashiers = users
+        self.main_frame = tk.Frame(
+            self.window, bg="lightblue", bd=4, relief="solid"
+        )
+        self.bal_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=2, relief="ridge"
+        )
+        self.cash_entry = tk.Entry(
+            self.bal_frame, textvariable=self.amount, width=10, bd=2,
+            relief="raised", font=("Arial", 11)
+        )
+
+
+        self.build_ui()
+
+    def build_ui(self):
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        l_text = "Return To Treasury."
+        tk.Label(
+            self.main_frame, text=l_text, bg="lightblue", fg="blue", bd=4,
+            relief="ridge", font=("Arial", 16, "bold", "underline")
+        ).pack(side="top", anchor="center", pady=(5, 0), ipadx=5)
+        top_frame = tk.Frame(self.main_frame, bg="lightblue")
+        top_frame.pack(fill="x")
+        tk.Label(
+            top_frame, text="Cashier Username:", bg="lightblue",
+            font=("Arial", 12, "bold")
+        ).pack(padx=10, pady=(5, 0))
+        user_cb = ttk.Combobox(
+            top_frame, textvariable=self.cashier_var, values=self.cashiers,
+            font=("Arial", 12), width=10, state="readonly"
+        )
+        user_cb.pack(pady=(0, 5), padx=10)
+        user_cb.bind("<<ComboboxSelected>>", lambda e: self.load_net_sales())
+        self.bal_frame.pack(fill="both", expand=True)
+        bal_frame = tk.Frame(self.bal_frame, bg="lightblue")
+        bal_frame.pack(fill="x")
+        tk.Label(
+            bal_frame, text="Net Sales:", bg="lightblue", fg="blue",
+            font=("Arial", 12, "bold")
+        ).pack(side="left", pady=(5, 0), padx=(10, 0))
+        bal_entry = tk.Entry(
+            bal_frame, textvariable=self.balance_var, fg="blue", bd=2,
+            width=10, relief="raised", font=("Arial", 11, "bold")
+        )
+        bal_entry.pack(side="left", pady=(5, 0), padx=(0, 5))
+        CurrencyFormatter.add_currency_trace(self.balance_var, bal_entry)
+        tk.Label(
+            self.bal_frame, text="Cash Returned:", bg="lightblue", fg="blue",
+            font=("Arial", 12, "bold")
+        ).pack(pady=(5, 0), padx=10)
+        self.cash_entry.pack(pady=(0, 5), padx=10)
+        CurrencyFormatter.add_currency_trace(self.amount, self.cash_entry)
+        self.cash_entry.bind("<Return>", lambda e: self.post_return())
+        tk.Button(
+            self.bal_frame, text="Post Cash", bg="blue", fg="white", bd=4,
+            relief="groove", font=("Arial", 11, "bold"),
+            command=self.post_return
+        ).pack(anchor="center", pady=5)
+
+    def has_privilege(self, username, privilege: str) -> bool:
+        """Check if the current user has the required privilege."""
+        dialog = VerifyPrivilegePopup(
+            self.window, self.conn, username, privilege
+        )
+        if dialog.result != "granted":
+            messagebox.showwarning(
+                "Denied", f"You Don't Have Permission to {privilege}.",
+                parent=self.window
+            )
+            return False
+        return True
+
+    def load_net_sales(self):
+        cashier = self.cashier_var.get().strip()
+        if not self.has_privilege(cashier, "Make Sale"):
+            return
+        success, result = get_net_sales(self.conn, cashier)
+        if not success:
+            messagebox.showerror("Error", result, parent=self.window)
+            return
+        bal = str(int(result["net_sales"]))
+        self.balance_var.set(bal)
+        self.cash_entry.focus_set()
+
+    def post_return(self):
+        cash = self.amount.get().replace(",", "")
+        if not cash:
+            messagebox.showwarning(
+                "Invalid", "Please Enter Valid Amount to Returned.",
+                parent=self.window
+            )
+            return
+        cash_returned = float(cash)
+        net_sale = float(self.balance_var.get().replace(",", ""))
+        balance = net_sale - cash_returned
+        if not self.has_privilege(self.user, "Manage Cashiers"):
+            return
+        cashier = self.cashier_var.get().strip()
+        details = {
+            "cashier": cashier,
+            "amount": cash_returned,
+            "balance": balance
+        }
+        confirmation = messagebox.askyesno(
+            "Confirm",
+            f"Post Receipt of Ksh.{cash_returned} From {cashier}?",
+            parent=self.window
+        )
+        if confirmation:
+            success, msg = self.control.return_to_treasury(details)
+            if success:
+                messagebox.showinfo("Success", msg, parent=self.window)
+                self.balance_var.set("")
+                self.amount.set("")
+            else:
+                messagebox.showerror("Error", msg, parent=self.window)
+
+
+class CashierEndDay(BaseWindow):
+    def __init__(self, parent, conn, user):
+        self.window = tk.Toplevel(parent)
+        self.window.configure(bg="lightblue")
+        self.window.title("Cashier End of Day")
+        self.center_window(self.window, 350, 600, parent)
+        self.window.transient(parent)
+        self.window.grab_set()
+
+        self.conn = conn
+        self.user = user
+        self.cashier_var = tk.StringVar()
+        self.net_sale_var = tk.StringVar()
+        self.bal_var = tk.StringVar(value="0")
+        self.control = CashierControl(conn, user)
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview", font=("Arial", 11))
+        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
+        self.denominations = [1000, 500, 200, 100, 50, 20, 10, 5, 1]
+        self.note_vars = {}
+        self.total_vars = {}
+        self.total_entries = {}
+        self.entry_order = []
+        self.grand_total_var = tk.StringVar(value="0")
+        success, users = fetch_cashier_control_users(conn)
+        if not success:
+            messagebox.showerror("Error", users, parent=self.window)
+        else:
+            self.cashiers = users
+        self.main_frame = tk.Frame(
+            self.window, bg="lightblue", bd=4, relief="solid"
+        )
+        self.bal_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=2, relief="flat"
+        )
+        self.cashier_label = tk.Label(
+            self.bal_frame, text="", bg="lightblue", fg="blue",
+            font=("Arial", 12, "bold", "underline")
+        )
+
+
+        self.build_ui()
+
+    def build_ui(self):
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        l_text = "Cashier End of Day."
+        tk.Label(
+            self.main_frame, text=l_text, bg="lightblue", fg="blue", bd=4,
+            relief="ridge", font=("Arial", 16, "bold", "underline")
+        ).pack(side="top", anchor="center", pady=(5, 0), ipadx=5)
+        top_frame = tk.Frame(self.main_frame, bg="lightblue")
+        top_frame.pack(fill="x")
+        tk.Label(
+            top_frame, text="Cashier Username:", bg="lightblue",
+            font=("Arial", 12, "bold")
+        ).pack(side="left", padx=(10, 0), pady=5)
+        user_cb = ttk.Combobox(
+            top_frame, textvariable=self.cashier_var, values=self.cashiers,
+            font=("Arial", 12), width=10, state="readonly"
+        )
+        user_cb.pack(side="left", pady=5, padx=(0, 10))
+        user_cb.bind("<<ComboboxSelected>>", lambda e: self.load_net_sales())
+        self.bal_frame.pack(fill="both", expand=True)
+        self.cashier_label.pack(anchor="center", padx=5, pady=(5, 0))
+        bal_frame = tk.Frame(self.bal_frame, bg="lightblue")
+        bal_frame.pack(padx=10)
+        tk.Label(
+            bal_frame, text="Net Sales:", bg="lightblue", fg="blue",
+            font=("Arial", 12, "bold")
+        ).pack(side="left")
+        bal_entry = tk.Entry(
+            bal_frame, textvariable=self.net_sale_var, fg="blue", bd=2,
+            width=10, relief="raised", font=("Arial", 11, "bold")
+        )
+        bal_entry.pack(side="left")
+        CurrencyFormatter.add_currency_trace(self.net_sale_var, bal_entry)
+        denom_frame = tk.LabelFrame(
+            self.bal_frame, text="Cash Breakdown", bg="lightblue", bd=2,
+            relief="ridge", font=("Arial", 10, "bold"), fg="blue"
+        )
+        denom_frame.pack(fill="x", pady=5)
+        tk.Label(
+            denom_frame, text="Denomination", bg="lightblue",
+            font=("Arial", 12, "bold", "underline")
+        ).grid(row=0, column=0, sticky="w", padx=(5, 0))
+        tk.Label(
+            denom_frame, text="Pieces", bg="lightblue", width=6,
+            font=("Arial", 12, "bold", "underline"), anchor="w"
+        ).grid(row=0, column=1, sticky="w", padx=5)
+        tk.Label(
+            denom_frame, text="Total", bg="lightblue",
+            font=("Arial", 12, "bold", "underline")
+        ).grid(row=0, column=2, sticky="e", padx=5)
+        for row, value in enumerate(self.denominations, start=1):
+            qty_var = tk.StringVar(value="0")
+            total_var = tk.StringVar(value="0.00")
+
+            self.note_vars[value] = qty_var
+            self.total_vars[value] = total_var
+            tk.Label(
+                denom_frame, text=f"Ksh. {value}:", bg="lightblue",
+                fg="blue", font=("Arial", 11, "bold")
+            ).grid(row=row, column=0, pady=3, sticky="e")
+            qty_entry = tk.Entry(
+                denom_frame, textvariable=qty_var, width=5, bd=2,
+                font=("Arial", 11)
+            )
+            qty_entry.grid(row=row, column=1, pady=3, sticky="w")
+            self.entry_order.append(qty_entry)
+            total_entry = tk.Entry(
+                denom_frame, textvariable=total_var, width=9, bd=2,
+                justify="right", state="readonly", font=("Arial", 11)
+            )
+            total_entry.grid(row=row, column=2, pady=3, padx=5)
+            self.total_entries[value] = total_entry
+            qty_var.trace_add(
+                "write",
+                lambda name, index, mode, v=value: self.update_denom_total(v)
+            )
+            CurrencyFormatter.add_currency_trace(
+                total_var, total_entry
+            )
+        total_frame = tk.Frame(self.bal_frame, bg="lightblue")
+        total_frame.pack(padx=10, pady=5)
+        tk.Label(
+            total_frame, text="Total Cash:", bg="lightblue", justify="right",
+            font=("Arial", 12, "bold")
+        ).grid(row=0, column=0, padx=(10, 0), pady=2)
+        total_entry = tk.Entry(
+            total_frame, textvariable=self.grand_total_var, width=10, bd=2,
+            font=("Arial", 12, "bold"), justify="right", state="readonly"
+        )
+        total_entry.grid(row=0, column=1, padx=(0, 10), pady=2)
+        CurrencyFormatter.add_currency_trace(
+            self.grand_total_var, total_entry
+        )
+        tk.Label(
+            total_frame, text="Balance:", bg="lightblue", fg="red",
+            font=("Arial", 12, "bold")
+        ).grid(row=1, column=0, padx=(10, 0), pady=2, sticky="e")
+        balance_entry = tk.Entry(
+            total_frame, textvariable=self.bal_var, width=10, fg="red", bd=2,
+            font=("Arial", 12, "bold"), justify="right", state="readonly"
+        )
+        balance_entry.grid(row=1, column=1, padx=(0, 10), pady=2, sticky="w")
+        CurrencyFormatter.add_currency_trace(
+            self.bal_var, balance_entry
+        )
+        tk.Button(
+            self.bal_frame, text="End Day", bg="blue", fg="white", bd=4,
+            relief="groove", font=("Arial", 11, "bold"),
+            command=self.post_return
+        ).pack(anchor="center", pady=5, ipadx=5)
+        FocusChain(self.entry_order, self.post_return)
+
+    def on_qty_change(self, value):
+        self.update_denom_total(value)
+
+    def update_denom_total(self, value):
+        try:
+            qty = int(self.note_vars[value].get())
+        except ValueError:
+            qty = 0
+        total = qty * value
+        self.total_vars[value].set(total)
+        self.update_grand_total()
+
+    def update_grand_total(self):
+        total = 0
+        for value in self.denominations:
+            try:
+                amount = int(self.total_vars[value].get().replace(",", ""))
+            except ValueError:
+                amount = 0
+            total += amount
+        net_sale = int(self.net_sale_var.get().replace(",", ""))
+        balance = net_sale - total
+        self.grand_total_var.set(total)
+        self.bal_var.set(balance)
+
+
+    def load_net_sales(self):
+        cashier = self.cashier_var.get().strip()
+        success, result = get_net_sales(self.conn, cashier)
+        if not success:
+            messagebox.showerror("Error", result, parent=self.window)
+            return
+        bal = str(int(result["net_sales"]))
+        self.net_sale_var.set(bal)
+        self.cashier_label.configure(text=f"Net Sales For {cashier.title()}.")
+        if self.entry_order:
+            self.entry_order[0].focus_set()
+            self.entry_order[0].selection_range(0, tk.END)
+            self.entry_order[0].icursor(tk.END)
+
+    def post_return(self):
+        cash = self.grand_total_var.get().replace(",", "")
+        if not cash:
+            messagebox.showwarning(
+                "Invalid", "Please Enter Valid Amount to Return.",
+                parent=self.window
+            )
+            return
+        cash_returned = float(cash)
+        # net_sale = float(self.net_sale_var.get().replace(",", ""))
+        balance = float(self.bal_var.get().replace(",", ""))
+        privilege = "Manage Cashiers"
+        dialog = VerifyPrivilegePopup(
+            self.window, self.conn, self.user, privilege
+        )
+        if dialog.result != "granted":
+            messagebox.showwarning(
+                "Denied", f"You Don't Have Permission to {privilege}.",
+                parent=self.window
+            )
+            return
+        cashier = self.cashier_var.get().strip()
+        details = {
+            "cashier": cashier,
+            "amount": cash_returned,
+            "balance": balance
+        }
+        confirmation = messagebox.askyesno(
+            "Confirm",
+            f"Post Receipt of Ksh.{cash_returned:,.2f} From {cashier}.\n"
+            f"With a Balance of {balance:,.2f}",
+            parent=self.window
+        )
+        if confirmation:
+            success, msg = self.control.end_transaction_day(details)
+            if success:
+                messagebox.showinfo("Success", msg, parent=self.window)
+                self.net_sale_var.set("0")
+                self.grand_total_var.set("0")
+                self.bal_var.set("0")
+            else:
+                messagebox.showerror("Error", msg, parent=self.window)
+
+
+
+if __name__ == "__main__":
+    from connect_to_db import connect_db
+    conn = connect_db()
+    root = tk.Tk()
+    CashierEndDay(root, conn, "sniffy")
+    root.mainloop()

@@ -11,7 +11,7 @@ from orders_gui import OrdersWindow
 from log_popups_gui import SalesLogsWindow, MonthlyReversalLogs
 from sales_popup import (
     SalesControlReportWindow, MonthlySalesSummary, SalesReversalWindow,
-    YearlySalesWindow, YearlyProductSales
+    YearlySalesWindow, YearlyProductSales, CashierReturnTreasury
 )
 
 class SalesGUI(BaseWindow):
@@ -75,6 +75,7 @@ class SalesGUI(BaseWindow):
         self.left_frame.pack(pady=5, side="top", fill="x", padx=10)
         buttons = {
             "Sell": self.open_sell_window,
+            "Return Treasury": self.return_treasury_window,
             "Orders": self.orders,
             "Monthly Summary": self.monthly_summary,
             "Sales Records": self.sales_records,
@@ -327,6 +328,11 @@ class SalesGUI(BaseWindow):
         if not self.has_privilege("Make Sale"):
             return
         MakeSaleWindow(self.master, self.conn, self.user)
+
+    def return_treasury_window(self):
+        if not self.has_privilege("Manage Cashier"):
+            return
+        CashierReturnTreasury(self.master, self.conn, self.user)
 
     def monthly_summary(self):
         if not self.has_privilege("Sales Report"):

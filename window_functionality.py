@@ -1,4 +1,6 @@
 import tkinter as tk
+from tkinter import ttk
+
 def auto_manage_focus(parent):
     """Automatically sets focus to the first Entry in a parent widget. Shift focus to the next Entry on Enter.
     Invokes the first Button on Enter at the last Entry."""
@@ -108,3 +110,34 @@ class TextCapitalizer:
                 widget.icursor(cursor)
 
         widget.bind("<KeyRelease>", auto_cap)
+
+class FocusChain:
+    """Reusable focus manager for Entry/Text widgets."""
+    def __init__(self, widgets, on_last=None):
+        """Widgets: list of tk.Entry / tk.Text widgets.  on_last: optional
+        function to call when enter is pressed on the last widget."""
+        self.widgets = widgets
+        self.on_last = on_last
+        self._bind_widgets()
+
+    def _bind_widgets(self):
+        for idx, widget in enumerate(self.widgets):
+            widget.bind("<Return>", lambda e, i=idx: self.focus_next(i))
+
+    def focus_next(self, idx):
+        if idx < len(self.widgets) - 1:
+            next_widget = self.widgets[idx + 1]
+            next_widget.focus_set()
+
+            # Handle Entry Widgets
+            if isinstance(next_widget, (tk.Entry, ttk.Entry)):
+                next_widget.selection_range(0, tk.END)
+                next_widget.icursor(tk.END)
+            # Handle Text widgets
+            elif isinstance(next_widget, tk.Text):
+                next_widget.tag_add("sel", "1.0", tk.END)
+                next_widget.mark_set("insert", tk.END)
+        else:
+            if callable(self.on_last):
+                self.on_last()
+        return "break"

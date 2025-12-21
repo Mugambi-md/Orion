@@ -734,8 +734,6 @@ def insert_cashier_sale(conn, username, description, debit):
 
 
 
-
-
 # from connect_to_db import connect_db
 # conn=connect_db()
 # success, result = fetch_cashier_control_users(conn)

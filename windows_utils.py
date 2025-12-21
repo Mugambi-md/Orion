@@ -7,9 +7,11 @@ def to_uppercase(entry_widget):
     value = entry_widget.get()
     entry_widget.delete(0, "end")
     entry_widget.insert(0, value.upper())
+
 def only_digits(char):
     """Allow only characters."""
     return char.isdigit() or char == '.'
+
 def capitalize_customer_name(event):
         widget = event.widget
         name = widget.get()
@@ -19,10 +21,12 @@ def capitalize_customer_name(event):
             widget.delete(0, tk.END)
             widget.insert(0, capitalized)
             widget.icursor(cursor_position)
+
 def is_valid_email(email):
     """Simple email format validation."""
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w{2,4}$'
     return re.match(pattern, email) is not None
+
 def auto_format_date(event):
     """Automatically formats the date as YYYY-MM-DD while typing."""
     entry = event.widget
