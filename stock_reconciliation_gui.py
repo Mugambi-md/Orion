@@ -171,7 +171,7 @@ class ReconciliationWindow(BaseWindow):
         alt_colors = ("#ffffff", "#e6f2ff")  # White and light blueish
         self.tree.tag_configure("evenrow", background=alt_colors[0])
         self.tree.tag_configure("oddrow", background=alt_colors[1])
-        formatter = DescriptionFormatter(70, 10)
+        formatter = DescriptionFormatter(50, 5)
         for index, row in enumerate(self.current_products, start=1):
             tag = "evenrow" if index % 2 == 0 else "oddrow"
             desc = formatter.format(row["description"])
@@ -206,7 +206,9 @@ class ReconciliationWindow(BaseWindow):
         search_field = (
             "product_name" if search_field == "Name" else "product_code"
         )
-        filtered = [r for r in self.data if keyword in str(r[search_field]).lower()]
+        filtered = [
+            r for r in self.data if keyword in str(r[search_field]).lower()
+        ]
         self.populate_table(filtered)
 
     def get_selected_item(self):
@@ -365,9 +367,3 @@ class ReconciliationWindow(BaseWindow):
                 self.window, self.conn, self.user, self.refresh, code
             )
 
-if __name__ == "__main__":
-    from connect_to_db import connect_db
-    conn=connect_db()
-    root=tk.Tk()
-    ReconciliationWindow(root, conn, "Sniffy")
-    root.mainloop()

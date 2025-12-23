@@ -112,6 +112,6 @@ class DescriptionFormatter:
         first_part = text[:break_at].rstrip()
         second_part = text[break_at:].lstrip()
         if len(second_part) > self.min_second:
-            return first_part + "\n" + second_part
+            return first_part + "..."
         else:
             return text

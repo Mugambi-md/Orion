@@ -421,5 +421,3 @@ class DeletedItemsWindow(BaseWindow):
                 if width > max_width:
                     max_width = width
             self.tree.column(col, width=max_width)
-
-

@@ -179,7 +179,7 @@ class StockWindow(BaseWindow):
                 width = font.measure(text)
                 if width > max_width:
                     max_width = width
-            self.tree.column(col, width=max_width + 10)
+            self.tree.column(col, width=max_width + 5)
 
     def perform_search(self):
         keyword = self.search_var.get().strip()

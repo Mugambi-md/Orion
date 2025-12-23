@@ -15,7 +15,10 @@ class SalesManager:
                 "type": "Revenue",
                 "description": "Sales collected by cashier"
             },
-            "Inventory": {"type": "Asset", "description": "Stock Value"}
+            "Inventory": {"type": "Asset", "description": "Stock Value"},
+            "Cost of Goods Sold": {
+                "type": "Expense", "description": "Expense of Sales"
+            }
         }
 
     def finalize_sales(self, receipt_no, amount_paid, cost, user, desc):
@@ -23,6 +26,8 @@ class SalesManager:
         accounting system."""
         recorder = SalesJournalRecorder(self.conn, user)
         transaction_lines = [
+            {"account_name": "Cost of Goods Sold", "debit": float(cost),
+             "credit": 0, "description": desc},
             {"account_name": "Sales Revenue", "debit": 0,
              "credit": float(amount_paid), "description": "Sales."},
             {"account_name": "Inventory", "debit": 0,
@@ -1003,11 +1008,3 @@ class CashierControl:
         except Exception as e:
             self.conn.rollback()
             return False, f"Error Ending Transaction Day: {str(e)}."
-
-# from connect_to_db import connect_db
-# conn=connect_db()
-# success, result = get_net_sales(conn, "Bkendi")
-# if success:
-#     print(result["net_sales"])
-# else:
-#     print(result)

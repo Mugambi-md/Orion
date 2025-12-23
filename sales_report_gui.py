@@ -11,7 +11,8 @@ from orders_gui import OrdersWindow
 from log_popups_gui import SalesLogsWindow, MonthlyReversalLogs
 from sales_popup import (
     SalesControlReportWindow, MonthlySalesSummary, SalesReversalWindow,
-    YearlySalesWindow, YearlyProductSales, CashierReturnTreasury
+    YearlySalesWindow, YearlyProductSales, CashierReturnTreasury,
+    CashierEndDay
 )
 
 class SalesGUI(BaseWindow):
@@ -19,7 +20,7 @@ class SalesGUI(BaseWindow):
         self.master = tk.Toplevel(parent)
         self.master.title("Sale and Sales Report Window")
         self.center_window(self.master, 1350, 700, parent)
-        self.master.configure(bg="blue")
+        self.master.configure(bg="lightblue")
         self.master.transient(parent)
         self.master.grab_set()
 
@@ -27,25 +28,29 @@ class SalesGUI(BaseWindow):
         self.user = user
         self.all_products = view_all_products(conn)
         self.current_products = self.all_products
+        style = ttk.Style(self.master)
+        style.theme_use("clam")
+        style.configure("Treeview", font=("Arial", 11))
+        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
         self.columns = [
             "No", "Product Code", "Product Name", "Description", "Quantity",
             "Cost", "Retail Price", "W.Sale Price", "Min Stock"
         ]
         self.main_frame = tk.Frame(
-            self.master, bg="blue", bd=4, relief="solid"
+            self.master, bg="lightblue", bd=4, relief="solid"
         )
         # Left Frame Nav Buttons
-        self.left_frame = tk.Frame(self.main_frame, bg="blue")
-        self.center_frame = tk.Frame(self.main_frame, bg="blue")
+        self.left_frame = tk.Frame(self.main_frame, bg="lightblue")
+        self.center_frame = tk.Frame(self.main_frame, bg="lightblue")
         # Top Frame search and sort controls
-        self.top_controls = tk.Frame(self.center_frame, bg="blue")
+        self.top_controls = tk.Frame(self.center_frame, bg="lightblue")
         self.search_mode = ttk.Combobox(
             self.top_controls, values=["Name", "Code"], width=5,
             state="readonly", font=("Arial", 11)
         )
         self.search_label = tk.Label(
-            self.top_controls, text="Search Product Name:", bg="blue",
-            fg="white", font=("Arial", 12, "bold")
+            self.top_controls, text="Search Product Name:", bg="lightblue",
+            font=("Arial", 12, "bold")
         )
         self.search_entry = tk.Entry(
             self.top_controls, width=15, font=("Arial", 11), bd=4,
@@ -61,7 +66,7 @@ class SalesGUI(BaseWindow):
         )
         self.btn_frame = tk.Frame(self.top_controls, bg="lightblue")
         # Table Treeview
-        self.table_frame = tk.Frame(self.center_frame, bg="blue")
+        self.table_frame = tk.Frame(self.center_frame, bg="lightblue")
         self.product_table = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
@@ -76,6 +81,7 @@ class SalesGUI(BaseWindow):
         buttons = {
             "Sell": self.open_sell_window,
             "Return Treasury": self.return_treasury_window,
+            "Cashier EOD": self.cashier_eod,
             "Orders": self.orders,
             "Monthly Summary": self.monthly_summary,
             "Sales Records": self.sales_records,
@@ -88,18 +94,18 @@ class SalesGUI(BaseWindow):
         for text, command in buttons.items():
             tk.Button(
                 self.left_frame, text=text, command=command, bd=4, fg="white",
-                relief="groove", bg="dodgerblue", font=("Arial", 10, "bold")
+                relief="groove", bg="blue", font=("Arial", 10, "bold")
             ).pack(side="left")
         self.center_frame.pack(fill="both", expand=True)
         self.top_controls.pack(fill="x")
         # Table Title
         tk.Label(
-            self.center_frame, text="Available Products In Stock",
-            bg="blue", fg="white", bd=2, relief="ridge",
+            self.center_frame, text="Available Products In Stock", bd=2,
+            relief="ridge", bg="lightblue",
             font=("Arial", 16, "bold", "underline")
         ).pack(anchor="center", ipadx=10, pady=(5, 0))
         tk.Label(
-            self.top_controls, text="Search By:", bg="blue", fg="white",
+            self.top_controls, text="Search By:", bg="lightblue",
             font=("Arial", 12, "bold")
         ).pack(side="left", padx=(5, 0))
         self.search_mode.current(0)
@@ -111,7 +117,7 @@ class SalesGUI(BaseWindow):
         self.search_entry.pack(side="left", padx=(0, 3))
         self.search_entry.bind("<KeyRelease>", self.filter_table)
         tk.Label(
-            self.top_controls, text="Sort By:", bg="blue", fg="white",
+            self.top_controls, text="Sort By:", bg="lightblue",
             font=("Arial", 11, "bold")
         ).pack(side="left", padx=(3, 0))
         self.sort_column.pack(side="left")
@@ -128,8 +134,8 @@ class SalesGUI(BaseWindow):
         }
         for text, command in btns.items():
             tk.Button(
-                self.btn_frame, text=text, command=command, bd=2,
-                relief="solid", bg="dodgerblue", fg="white"
+                self.btn_frame, text=text, command=command, fg="white", bd=2,
+                relief="solid", bg="dodgerblue", font=("Arial", 9, "bold")
             ).pack(side="right")
         self.table_frame.pack(fill="both", expand=True)
         # Scrollbars
@@ -137,10 +143,6 @@ class SalesGUI(BaseWindow):
             self.table_frame, orient="vertical",
             command=self.product_table.yview
         )
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("Treeview", rowheight=20, font=("Arial", 10))
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
         for col in self.columns:  # Set up headings
             self.product_table.heading(col, text=col)
             self.product_table.column(col, anchor="center", width=20)
@@ -165,7 +167,7 @@ class SalesGUI(BaseWindow):
         else:
             self.current_products = products[:]
         # description formater
-        def format_description(text, max_len=60, min_second=5):
+        def format_description(text, max_len=50, min_second=5):
             if not text:
                 return ""
             text = re.sub(r"\s+", " ", text).strip() # Normalize spaces
@@ -180,7 +182,7 @@ class SalesGUI(BaseWindow):
             first_part = text[:break_at].rstrip()
             second_part = text[break_at:].lstrip()
             if len(second_part) > min_second:
-                return first_part + "\n" + second_part
+                return first_part + "..."
             else:
                 return text
 
@@ -227,6 +229,7 @@ class SalesGUI(BaseWindow):
             self.search_label.config(text="Search Product Code:")
         else:
             self.search_label.config(text="Search Product Name:")
+
     def filter_table(self, event=None):
         keyword = self.search_entry.get().lower()
         mode = self.search_mode.get()
@@ -333,6 +336,11 @@ class SalesGUI(BaseWindow):
         if not self.has_privilege("Manage Cashier"):
             return
         CashierReturnTreasury(self.master, self.conn, self.user)
+
+    def cashier_eod(self):
+        if not self.has_privilege("Manage Cashier"):
+            return
+        CashierEndDay(self.master, self.conn, self.user)
 
     def monthly_summary(self):
         if not self.has_privilege("Sales Report"):

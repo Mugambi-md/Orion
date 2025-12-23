@@ -20,42 +20,45 @@ class MugambiPOSApp(BaseWindow):
 
         self.bg_label = tk.Label(master)
         self.bg_label.place(x=0, y=0, relwidth=1, relheight=1)
-        self.master.bind("<Configure>", self.resize_background) # Bind resizing
+        # Bind resizing
+        self.master.bind("<Configure>", self.resize_background)
         self.title_label = tk.Label(
-            master, text="MUGAMBI\nPoint of Sale System",
-            font=("Arial", 18, "bold"), fg="white", bg="black"
+            master, text="SwiftGlance Sales System", bd=4, relief="ridge",
+            font=("Arial", 18, "bold", "underline"), fg="white", bg="black"
         ) # Title Label
-        self.title_label.pack(pady=10, anchor="center")
+        self.title_label.pack(pady=(30, 10), ipadx=10, anchor="center")
         self.date_frame = tk.Frame(master, bg="lightblue")
         day = DateFormatter.get_today_formatted()
         self.date_label = tk.Label(
-            self.date_frame, text=day, font=("Arial", 14, "bold"),
-            fg="dodgerblue", anchor="center"
+            self.date_frame, text=day, fg="dodgerblue", anchor="center",
+            bd=2, relief="ridge", font=("Arial", 14, "bold", "underline")
         )
-        self.date_label.pack(anchor="center")
+        self.date_label.pack(ipadx=5, anchor="center")
         self.version_frame = tk.Frame(master, bg="#222222")
         self.version_frame.pack(fill='x', pady=(10, 0), side="bottom")
         self.version_label = tk.Label(
-            self.version_frame, text="POS System V1.0",
-            font=("Arial", 10, "italic"), fg="white", bg="black"
+            self.version_frame, text="POS SystemV1.0", bd=2, relief="raised",
+            bg="black", fg="white", font=("Arial", 11, "italic", "underline")
         )
-        self.version_label.pack(padx=10, anchor="center") # Version Label
+        self.version_label.pack(ipadx=10, anchor="center") # Version Label
         self.bottom_frame = tk.Frame(
-            self.version_frame, bg="lightgray", bd=2, relief="ridge"
+            self.version_frame, bg="lightgray", bd=4, relief="ridge"
         ) # Buttons Frame
         self.bottom_frame.pack(side="bottom", fill="x", ipady=20)
         self.login_btn = tk.Button(
-            self.bottom_frame, text="LOGIN", font=("Arial", 14),
-            command=self.login
+            self.bottom_frame, text="LOGIN", bd=4, relief="groove",
+            font=("Arial", 14, "bold"), command=self.login
+        )
+        self.admin_btn = tk.Button(
+            self.bottom_frame, text="MAINTENANCE", bd=4, relief="groove",
+            font=("Arial", 14, "bold"), command=self.admin
+        )
+        self.exit_btn = tk.Button(
+            self.bottom_frame, text="EXIT", bd=4, relief="groove",
+            font=("Arial", 14, "bold"), command=self.master.quit
         )
         self.login_btn.pack(side="left", expand=True, fill='both')
-        self.admin_btn = tk.Button(self.bottom_frame, text="MAINTENANCE",
-                                   font=("Arial", 14), command=self.admin)
         self.admin_btn.pack(side="left", expand=True, fill='both')
-        self.exit_btn = tk.Button(
-            self.bottom_frame, text="EXIT", font=("Arial", 14),
-            command=self.master.quit
-        )
         self.exit_btn.pack(side="left", expand=True, fill='both')
         self.date_frame.pack(pady=(10, 5), padx=10, side="bottom")
 

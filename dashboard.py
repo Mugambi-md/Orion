@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, Menu
 from authentication import VerifyPrivilegePopup
+from windows_utils import ScrollableFrame
 from sales_report_gui import SalesGUI
 
 from employee_gui_popup import ChangePasswordPopup
@@ -10,7 +11,7 @@ class OrionDashboard:
         self.window = tk.Toplevel()
         self.window.title("ORION STAR SYSTEM")
         self.window.iconbitmap("myicon.ico")
-        self.window.configure(bg="blue")
+        self.window.configure(bg="lightblue")
         self.window.state("zoomed")
         # self.window.transient(master)
         self.window.grab_set()
@@ -18,17 +19,24 @@ class OrionDashboard:
         self.user = user
         self.conn = conn
         self.main_frame = tk.Frame(
-            self.window, bg="blue", bd=4, relief="solid"
+            self.window, bg="lightblue", bd=4, relief="solid"
+        )
+        self.center_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=4, relief="ridge"
         )
 
         self.create_widgets()
 
     def create_widgets(self):
         self.main_frame.pack(fill="both", expand=True, padx=10)
+        btn_frame = ScrollableFrame(self.main_frame, "lightblue", 150)
+        btn_frame.pack(side="left", fill="y")
         button_frame = tk.Frame(
             self.main_frame, bg="lightblue", bd=4, relief="ridge"
         )
-        button_frame.pack(side="top", fill="x", padx=5, ipady=5, ipadx=5)
+        button_frame.pack(side="top", fill="x", ipadx=5)
+        self.center_frame.pack(fill="both", expand=True)
+        btn_area = btn_frame.scrollable_frame
         # Button Labels and their corresponding command
         buttons = {
             "Sales": self.sales_window,
@@ -65,15 +73,25 @@ class OrionDashboard:
         )
         arrow_btn.config(menu=arrow_menu)
         arrow_btn.pack(side="bottom")
+        shortcuts = {
+            "Make Sales": self.make_sales_window,
+
+        }
+        for text, command in shortcuts.items():
+            tk.Button(
+                btn_area, text=text, command=command, bg="dodgerblue",
+                bd=4, relief="groove", fg="white", width=12,
+                font=("Arial", 10, "bold")
+            ).pack(ipadx=5, fill="x")
         foot_frame = tk.Frame(self.window, bg="white", bd=2, relief="ridge")
-        foot_frame.pack(side="bottom", fill="x", padx=10)
+        foot_frame.pack(side="bottom", fill="x")
         tk.Label(
-            foot_frame, text=f"User: {self.user}", bg="white",
-            fg="#007BFF", font=("Arial", 9)
+            foot_frame, text=f"User: {self.user}", bg="white", width=10,
+            fg="#007BFF", font=("Arial", 10, "italic")
         ).pack(side="left", padx=(5, 40))
         footer = tk.Label(
-            foot_frame, text="ORION SYSTEM v1.0", bg="white", fg="#007BFF",
-            font=("Arial", 11)
+            foot_frame, text="ORION SYSTEM v1.0", bg="white", fg="blue",
+            font=("Arial", 11, "italic"), width=20
         )
         footer.pack(side="left", padx=40)
 
@@ -108,6 +126,10 @@ class OrionDashboard:
         messagebox.showinfo("Human Resource", "Human Resource Button Clicked.")
     def change_password(self):
         ChangePasswordPopup(self.window, self.conn, self.user)
+
+    def make_sales_window(self):
+        pass
+
 
 if __name__ == "__main__":
     from connect_to_db import connect_db

@@ -120,5 +120,3 @@ class UpdateQuantityWindow(BaseWindow):
         if result:
             messagebox.showinfo("Result", result, parent=self.popup)
             self.popup.destroy()
-
-
