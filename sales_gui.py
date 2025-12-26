@@ -403,9 +403,3 @@ class MakeSaleWindow(BaseWindow):
     def logs_window(self):
         Last24HoursSalesWindow(self.sale_win, self.conn, self.user)
 
-if __name__ == "__main__":
-    from connect_to_db import connect_db
-    conn = connect_db()
-    root = tk.Tk()
-    app=MakeSaleWindow(root, conn, "BKendi")
-    root.mainloop()

@@ -210,10 +210,3 @@ class AccountWindow(BaseWindow):
             return
         FinanceLogsWindow(self.window, self.conn, self.user)
 
-
-if __name__ == "__main__":
-    from connect_to_db import connect_db
-    conn=connect_db()
-    root = tk.Tk()
-    AccountWindow(root, conn, "sniffy")
-    root.mainloop()

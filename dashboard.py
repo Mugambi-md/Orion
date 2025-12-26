@@ -2,14 +2,20 @@ import tkinter as tk
 from tkinter import messagebox, Menu
 from authentication import VerifyPrivilegePopup
 from windows_utils import ScrollableFrame
-from sales_report_gui import SalesGUI
+from sales_report_gui import (
+    SalesGUI, MakeSaleWindow, CashierReturnTreasury, CashierEndDay
+)
+from stock_gui import StockWindow
+from orders_gui import OrdersWindow
+from accounting_gui import AccountWindow
+from employee_gui import EmployeeManagementWindow
 
 from employee_gui_popup import ChangePasswordPopup
 
-class OrionDashboard:
+class SystemDashboard:
     def __init__(self, conn, user):
         self.window = tk.Toplevel()
-        self.window.title("ORION STAR SYSTEM")
+        self.window.title("Swift Glance System")
         self.window.iconbitmap("myicon.ico")
         self.window.configure(bg="lightblue")
         self.window.state("zoomed")
@@ -29,7 +35,7 @@ class OrionDashboard:
 
     def create_widgets(self):
         self.main_frame.pack(fill="both", expand=True, padx=10)
-        btn_frame = ScrollableFrame(self.main_frame, "lightblue", 150)
+        btn_frame = ScrollableFrame(self.main_frame, "lightgray", 150)
         btn_frame.pack(side="left", fill="y")
         button_frame = tk.Frame(
             self.main_frame, bg="lightblue", bd=4, relief="ridge"
@@ -41,8 +47,8 @@ class OrionDashboard:
         buttons = {
             "Sales": self.sales_window,
             "Stock": self.stock_window,
-            "Reports": self.reports_window,
-            "Accounts": self.accounts_window,
+            "Orders": self.orders_window,
+            "Finance": self.accounts_window,
             "Marketing": self.marketing_window,
             "Human Resource": self.hr_window
         }
@@ -73,25 +79,30 @@ class OrionDashboard:
         )
         arrow_btn.config(menu=arrow_menu)
         arrow_btn.pack(side="bottom")
-        shortcuts = {
-            "Make Sales": self.make_sales_window,
-
+        tk.Label(
+            btn_area, text="Sales Shortcuts", fg="blue", bg="lightgray",
+            font=("Arial", 11, "bold", "underline")
+        ).pack(anchor="w", pady=(5, 0))
+        sales_btn = {
+            "Make Sales": "Selling",
+            "Return Treasury": "Return Treasury",
+            "Cashier EOD": "EOD",
         }
-        for text, command in shortcuts.items():
+        for text, action in sales_btn.items():
             tk.Button(
-                btn_area, text=text, command=command, bg="dodgerblue",
-                bd=4, relief="groove", fg="white", width=12,
-                font=("Arial", 10, "bold")
-            ).pack(ipadx=5, fill="x")
+                btn_area, text=text, bg="dodgerblue", bd=4, relief="groove",
+                fg="white", width=15, font=("Arial", 11, "bold"),
+                command=lambda a=action: self.shortcuts_windows(a)
+            ).pack(ipadx=5, padx=5)
         foot_frame = tk.Frame(self.window, bg="white", bd=2, relief="ridge")
         foot_frame.pack(side="bottom", fill="x")
         tk.Label(
             foot_frame, text=f"User: {self.user}", bg="white", width=10,
-            fg="#007BFF", font=("Arial", 10, "italic")
+            fg="blue", font=("Arial", 11, "italic")
         ).pack(side="left", padx=(5, 40))
         footer = tk.Label(
-            foot_frame, text="ORION SYSTEM v1.0", bg="white", fg="blue",
-            font=("Arial", 11, "italic"), width=20
+            foot_frame, text="POINT OF SALE SYSTEM v1.0", bg="white",
+            fg="blue", font=("Arial", 12, "italic"), width=30
         )
         footer.pack(side="left", padx=40)
 
@@ -109,26 +120,54 @@ class OrionDashboard:
             return False
         return True
 
+    def shortcuts_windows(self, action):
+        if action == "Selling":
+            if not self.has_privilege("Make Sale"):
+                return
+            MakeSaleWindow(self.window, self.conn, self.user)
+        elif action == "Return Treasury":
+            if not self.has_privilege("Manage Cashiers"):
+                return
+            CashierReturnTreasury(self.window, self.conn, self.user)
+        elif action == "EOD":
+            if not self.has_privilege("Manage Cashiers"):
+                return
+            CashierEndDay(self.window, self.conn, self.user)
+
     def sales_window(self):
-        if not self.has_privilege("Export Products Records"):
+        if not self.has_privilege("Manage Sales"):
             return
         SalesGUI(self.window, self.conn, self.user)
 
     def stock_window(self):
-        messagebox.showinfo("Stock", "Stock Button Clicked.")
-    def reports_window(self):
-        messagebox.showinfo("Reports", "Reports Button Clicked.")
+        if not self.has_privilege("Manage Stock"):
+            return
+        StockWindow(self.window, self.conn, self.user)
+
+    def orders_window(self):
+        if not self.has_privilege("Manage Orders"):
+            return
+        OrdersWindow(self.window, self.conn, self.user)
+
     def accounts_window(self):
-        messagebox.showinfo("Accounts", "Accounts Button Clicked.")
+        if not self.has_privilege("Manage Accounting Books"):
+            return
+        AccountWindow(self.window, self.conn, self.user)
+
     def marketing_window(self):
-        messagebox.showinfo("Marketing", "Marketing Button Clicked.")
+        messagebox.showinfo(
+            "Marketing", "Marketing Module Coming Soon.", parent=self.window
+        )
+
     def hr_window(self):
-        messagebox.showinfo("Human Resource", "Human Resource Button Clicked.")
+        if not self.has_privilege("Manage Users"):
+            return
+        EmployeeManagementWindow(self.window, self.conn, self.user)
+
     def change_password(self):
         ChangePasswordPopup(self.window, self.conn, self.user)
 
-    def make_sales_window(self):
-        pass
+
 
 
 if __name__ == "__main__":
@@ -136,7 +175,7 @@ if __name__ == "__main__":
     conn=connect_db()
     root = tk.Tk()
     root.withdraw()
-    app = OrionDashboard(conn, "Sniffy")
+    app = SystemDashboard(conn, "Sniffy")
     root.mainloop()
 
 

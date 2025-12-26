@@ -6,7 +6,7 @@ from base_window import BaseWindow
 from working_on_employee import (
     fetch_logins_by_username, update_login_password
 )
-from dashboard import OrionDashboard
+from dashboard import SystemDashboard
 from admin_gui import AdminWindow
 
 
@@ -113,7 +113,7 @@ class LoginWindow(BaseWindow):
         messagebox.showinfo(
             "Success", f"Welcome {username}.", parent=self.window
         )
-        OrionDashboard(self.conn, username)
+        SystemDashboard(self.conn, username)
         self.window.destroy()
 
     def reset_fields(self):
