@@ -363,7 +363,7 @@ class SalesGUI(BaseWindow):
         SalesControlReportWindow(self.master, self.conn, self.user)
 
     def reversal_authorization(self):
-        if not self.has_privilege("Work On Sales"):
+        if not self.has_privilege("Manage Sales"):
             return
         SalesReversalWindow(self.master, self.conn, self.user)
 

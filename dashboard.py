@@ -3,10 +3,15 @@ from tkinter import messagebox, Menu
 from authentication import VerifyPrivilegePopup
 from windows_utils import ScrollableFrame
 from sales_report_gui import (
-    SalesGUI, MakeSaleWindow, CashierReturnTreasury, CashierEndDay
+    SalesGUI, MakeSaleWindow, CashierReturnTreasury, CashierEndDay,
+    YearlyProductSales, SalesReversalWindow
 )
-from stock_gui import StockWindow
-from orders_gui import OrdersWindow
+from stock_gui import (
+    StockWindow, NewProductPopup, ReconciliationWindow, AddStockPopup,
+    ProductsDetailsWindow
+)
+from stock_windows import DeletedItemsWindow
+from orders_gui import OrdersWindow, NewOrderWindow
 from accounting_gui import AccountWindow
 from employee_gui import EmployeeManagementWindow
 
@@ -54,7 +59,7 @@ class SystemDashboard:
         }
         for text, command in buttons.items():
             tk.Button(
-                button_frame, text=text, command=command, bg="dodgerblue",
+                button_frame, text=text, command=command, bg="blue",
                 fg="white", bd=4, relief="groove", width=len(text), height=1,
                 font=("Arial", 12, "bold")
             ).pack(side="left", ipadx=5)
@@ -79,21 +84,6 @@ class SystemDashboard:
         )
         arrow_btn.config(menu=arrow_menu)
         arrow_btn.pack(side="bottom")
-        tk.Label(
-            btn_area, text="Sales Shortcuts", fg="blue", bg="lightgray",
-            font=("Arial", 11, "bold", "underline")
-        ).pack(anchor="w", pady=(5, 0))
-        sales_btn = {
-            "Make Sales": "Selling",
-            "Return Treasury": "Return Treasury",
-            "Cashier EOD": "EOD",
-        }
-        for text, action in sales_btn.items():
-            tk.Button(
-                btn_area, text=text, bg="dodgerblue", bd=4, relief="groove",
-                fg="white", width=15, font=("Arial", 11, "bold"),
-                command=lambda a=action: self.shortcuts_windows(a)
-            ).pack(ipadx=5, padx=5)
         foot_frame = tk.Frame(self.window, bg="white", bd=2, relief="ridge")
         foot_frame.pack(side="bottom", fill="x")
         tk.Label(
@@ -105,6 +95,41 @@ class SystemDashboard:
             fg="blue", font=("Arial", 12, "italic"), width=30
         )
         footer.pack(side="left", padx=40)
+        tk.Label(
+            btn_area, text="Sales Shortcuts", fg="blue", bg="lightgray",
+            font=("Arial", 11, "bold", "underline")
+        ).pack(anchor="w", pady=(5, 0))
+        sales_btn = {
+            "Make Sales": "Selling",
+            "Return Treasury": "Return Treasury",
+            "Cashier EOD": "EOD",
+            "Receive Orders": "Order",
+            "Sales Impact": "Impact",
+            "Reversal Posting": "Posting"
+        }
+        for text, action in sales_btn.items():
+            tk.Button(
+                btn_area, text=text, bg="dodgerblue", bd=4, relief="groove",
+                fg="white", width=15, font=("Arial", 11, "bold"),
+                command=lambda a=action: self.shortcuts_windows(a)
+            ).pack(ipadx=5, padx=5)
+        tk.Label(
+            btn_area, text="Stock Shortcuts", fg="blue", bg="lightgray",
+            font=("Arial", 11, "bold", "underline")
+        ).pack(anchor="w", pady=(5, 0))
+        stock_btn = {
+            "New Product": "New",
+            "Replenishment": "Add Stock",
+            "Deleted Products": "Deleted",
+            "Reconciliation": "Reconciliation",
+            "Stock Reports": "Report"
+        }
+        for text, action in stock_btn.items():
+            tk.Button(
+                btn_area, text=text, bg="dodgerblue", bd=4, relief="groove",
+                fg="white", width=15, font=("Arial", 11, "bold"),
+                command=lambda a=action: self.shortcuts_windows(a)
+            ).pack(ipadx=5, padx=5)
 
     def has_privilege(self, privilege: str) -> bool:
         """Check if the current user has the required privilege."""
@@ -133,6 +158,38 @@ class SystemDashboard:
             if not self.has_privilege("Manage Cashiers"):
                 return
             CashierEndDay(self.window, self.conn, self.user)
+        elif action == "Order":
+            if not self.has_privilege("Receive Order"):
+                return
+            NewOrderWindow(self.window, self.conn, self.user)
+        elif action == "Impact":
+            if not self.has_privilege("Sales Report"):
+                return
+            YearlyProductSales(self.window, self.conn, self.user)
+        elif action == "Posting":
+            if not self.has_privilege("Manage Sales"):
+                return
+            SalesReversalWindow(self.window, self.conn, self.user)
+        elif action == "New":
+            if not self.has_privilege("Admin New Product"):
+                return
+            NewProductPopup(self.window, self.conn, self.user)
+        elif action == "Add Stock":
+            if not self.has_privilege("Add Stock"):
+                return
+            AddStockPopup(self.window, self.conn, self.user)
+        elif action == "Deleted":
+            if not self.has_privilege("Manage Stock"):
+                return
+            DeletedItemsWindow(self.window, self.conn, self.user)
+        elif action == "Reconciliation":
+            if not self.has_privilege("View Products"):
+                return
+            ReconciliationWindow(self.window, self.conn, self.user)
+        elif action == "Report":
+            if not self.has_privilege("Stock Level"):
+                return
+            ProductsDetailsWindow(self.window, self.user, self.conn)
 
     def sales_window(self):
         if not self.has_privilege("Manage Sales"):
