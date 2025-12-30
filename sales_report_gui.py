@@ -77,7 +77,7 @@ class SalesGUI(BaseWindow):
 
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        self.left_frame.pack(pady=5, side="top", fill="x", padx=10)
+        self.left_frame.pack(pady=5, side="top", fill="x")
         buttons = {
             "Sell": self.open_sell_window,
             "Return Treasury": self.return_treasury_window,
@@ -86,15 +86,16 @@ class SalesGUI(BaseWindow):
             "Monthly Summary": self.monthly_summary,
             "Sales Records": self.sales_records,
             "Product Impact": self.sales_analysis,
-            "Tag Sale Reversal": self.monthly_report,
+            "Tag Reversal": self.monthly_report,
             "Reversal Posting": self.reversal_authorization,
             "Reversal Logs": self.reversal_logs,
             "Sales Logs": self.sales_logs
         }
         for text, command in buttons.items():
             tk.Button(
-                self.left_frame, text=text, command=command, bd=4, fg="white",
-                relief="groove", bg="blue", font=("Arial", 10, "bold")
+                self.left_frame, text=text, command=command, bd=4,
+                fg="white", relief="groove", bg="blue",
+                font=("Arial", 11, "bold")
             ).pack(side="left")
         self.center_frame.pack(fill="both", expand=True)
         self.top_controls.pack(fill="x")
@@ -381,3 +382,10 @@ class SalesGUI(BaseWindow):
         if not self.has_privilege("Work On Order"):
             return
         OrdersWindow(self.master, self.conn, self.user)
+
+if __name__ == "__main__":
+    from connect_to_db import connect_db
+    conn=connect_db()
+    root=tk.Tk()
+    SalesGUI(root, conn, "Sniffy")
+    root.mainloop()

@@ -25,8 +25,8 @@ class AccountWindow(BaseWindow):
         self.user = user
         style = ttk.Style(self.window)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", font=("Arial", 10))
+        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
+        style.configure("Treeview", font=("Arial", 11))
         self.columns = (
             "No", "Code", "Account Name", "Account Type", "Description"
         )
@@ -54,8 +54,8 @@ class AccountWindow(BaseWindow):
         self.right_frame.pack(side="right", fill="both", expand=True)
         text = "Available Journal Accounts."
         tk.Label(
-            self.right_frame, text=text, bg="lightblue", bd=2, relief="ridge",
-            font=("Arial", 16, "bold", "underline")
+            self.right_frame, text=text, bg="lightblue", bd=2,
+            relief="ridge", font=("Arial", 16, "bold", "underline")
         ).pack(pady=(5, 0), anchor="center", ipadx=10)
         self.table_frame.pack(fill="both", expand=True)
         for col in self.columns:
@@ -120,7 +120,7 @@ class AccountWindow(BaseWindow):
             for item in self.tree.get_children():
                 text = str(self.tree.set(item, col))
                 max_width = max(max_width, font.measure(text))
-            self.tree.column(col, width=max_width + 5)
+            self.tree.column(col, width=max_width)
 
     def has_privilege(self, privilege: str) -> bool:
         """Check if the current user has the required privilege."""
@@ -150,13 +150,13 @@ class AccountWindow(BaseWindow):
         OpeningBalancePopup(self.window, self.conn, self.user)
 
     def write_journal_entry(self):
-        privilege = "Write Journal"
+        privilege = "Make Payment"
         if not self.has_privilege(privilege):
             return
         JournalEntryPopup(self.window, conn, self.user)
 
     def reverse_journal(self):
-        privilege = "Reverse Journal"
+        privilege = "Reverse Payment"
         if not self.has_privilege(privilege):
             return
         ReverseJournalPopup(self.window, self.conn, self.user)
@@ -210,3 +210,9 @@ class AccountWindow(BaseWindow):
             return
         FinanceLogsWindow(self.window, self.conn, self.user)
 
+if __name__ == "__main__":
+    from connect_to_db import connect_db
+    conn=connect_db()
+    root=tk.Tk()
+    AccountWindow(root, conn, "Sniffy")
+    root.mainloop()

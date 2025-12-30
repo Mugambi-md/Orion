@@ -85,7 +85,7 @@ class OrdersWindow(BaseWindow):
         for text, command in self.buttons.items():
             tk.Button(
                 top_frame, text=text, command=command, bd=4, relief="groove",
-                bg="dodgerblue", fg="white", font=("Arial", 10, "bold")
+                bg="dodgerblue", fg="white", font=("Arial", 12, "bold")
             ).pack(side=tk.LEFT)
         # Orders Table (left)
         self.orders_frame.pack(fill=tk.BOTH, expand=True)
@@ -244,3 +244,9 @@ class OrdersWindow(BaseWindow):
             return
         OrderLogsWindow(self.window, self.conn, self.user)
 
+if __name__ == "__main__":
+    from connect_to_db import connect_db
+    conn=connect_db()
+    root=tk.Tk()
+    OrdersWindow(root, conn, "Sniffy")
+    root.mainloop()

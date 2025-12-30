@@ -232,22 +232,24 @@ class PendingOrdersWindow(BaseWindow):
         self.items_tree = None
         # Bold Table Headings and content font
         style = ttk.Style(self.window)
+        style.theme_use("clam")
         style.configure("Treeview", font=("Arial", 11))
-        style.configure(
-            "Treeview.Heading", font=("Arial", 12, "bold", "underline")
-        )
+        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
         self.columns = [
             "No.", "Order ID", "Customer Name", "Contact", "Date Ordered",
             "Deadline", "Amount", "Status"
         ]
         # Left Frame for buttons
-        self.main_frame = tk.Frame(self.window, bg="lightblue", bd=4,
-                                   relief="solid")
-        self.top_frame = tk.Frame(self.main_frame, bg="lightblue", bd=4,
-                                  relief="groove")
+        self.main_frame = tk.Frame(
+            self.window, bg="lightblue", bd=4, relief="solid"
+        )
+        self.top_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=4, relief="ridge"
+        )
         self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
-        self.tree = ttk.Treeview(self.table_frame, columns=self.columns,
-                                 show="headings")
+        self.tree = ttk.Treeview(
+            self.table_frame, columns=self.columns, show="headings"
+        )
 
         self.build_ui()
         self.create_table()
@@ -276,8 +278,9 @@ class PendingOrdersWindow(BaseWindow):
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor="center", width=40)
         self.tree.bind("<<TreeviewSelect>>", self.order_details)
-        scrollbar = ttk.Scrollbar(self.table_frame, orient="vertical",
-                                  command=self.tree.yview)
+        scrollbar = ttk.Scrollbar(
+            self.table_frame, orient="vertical", command=self.tree.yview
+        )
         self.tree.configure(yscrollcommand=scrollbar.set)
         self.tree.pack(side="left", fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -293,8 +296,8 @@ class PendingOrdersWindow(BaseWindow):
                 order["order_id"],
                 order["customer_name"],
                 order["contact"],
-                order["date_placed"],
-                order["deadline"],
+                order["date_placed"].strftime("%d/%m/%Y"),
+                order["deadline"].strftime("%d/%m/%Y"),
                 f"{order["amount"]:,.2f}",
                 order["status"]
             ))
@@ -309,7 +312,7 @@ class PendingOrdersWindow(BaseWindow):
                 cell_width = font.measure(cell_value)
                 if cell_width > max_width:
                     max_width = cell_width
-            self.tree.column(col, width=max_width + 5)
+            self.tree.column(col, width=max_width)
 
     def order_details(self, event=None):
         selected = self.tree.selection()
@@ -391,19 +394,19 @@ class UnpaidOrdersWindow(BaseWindow):
         self.selected_order_id = None
         # Bold Table Headings and content font
         style = ttk.Style(self.master)
-        style.configure("Treeview", rowheight=20, font=("Arial", 10))
-        style.configure(
-            "Treeview.Heading", font=("Arial", 12, "bold", "underline")
-        )
+        style.theme_use("clam")
+        style.configure("Treeview", font=("Arial", 10))
+        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
         self.columns = [
             "No.", "Order ID", "Customer Name", "Contact", "Date Placed",
             "Amount", "Status", "Balance"
         ]
-        self.main_frame = tk.Frame(self.master, bg="lightblue", bd=4,
-                                   relief="solid")
+        self.main_frame = tk.Frame(
+            self.master, bg="lightblue", bd=4, relief="solid"
+        )
         self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.tree = ttk.Treeview(
-            self.table_frame, columns=self.columns, show="headings", height=20
+            self.table_frame, columns=self.columns, show="headings"
         )
 
         self.build_ui()
@@ -559,7 +562,7 @@ class UnpaidOrdersWindow(BaseWindow):
                 cell_width = font.measure(cell_value)
                 if cell_width > max_width:
                     max_width = cell_width
-            self.tree.column(col, width=max_width + 5)
+            self.tree.column(col, width=max_width)
 
 
 class EditOrdersWindow(BaseWindow):
@@ -577,10 +580,9 @@ class EditOrdersWindow(BaseWindow):
         self.selected_product_code = None
         self.selected_product_amount = None
         style = ttk.Style(self.master)
+        style.theme_use("clam")
         style.configure("Treeview", font=("Arial", 11))
-        style.configure(
-            "Treeview.Heading", font=("Arial", 13, "bold", "underline")
-        )
+        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
         self.columns = [
             "No.", "Order ID", "Customer Name", "Contact", "Date Placed",
             "Deadline", "Amount", "Status"
@@ -772,6 +774,6 @@ class EditOrdersWindow(BaseWindow):
                 cell_width = font.measure(cell_value)
                 if cell_width > max_width:
                     max_width = cell_width
-            self.tree.column(col, width=max_width + 5)
+            self.tree.column(col, width=max_width)
 
 

@@ -622,6 +622,7 @@ class AssignPrivilegePopup(BaseWindow):
         code = self.user_code
         success_count = 0
         fail_count = 0
+        error_msg = []
         for pid, pname in self.selected_privileges.items():
             success, msg = insert_user_privilege(
                 self.conn, code, pid, pname, user_name, self.user
@@ -630,6 +631,7 @@ class AssignPrivilegePopup(BaseWindow):
                 success_count += 1
             else:
                 fail_count += 1
+                error_msg.append(msg)
         if success_count > 0:
             messagebox.showinfo(
                 "Success",
@@ -638,7 +640,8 @@ class AssignPrivilegePopup(BaseWindow):
             )
         else:
             messagebox.showerror(
-                "Error", f"Failed to Add Privilege(s) From {user_name}.",
+                "Error",
+                f"Failed to Add Privilege(s) To {user_name}.\n{error_msg}",
                 parent=self.window
             )
         self.window.destroy()

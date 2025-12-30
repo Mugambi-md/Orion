@@ -4,15 +4,19 @@ from authentication import VerifyPrivilegePopup
 from windows_utils import ScrollableFrame
 from sales_report_gui import (
     SalesGUI, MakeSaleWindow, CashierReturnTreasury, CashierEndDay,
-    YearlyProductSales, SalesReversalWindow
+    YearlyProductSales, SalesReversalWindow, SalesControlReportWindow
 )
 from stock_gui import (
     StockWindow, NewProductPopup, ReconciliationWindow, AddStockPopup,
     ProductsDetailsWindow
 )
 from stock_windows import DeletedItemsWindow
-from orders_gui import OrdersWindow, NewOrderWindow
-from accounting_gui import AccountWindow
+from orders_gui import (
+    OrdersWindow, NewOrderWindow, UnpaidOrdersWindow, EditOrdersWindow
+)
+from accounting_gui import (
+    AccountWindow, JournalEntryPopup, ReverseJournalPopup, ViewJournalWindow
+)
 from employee_gui import EmployeeManagementWindow
 
 from employee_gui_popup import ChangePasswordPopup
@@ -24,7 +28,6 @@ class SystemDashboard:
         self.window.iconbitmap("myicon.ico")
         self.window.configure(bg="lightblue")
         self.window.state("zoomed")
-        # self.window.transient(master)
         self.window.grab_set()
 
         self.user = user
@@ -40,7 +43,15 @@ class SystemDashboard:
 
     def create_widgets(self):
         self.main_frame.pack(fill="both", expand=True, padx=10)
-        btn_frame = ScrollableFrame(self.main_frame, "lightgray", 150)
+        left_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=4, relief="ridge"
+        )
+        left_frame.pack(side="left", fill="y")
+        tk.Label(
+            left_frame, text="SwiftGlance", bg="lightblue", fg="blue", bd=4,
+            relief="groove", font=("Arial", 20, "bold", "underline")
+        ).pack(side="top", fill="x", ipady=5)
+        btn_frame = ScrollableFrame(left_frame, "lightgray", 170)
         btn_frame.pack(side="left", fill="y")
         button_frame = tk.Frame(
             self.main_frame, bg="lightblue", bd=4, relief="ridge"
@@ -61,14 +72,13 @@ class SystemDashboard:
             tk.Button(
                 button_frame, text=text, command=command, bg="blue",
                 fg="white", bd=4, relief="groove", width=len(text), height=1,
-                font=("Arial", 12, "bold")
+                font=("Arial", 14, "bold")
             ).pack(side="left", ipadx=5)
-        btn_frame = tk.Frame(button_frame, height=1)
+        btn_frame = tk.Frame(button_frame)
         btn_frame.pack(side="left")
         power_btn = tk.Button(
-            btn_frame, text="⭕", font=("Arial", 16, "bold"),
-            fg="red", width=2, height=1, relief="ridge",
-            command=self.window.destroy
+            btn_frame, text="⭕", font=("Arial", 16, "bold"), fg="red",
+            width=2, relief="ridge", command=self.window.destroy
         )
         power_btn.pack(side="left")
         arrow_btn = tk.Menubutton(
@@ -97,15 +107,15 @@ class SystemDashboard:
         footer.pack(side="left", padx=40)
         tk.Label(
             btn_area, text="Sales Shortcuts", fg="blue", bg="lightgray",
-            font=("Arial", 11, "bold", "underline")
+            font=("Arial", 12, "bold", "underline")
         ).pack(anchor="w", pady=(5, 0))
         sales_btn = {
             "Make Sales": "Selling",
+            "Tag Reversal": "Tag",
+            "Reversal Posting": "Posting",
             "Return Treasury": "Return Treasury",
             "Cashier EOD": "EOD",
-            "Receive Orders": "Order",
-            "Sales Impact": "Impact",
-            "Reversal Posting": "Posting"
+            "Sales Impact": "Impact"
         }
         for text, action in sales_btn.items():
             tk.Button(
@@ -115,12 +125,12 @@ class SystemDashboard:
             ).pack(ipadx=5, padx=5)
         tk.Label(
             btn_area, text="Stock Shortcuts", fg="blue", bg="lightgray",
-            font=("Arial", 11, "bold", "underline")
+            font=("Arial", 12, "bold", "underline")
         ).pack(anchor="w", pady=(5, 0))
         stock_btn = {
             "New Product": "New",
-            "Replenishment": "Add Stock",
-            "Deleted Products": "Deleted",
+            "Restock": "Add Stock",
+            "Deleted Items": "Deleted",
             "Reconciliation": "Reconciliation",
             "Stock Reports": "Report"
         }
@@ -130,6 +140,36 @@ class SystemDashboard:
                 fg="white", width=15, font=("Arial", 11, "bold"),
                 command=lambda a=action: self.shortcuts_windows(a)
             ).pack(ipadx=5, padx=5)
+        tk.Label(
+            btn_area, text="Order Shortcuts", fg="blue", bg="lightgray",
+            font=("Arial", 12, "bold", "underline")
+        ).pack(anchor="w", pady=(5, 0))
+        orders_btn = {
+            "Receive Orders": "Order",
+            "Unpaid Orders": "Unpaid Order",
+            "Edit Order": "Edit"
+        }
+        for text, action in orders_btn.items():
+            tk.Button(
+                btn_area, text=text, bg="dodgerblue", bd=4, relief="groove",
+                fg="white", width=15, font=("Arial", 11, "bold"),
+                command=lambda a=action: self.shortcuts_windows(a)
+            ).pack(ipadx=5, padx=5)
+        tk.Label(
+            btn_area, text="Finance Shortcuts", fg="blue", bg="lightgray",
+            font=("Arial", 12, "bold", "underline")
+        ).pack(anchor="w", pady=(5, 0), padx=(0, 5))
+        finance_btn = {
+            "Payment": "Paying",
+            "Payment Reversal": "Reverse",
+            "View Journals": "View"
+        }
+        for text, action in finance_btn.items():
+            tk.Button(
+                btn_area, text=text, bg="dodgerblue", bd=4, relief="groove",
+                fg="white", width=15, font=("Arial", 11, "bold"),
+                command=lambda a=action: self.shortcuts_windows(a)
+            ).pack(ipadx=5, padx=(5, 0))
 
     def has_privilege(self, privilege: str) -> bool:
         """Check if the current user has the required privilege."""
@@ -150,6 +190,10 @@ class SystemDashboard:
             if not self.has_privilege("Make Sale"):
                 return
             MakeSaleWindow(self.window, self.conn, self.user)
+        elif action == "Tag":
+            if not self.has_privilege("Tag Reversal"):
+                return
+            SalesControlReportWindow(self.window, self.conn, self.user)
         elif action == "Return Treasury":
             if not self.has_privilege("Manage Cashiers"):
                 return
@@ -162,6 +206,14 @@ class SystemDashboard:
             if not self.has_privilege("Receive Order"):
                 return
             NewOrderWindow(self.window, self.conn, self.user)
+        elif action == "Unpaid Order":
+            if not self.has_privilege("Receive Order Payment"):
+                return
+            UnpaidOrdersWindow(self.window, self.conn, self.user)
+        elif action == "Edit":
+            if not self.has_privilege("Edit Order"):
+                return
+            EditOrdersWindow(self.window, self.conn, self.user)
         elif action == "Impact":
             if not self.has_privilege("Sales Report"):
                 return
@@ -190,6 +242,18 @@ class SystemDashboard:
             if not self.has_privilege("Stock Level"):
                 return
             ProductsDetailsWindow(self.window, self.user, self.conn)
+        elif action == "Paying":
+            if not self.has_privilege("Make Payment"):
+                return
+            JournalEntryPopup(self.window, self.conn, self.user)
+        elif action == "Reverse":
+            if not self.has_privilege("Reverse Payment"):
+                return
+            ReverseJournalPopup(self.window, self.conn, self.user)
+        elif action == "View":
+            if not self.has_privilege("View Journal"):
+                return
+            ViewJournalWindow(self.window, self.conn, self.user)
 
     def sales_window(self):
         if not self.has_privilege("Manage Sales"):
@@ -232,7 +296,7 @@ if __name__ == "__main__":
     conn=connect_db()
     root = tk.Tk()
     root.withdraw()
-    app = SystemDashboard(conn, "Sniffy")
+    app = SystemDashboard(conn, "Johnie")
     root.mainloop()
 
 

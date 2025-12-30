@@ -422,7 +422,7 @@ def fetch_sales_items(conn, year, month=None, day=None, user=None):
 
 def insert_to_sale_control(conn, entries):
     try:
-        now = datetime.now()
+        now = datetime.datetime.today()
         s_date = now.date()
         s_time = now.time().strftime("%H:%M:%S")  # Time as HH:MM:SS
         # Normalize to list
@@ -464,7 +464,7 @@ def insert_to_sale_control(conn, entries):
 
 def tag_reversal(conn, receipt, code, name, price, quantity, refund, user):
     try:
-        s_date = datetime.today().date()
+        s_date = datetime.datetime.today().date()
         with conn.cursor() as cursor:
             cursor.execute(
                 """
@@ -591,39 +591,40 @@ def post_reversal(conn, receipt, code, user, qty, price):
                 WHERE receipt_no = %s AND product_code = %s
             """, (receipt, code))
             record = cursor.fetchone()
-            if not record:
-                return False, "Reversal Record not Found."
-            if not record["tag"] or not record["authorized"]:
-                return False, "Reversal be Tagged/Authorized For Posting."
-            if record["posted"]:
-                return False, "Reversal Already posted."
-            # Update sale item and related tables
-            success, err = update_sale_item(
-                conn, receipt, code, qty, price, user
-            )
-            if not success:
-                conn.rollback()
-                return False, f"Failed to update sale item: {err}"
+        if not record:
+            return False, "Reversal Record not Found."
+        if not record["tag"] or not record["authorized"]:
+            return False, "Reversal be Tagged/Authorized For Posting."
+        if record["posted"]:
+            return False, "Reversal Already posted."
+        # Update sale item and related tables
+        success, err = update_sale_item(
+            conn, receipt, code, qty, price, user
+        )
+        if not success:
+            conn.rollback()
+            return False, f"Failed to update sale item: {err}"
+        with conn.cursor() as cursor:
             # Update posted column
             cursor.execute("""
                 UPDATE sales_reversal
                 SET posted = %s
                 WHERE receipt_no = %s AND product_code = %s
             """, (user, receipt, code))
-
-            entry = {
-                "product_code": code,
-                "receipt_no": receipt,
-                "description": "Posted Sale Reversal.",
-                "user": user,
-            }
-            success, err = insert_to_sale_control(conn, entry)
-            if success:
-                conn.commit()
-                return True, "Reversal Posted successfully."
-            else:
-                conn.rollback()
-                return False, f"Error Posting Reversal: {str(err)}"
+        # Insert control entry
+        entry = {
+            "product_code": code,
+            "receipt_no": receipt,
+            "description": "Posted Sale Reversal.",
+            "user": user,
+        }
+        success, err = insert_to_sale_control(conn, entry)
+        if not success:
+            conn.rollback()
+            return False, f"Error Posting Reversal: {str(err)}."
+        # Commit transaction
+        conn.commit()
+        return True, "Reversal Posted successfully."
     except Exception as e:
         conn.rollback()
         return False, f"Error Posting reversal: {str(e)}"
@@ -1008,3 +1009,11 @@ class CashierControl:
         except Exception as e:
             self.conn.rollback()
             return False, f"Error Ending Transaction Day: {str(e)}."
+
+# from connect_to_db import connect_db
+# conn=connect_db()
+# success, msg = post_reversal(conn, "102I250703185514", "T346Z", "Sniffy", 11, 120)
+# if success:
+#     print(success, msg)
+# else:
+#     print(success, msg)
