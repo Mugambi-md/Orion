@@ -92,6 +92,22 @@ def create_tables(conn):
                 );
             """)
             print("Cashier Control table created successfully.")
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS cashier_session (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    username VARCHAR(30) NOT NULL,
+                    session_date DATE NOT NULL,
+                    opening_time TIME NOT NULL,
+                    closing_time TIME NULL,
+                    opening_balance DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+                    closing_balance DECIMAL(10, 2) NULL,
+                    status ENUM('Open', 'Closed') NOT NULL DEFAULT 'Open',
+                    UNIQUE KEY uniq_user_day (username, session_date),
+                    INDEX idx_user_status (username, status)
+                );
+            """)
+            print("Cashier Session table created successfully.")
         conn.commit()
     except Exception as e:
         print(f"Table Error: {e}")

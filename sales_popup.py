@@ -702,6 +702,8 @@ class YearlyProductSales(BaseWindow):
 
         self.conn = conn
         self.user = user
+        self.master.bind("<Enter>", self._bind_mousewheel)
+        self.master.bind("<Leave>", self._unbind_mousewheel)
         # Load filter values from DB
         users, years, err = fetch_filter_values(self.conn)
         if err:
@@ -733,7 +735,7 @@ class YearlyProductSales(BaseWindow):
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", font=("Arial", 10), rowheight=25)
+        style.configure("Treeview", font=("Arial", 10))
         # Frames
         self.main_frame = tk.Frame(
             self.master, bg="lightblue", bd=4, relief="solid"
@@ -846,9 +848,9 @@ class YearlyProductSales(BaseWindow):
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor="center", width=20)
         self.tree.pack(fill="both", expand=True)
-        self.tree.bind("<MouseWheel>", lambda e: self.tree.yview_scroll(
-                -1 * int(e.delta / 120), "units"
-        ))
+        # self.tree.bind("<MouseWheel>", lambda e: self.tree.yview_scroll(
+        #         -1 * int(e.delta / 120), "units"
+        # ))
         self.tree.bind("Button-4", lambda e: self.tree.yview_scroll(
                 -1, "units"
         ))  # macOS
@@ -860,6 +862,15 @@ class YearlyProductSales(BaseWindow):
         )
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
+
+    def _bind_mousewheel(self, event):
+        self.master.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _unbind_mousewheel(self, event):
+        self.master.unbind_all("<MouseWheel>")
+
+    def _on_mousewheel(self, event):
+        self.tree.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def toggle_show_all(self):
         """Handle logic for show all checkbox."""

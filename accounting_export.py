@@ -1,5 +1,7 @@
 from reportlab.lib.pagesizes import A4, landscape
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+)
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors
@@ -11,6 +13,7 @@ import platform
 import tempfile
 import subprocess
 from tkinter import messagebox, filedialog
+from reportlab.pdfbase import pdfmetrics
 
 class ReportExporter:
     def __init__(self, parent, title, columns, rows):
@@ -77,7 +80,53 @@ class ReportExporter:
                 "Error", f"Failed to save Excel: {str(e)}", parent=self.parent
             )
 
+    def _calculate_column_widths(self, page_width):
+        """
+        Calculate column widths based on content. Usable width of the page.
+        """
+        font_name = "Helvetica"
+        font_size = 10
+        padding = 12 # Left + Right padding
+        min_width = 30
+        col_widths = []
+
+        for col in self.columns:
+            max_width = pdfmetrics.stringWidth(
+                str(col), font_name, font_size
+            )
+            # Check each row's value for this column
+            for row in self.rows:
+                value = str(row.get(col, ""))
+                text_width = pdfmetrics.stringWidth(
+                    value, font_name, font_size
+                )
+                max_width = max(max_width, text_width)
+            col_widths.append(max(max_width + padding, min_width))
+        # Scale widths to fit page
+        total_width = sum(col_widths)
+        if total_width > page_width:
+            scale = page_width / total_width
+            col_widths = [w * scale for w in col_widths]
+            col_widths = [max(w, min_width) for w in col_widths]
+            total_width = sum(col_widths)
+            if total_width > page_width:
+                overflow = total_width - page_width
+                flexible_cols = [
+                    i for i, w in enumerate(col_widths) if w > min_width
+                ]
+                if flexible_cols:
+                    reduce_per_col = overflow / len(flexible_cols)
+                    for i in flexible_cols:
+                        col_widths[i] = max(
+                            min_width, col_widths[i] - reduce_per_col
+                        )
+        return col_widths
+
     def _build_pdf_story(self):
+        # Page setup
+        page_width, _ = landscape(A4)
+        usable_width = page_width - 40 # Margins left 40 and right 40
+        col_widths = self._calculate_column_widths(usable_width)
         # Title style
         title_style = ParagraphStyle(
             name="Title",
@@ -116,7 +165,7 @@ class ReportExporter:
         tbl_style = TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f0f0")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, -1), 9),
             ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
@@ -125,7 +174,7 @@ class ReportExporter:
         ])
 
         # Create table; allow header to repeat
-        table = Table(table_data, repeatRows=1)
+        table = Table(table_data, colWidths=col_widths, repeatRows=1)
         table.setStyle(tbl_style)
         story = [Paragraph(self.title, title_style), Spacer(1, 6), table]
 

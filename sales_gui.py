@@ -3,7 +3,7 @@ import tkinter.font as tkFont
 from tkinter import ttk, messagebox
 from window_functionality import to_uppercase
 from windows_utils import CurrencyFormatter
-from working_sales import fetch_sales_product, SalesManager
+from working_sales import fetch_sales_product, SalesManager, get_net_sales
 from receipt_gui_and_print import ReceiptPrinter
 from lookup_gui import ProductSearchWindow
 from sales_popup import Last24HoursSalesWindow
@@ -28,10 +28,21 @@ class MakeSaleWindow(BaseWindow):
         ]
         style = ttk.Style(self.sale_win)
         style.theme_use("clam")
-        style.configure("Treeview", rowheight=30, font=("Arial", 10))
+        style.configure("Treeview", font=("Arial", 10))
         style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
         self.total_cost_var = tk.StringVar(value="0.00")
         self.sales_manager = SalesManager(self.conn)
+        success, totals = get_net_sales(conn, user)
+        if success:
+            self.day_sales = int(totals["total_debit"])
+        else:
+            messagebox.showerror(
+                "Error", "Failed To Load Total Daily Sales.",
+                parent=self.sale_win
+            )
+            self.day_sales = None
+            self.sale_win.destroy()
+
         self.main_frame = tk.Frame(
             self.sale_win, bg="lightblue", bd=4, relief="solid"
         )
@@ -96,15 +107,21 @@ class MakeSaleWindow(BaseWindow):
         self.quantity_entry.bind("<Return>", lambda e: self.add_to_list())
         self.add_button.pack(padx=10, ipadx=5)
         self.post_sale_button.pack(padx=10, ipadx=5)
+        sales = f"Cash: {self.day_sales:,}"
+        tk.Label(
+            self.add_frame, text=sales, bg="blue", fg="white", bd=4,
+            relief="ridge", font=("Arial", 11, "bold")
+        ).pack(side="left", pady=10, ipady=5)
         tk.Button(
-            self.add_frame, text="Look Up Products", bg="green", fg="white",
+            self.add_frame, text=f"Logs ☰", bg="blue", fg="white",
+            bd=4, relief="ridge", command=self.logs_window, height=1,
+            font=("Arial", 11, "bold")
+        ).pack(side="left", ipadx=2, pady=10)
+        tk.Button(
+            self.left_frame, text="Look Up Products", bg="green", fg="white",
             bd=4, relief="groove", command=self.lookup_product
         ).pack(pady=5)
-        tk.Button(
-            self.left_frame, text="View Logs", bg="blue", fg="white", bd=4,
-            relief="groove", command=self.logs_window,
-            font=("Arial", 10, "bold")
-        ).pack(ipadx=5, padx=10)
+
         btn_frame = tk.Frame(self.right_frame, bg="lightblue")
         btn_frame.pack(side="top", fill="x")
         tk.Button(
@@ -403,3 +420,9 @@ class MakeSaleWindow(BaseWindow):
     def logs_window(self):
         Last24HoursSalesWindow(self.sale_win, self.conn, self.user)
 
+if __name__ == "__main__":
+    from connect_to_db import connect_db
+    conn=connect_db()
+    root=tk.Tk()
+    MakeSaleWindow(root, conn, "Sniffy")
+    root.mainloop()
