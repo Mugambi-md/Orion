@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import messagebox
 from tkinter import simpledialog
 from working_on_employee import fetch_password, get_assigned_privileges
+from windows_utils import PasswordSecurity
 
 class VerifyPrivilegePopup(simpledialog.Dialog):
     def __init__(self, master, conn, username, required_privilege):
@@ -33,7 +34,7 @@ class VerifyPrivilegePopup(simpledialog.Dialog):
             font=("Arial", 11, "bold")
         ).grid(row=1, column=0, sticky="w", padx=5, pady=5)
         self.password_entry = tk.Entry(
-            master, show="*", bd=4, relief="raised", font=("Arial", 11, "bold"))
+            master, show="*", bd=4, relief="raised", font=("Arial", 11))
         self.password_entry.grid(row=1, column=1, padx=(0, 5), pady=5)
         self.password_entry.bind("<Return>", self.check_credentials)
         self.password_entry.focus_set()
@@ -42,10 +43,24 @@ class VerifyPrivilegePopup(simpledialog.Dialog):
 
     def check_credentials(self, event=None):
         entered_password = self.password_entry.get()
-        stored_password = fetch_password(self.conn, self.username)
-        if not stored_password or entered_password != stored_password[0]:
+        success, result = fetch_password(self.conn, self.username)
+        if not success:
+            messagebox.showerror("Error", result, parent=self.master)
+            self.result = "denied"
+            return
+        password = result["password"]
+        if not password:
             messagebox.showerror(
-                "Access Denied", "Incorrect password.", parent=self.master
+                "Access Denied",
+                "User Authentication Failed", parent=self.master
+            )
+            self.result = "denied"
+            self.cancel()
+            return
+        if not PasswordSecurity.verify_password(entered_password, password):
+            messagebox.showerror(
+                "Access Denied",
+                "Invalid Username or Password.", parent=self.master
             )
             self.result = "denied"
             self.cancel()
@@ -62,19 +77,18 @@ class VerifyPrivilegePopup(simpledialog.Dialog):
             self.result = "denied"
             self.cancel()
             return
-        if status is None:
+        if not status or status.lower() != "active":
             messagebox.showerror(
                 "Access Denied", "User Not Found.", parent=self.master
             )
             self.result = "denied"
-        elif status.lower() != "active":
-            self.result = "denied"
-        elif role is not None and role.lower() in ["admin", "manager"]:
+        elif role and role.lower() in ["admin", "manager"]:
             self.result = "granted"
-        elif self.required_privilege.lower() not in [p.lower() for p in privileges]:
-            self.result = "denied"
+        elif self.required_privilege.lower() in [p.lower() for p in privileges]:
+            self.result = "granted"
         else:
-            self.result = "granted"
+            self.result = "denied"
+
         self.cancel()  # Close the popup
 
     def apply(self):

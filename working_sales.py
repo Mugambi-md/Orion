@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date
 import datetime
 from working_on_stock import get_total_cost_by_codes
 from working_on_accounting import SalesJournalRecorder
@@ -55,7 +55,7 @@ class SalesManager:
                     return False, f"User '{user}' not found in logins table."
                 user_code = result[0]
                 # Generate receipt no: <user_code><YMD><HHMMSS>
-                now = datetime.now()
+                now = datetime.datetime.now()
                 receipt_no = f"{user_code}{now.strftime('%y%m%d%H%M%S')}"
                 sale_date = now.date()
                 sale_time = now.time().replace(microsecond=0)
@@ -867,6 +867,7 @@ def fetch_cashier_control_users(conn):
     except Exception as e:
         return False, f"Error Fetching Data: {str(e)}."
 
+
 class CashierControl:
     def __init__(self, conn, user):
         self.conn = conn
@@ -878,13 +879,13 @@ class CashierControl:
         now = datetime.datetime.now()
         return now.date(), now.time()
 
-    def _insert_entry(self, cursor, username, date, time, desc, debit, credit):
+    def _insert_entry(self, cursor, username, date_s, time, desc, dr, cr):
         """Internal helper for inserting cashier entries."""
         cursor.execute("""
             INSERT INTO cashier_control
             (username, date, time, description, debit, credit)
             VALUES (%s, %s, %s, %s, %s, %s)
-        """, (username, date, time, desc, debit, credit))
+        """, (username, date_s, time, desc, dr, cr))
 
     def _record_cash_journal(self, amount, reference, desc):
         account_details = {
@@ -973,6 +974,17 @@ class CashierControl:
             sale_day, sale_time = self._now()
 
             with self.conn.cursor() as cursor:
+                # Ensure there is an open session
+                cursor.execute("""
+                    SELECT id FROM cashier_session
+                    WHERE username = %s AND session_date = %s
+                        AND status='Open'
+                    LIMIT 1
+                """, (username, sale_day))
+                session = cursor.fetchone()
+                if not session:
+                    return False, "No Open Cashier Session Found to Close."
+                session_id = session["id"]
                 # Credit: Ended transaction day
                 self._insert_entry(
                     cursor, username, sale_day, sale_time,
@@ -989,6 +1001,14 @@ class CashierControl:
                     cursor, username, sale_day, sale_time,
                     "Balance Brought Down", balance, 0.00
                 )
+                # Close Cashier Session
+                cursor.execute("""
+                    UPDATE cashier_session
+                    SET closing_time = %s,
+                        closing_balance = %s,
+                        status = 'Closed'
+                    WHERE id = %s
+                """, (sale_time, balance, session_id))
             ok, msg = self._record_cash_journal(
                 amount,
                 f"EOD-{username}.",
@@ -1010,10 +1030,61 @@ class CashierControl:
             self.conn.rollback()
             return False, f"Error Ending Transaction Day: {str(e)}."
 
-# from connect_to_db import connect_db
-# conn=connect_db()
-# success, msg = post_reversal(conn, "102I250703185514", "T346Z", "Sniffy", 11, 120)
-# if success:
-#     print(success, msg)
-# else:
-#     print(success, msg)
+
+class CashierSessionService:
+    def __init__(self, conn):
+        self.conn = conn
+
+    def can_sell(self, username):
+        """
+        Returns (True, reason) if cashier can sell, else (False, reason).
+        """
+        date_now = date.today()
+
+        try:
+            with self.conn.cursor(dictionary=True) as cursor:
+                # Check today's session
+                cursor.execute("""
+                    SELECT status FROM cashier_session
+                    WHERE username = %s AND session_date = %s
+                    LIMIT 1;
+                """, (username, date_now))
+                today_session = cursor.fetchone()
+                if today_session:
+                    if today_session["status"] == "Open":
+                        return True, "Continuing today's open session."
+                    else:
+                        return False, "Today's session is already closed."
+
+                # 2. No session today -- Check last session
+                cursor.execute("""
+                    SELECT session_date, status FROM cashier_session
+                    WHERE username = %s
+                    ORDER BY session_date DESC, opening_time DESC
+                    LIMIT 1
+                """, (username,))
+                last_session = cursor.fetchone()
+                # 3. First ever session
+                if not last_session:
+                    return True, "No Previous Session. Session Allowed."
+                # Previous session still open --Block
+                if last_session["status"] == "Open":
+                    return (
+                        False,
+                        "Previous Day EOD Not Done. End Previous Day First."
+                    )
+                # 5. Previous session closed -- Allow New session
+                return True, "All Requirements Met."
+        except Exception as e:
+            return False, f"Session Validation Error: {str(e)}"
+
+
+if __name__ == "__main__":
+    from connect_to_db import connect_db
+    conn=connect_db()
+    verify_session = CashierSessionService(conn)
+    success, msg = verify_session.can_sell("BKendi")
+    if not success:
+        print(success, msg)
+    else:
+        print(success, msg)

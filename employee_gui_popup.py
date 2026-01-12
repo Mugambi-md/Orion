@@ -5,15 +5,15 @@ from tkinter import ttk, messagebox
 from base_window import BaseWindow
 from authentication import VerifyPrivilegePopup
 from windows_utils import (
-    only_digits, capitalize_customer_name, is_valid_email, CurrencyFormatter,
-    SentenceCapitalizer
+    only_digits, capitalize_customer_name, is_valid_email,
+    CurrencyFormatter, SentenceCapitalizer, PasswordSecurity
 )
 from working_on_employee import (
     get_departments, username_exists, insert_privilege, get_user_info,
     insert_user_privilege, get_all_privileges, EmployeeManager,
     fetch_departments, get_login_status_and_name, update_login_status,
     get_user_privileges, fetch_password, fetch_all_users,
-    remove_user_privilege, reset_user_password, check_username_exists,
+    remove_user_privilege, reset_user_password,
     update_login_password, fetch_user_identity, update_employee_info,
     fetch_user_details_and_privileges, insert_into_departments,
     fetch_employee_login_info
@@ -1024,7 +1024,7 @@ class ChangePasswordPopup(BaseWindow):
         self.window = tk.Toplevel(master)
         self.window.title("Change Password")
         self.window.configure(bg="lightgreen")
-        self.center_window(self.window, 320, 350, master)
+        self.center_window(self.window, 350, 300, master)
         self.window.transient(master)
         self.window.grab_set()
 
@@ -1034,62 +1034,87 @@ class ChangePasswordPopup(BaseWindow):
         self.password_var = tk.StringVar()
         self.new_password_var = tk.StringVar()
         self.confirm_password_var = tk.StringVar()
-        self.stored_username = None # Username once validated
+        self.strength_var = tk.IntVar(value=0)
+        style = ttk.Style(self.window)
+        style.theme_use("clam")
+        style.configure("Slim.Horizontal.TProgressbar", thickness=2)
         self.main_frame = tk.Frame(
             self.window, bg="lightgreen", bd=4, relief="solid"
         )
         self.username_entry = tk.Entry(
-            self.main_frame, textvariable=self.username_var, bd=4, width=15,
-            relief="raised", font=("Arial", 12)
+            self.main_frame, textvariable=self.username_var, bd=2, width=10,
+            relief="raised", font=("Arial", 12), state="readonly"
         )
         self.password_entry = tk.Entry(
-            self.main_frame, textvariable=self.password_var, show="*", bd=4,
-            relief="raised", font=("Arial", 12)
+            self.main_frame, textvariable=self.password_var, show="*", bd=2,
+            relief="raised", width=15, font=("Arial", 12)
         )
         # New Password (Initially Hidden)
-        self.new_frame = tk.Frame(self.main_frame, bg="lightgreen")
+        self.new_frame = tk.Frame(self.main_frame, bg="spring green")
         self.new_password_entry = tk.Entry(
             self.new_frame, textvariable=self.new_password_var, show="*",
-            bd=4, relief="raised", font=("Arial", 12)
+            bd=2, relief="raised", width=15, font=("Arial", 12)
         )
         self.password_error_label = tk.Label(
-            self.new_frame, text="", fg="red", bg="lightgreen",
-            font=("Arial", 9, "italic"))
+            self.new_frame, text="", fg="red", bg="spring green",
+            font=("Arial", 9, "italic")
+        )
+        self.strength_bar = ttk.Progressbar(
+            self.new_frame, maximum=100, variable=self.strength_var,
+            length=180, mode="determinate",
+            style="Slim.Horizontal.TProgressbar"
+        )
+        self.strength_label = tk.Label(
+            self.new_frame, text="", bg="spring green",
+            font=("Arial", 9, "bold")
+        )
 
         self.confirm_password_entry = tk.Entry(
             self.new_frame, textvariable=self.confirm_password_var, show="*",
-            bd=4, relief="raised"
+            bd=2, relief="raised", width=15, font=("Arial", 12)
         )
         self.change_btn = tk.Button(
-            self.new_frame, text="Change Password", bg="dodgerblue", bd=2,
-            relief="groove", fg="white", command=self.change_password
+            self.new_frame, text="Change Password", bg="dodgerblue", bd=4,
+            relief="groove", fg="white", command=self.change_password,
+            font=("Arial", 11, "bold"), state="disabled"
         )
 
         self.build_ui()
 
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
+        # Allow grind Expansion
+        self.main_frame.grid_rowconfigure(3, weight=1)
+        self.main_frame.grid_columnconfigure(0, weight=1)
+        self.main_frame.grid_columnconfigure(1, weight=1)
         # Username Entry
-        tk.Label(self.main_frame, text="Username:", bg="lightgreen", font=(
-            "Arial", 12, "bold"
-        )).pack(pady=(5, 0))
-        self.username_entry.pack(pady=(0, 5))
-        self.username_entry.focus_set()
-        self.username_entry.icursor(tk.END)
-        self.username_entry.bind("<Return>", self.check_username)
-        # Current Password Entry
+        tk.Label(
+            self.main_frame, text="Password Update", bg="lightgreen",
+            fg="blue", font=("Arial", 14, "bold", "underline")
+        ).grid(row=0, column=0, columnspan=2, pady=5)
+        tk.Label(
+            self.main_frame, text="Username:", bg="lightgreen",
+            font=("Arial", 12, "bold")
+        ).grid(row=1, column=0, pady=5, sticky="e")
+        self.username_entry.grid(row=1, column=1, pady=5, sticky="w")
         tk.Label(
             self.main_frame, text="Current Password:", bg="lightgreen",
             font=("Arial", 12, "bold")
-        ).pack(pady=(5, 0))
-        self.password_entry.pack(pady=(0, 5))
+        ).grid(row=2, column=0, pady=5, sticky="e")
+        self.password_entry.grid(row=2, column=1, pady=5, sticky="w")
+        self.password_entry.focus_set()
         self.password_entry.bind("<Return>", self.verify_password_and_status)
-        self.new_frame.pack()
+        self.new_frame.grid(row=3, column=0, columnspan=2, sticky="nsew")
+        self.new_frame.grid_rowconfigure(0, weight=1)
+        self.new_frame.grid_rowconfigure(1, weight=0)
+        self.new_frame.grid_rowconfigure(3, weight=1)
+        self.new_frame.grid_columnconfigure(0, weight=1)
+        self.new_frame.grid_columnconfigure(1, weight=1)
         tk.Label(
-            self.new_frame, text="New Password:", bg="lightgreen",
+            self.new_frame, text="New Password:", bg="spring green",
             font=("Arial", 12, "bold")
-        ).pack(pady=(10, 0))
-        self.new_password_entry.pack()
+        ).grid(row=0, column=0, pady=(2, 0), sticky="e")
+        self.new_password_entry.grid(row=0, column=1, pady=(2, 0), sticky="w")
         # Real time validation
         self.new_password_entry.bind(
             "<KeyRelease>", self.validate_password_strength
@@ -1097,56 +1122,72 @@ class ChangePasswordPopup(BaseWindow):
         self.new_password_entry.bind(
             "<Return>", lambda e: self.confirm_password_entry.focus_set()
         )
-        self.password_error_label.pack(pady=(2, 0))
-        # self.password_error_label.pack_forget()
+        self.password_error_label.grid(row=1, column=0, columnspan=2, pady=(0, 2))
         tk.Label(
-            self.new_frame, text="Confirm New Password:", bg="lightgreen",
+            self.new_frame, text="Confirm Password:", bg="spring green",
             font=("Arial", 12, "bold")
-        ).pack(pady=(5, 0))
-        self.confirm_password_entry.pack()
+        ).grid(row=2, column=0, pady=(5, 0), sticky="e")
+        self.confirm_password_entry.grid(row=2, column=1, pady=(5, 0), sticky="w")
         self.confirm_password_entry.bind(
             "<Return>", lambda e: self.change_password()
         )
-        self.change_btn.pack(pady=5, anchor="center")
-        self.new_frame.pack_forget()
-
-    def check_username(self, event=None):
-        username = self.username_var.get().strip()
-        exists = check_username_exists(self.conn, username)
-        if isinstance(exists, tuple): # Error case
-            messagebox.showerror(
-                "Error", f"DB Error: {exists[1]}", parent=self.main_frame
-            )
-            return
-        if not exists:
-            messagebox.showerror(
-                "Invalid", "Username Not Allowed. Consult System Admin.",
-                parent=self.main_frame
-            )
-            return
-        self.stored_username = username
-        self.password_entry.focus_set()
+        self.change_btn.grid(row=3, column=0, columnspan=2, pady=5)
+        self.strength_bar.grid(row=4, column=0, columnspan=2, pady=(5, 0), sticky="ew")
+        self.strength_label.grid(row=4, column=0, columnspan=2, pady=(2, 0), sticky="w")
+        self.new_frame.grid_remove()
 
     def validate_password_strength(self, event=None):
         pwd = self.new_password_var.get()
-        errors = []
-        if len(pwd) < 6:
-            errors.append("length 6")
-        if not any(c.isupper() for c in pwd):
-            errors.append("uppercase")
-        if not any(c.isdigit() for c in pwd):
-            errors.append("digit")
-        if not any(c in string.punctuation for c in pwd):
-            errors.append("punctuation")
-        if errors:
+        score = 0
+        requirements = []
+
+        if len(pwd) >= 6:
+            score += 25
+        else:
+            requirements.append("6+ chars")
+        if any(c.islower() for c in pwd):
+            score += 15
+        else:
+            requirements.append("lowercase")
+        if any(c.isupper() for c in pwd):
+            score += 20
+        else:
+            requirements.append("uppercase")
+        if any(c.isdigit() for c in pwd):
+            score += 20
+        else:
+            requirements.append("digit")
+        if any(c in string.punctuation for c in pwd):
+            score += 20
+        else:
+            requirements.append("symbol")
+
+        self.strength_var.set(score)
+        # Strength label and color
+        if score < 40:
+            text, color = "Weak", "red"
+        elif score < 70:
+            text, color = "Fair", "orange"
+        elif score < 90:
+            text, color = "Good", "blue"
+        else:
+            text, color = "Strong", "green"
+        self.strength_label.configure(text=f"Strength: {text}", fg=color)
+        # Error Message
+        if requirements:
             self.password_error_label.config(
-                text="Should be: "+", ".join(errors)
+                text="Missing: "+", ".join(requirements), fg="red"
             )
         else:
-            self.password_error_label.config(text="", fg="lightgreen")
+            self.password_error_label.config(text="", fg="green")
+        # Enable button only if strong enough
+        if score >= 70:
+            self.change_btn.configure(state="normal")
+        else:
+            self.change_btn.configure(state="disabled")
 
     def verify_password_and_status(self, event=None):
-        username = self.stored_username
+        username = self.username_var.get().strip()
         entered_pass = self.password_var.get()
         if not username or not entered_pass:
             messagebox.showerror(
@@ -1162,10 +1203,22 @@ class ChangePasswordPopup(BaseWindow):
             return
         user = result[0]
         status = result[1]
-        stored_password = fetch_password(self.conn, username)
-        if not stored_password or entered_pass != stored_password[0]:
-            messagebox.showerror(
-                "Error", "Password is Incorrect.", parent=self.main_frame
+        success, password = fetch_password(self.conn, username)
+        if not success:
+            messagebox.showerror("Error", password, parent=self.window)
+            return
+        stored_password = password["password"]
+        if not stored_password:
+            messagebox.showwarning(
+                "Invalid",
+                "Invalid Username or Password.", parent=self.window
+            )
+            self.password_entry.focus_set()
+            return
+        if not PasswordSecurity.verify_password(entered_pass, stored_password):
+            messagebox.showwarning(
+                "Invalid",
+                "Invalid Username or Password.", parent=self.window
             )
             self.password_entry.focus_set()
             return
@@ -1179,27 +1232,26 @@ class ChangePasswordPopup(BaseWindow):
         self.show_password_change_fields()
 
     def show_password_change_fields(self):
-        self.new_frame.pack()
+        self.new_frame.grid(row=3, column=0, columnspan=2, sticky="nsew")
         self.new_password_entry.focus_set()
 
     def change_password(self):
         new_pass = self.new_password_var.get()
         confirm_pass = self.confirm_password_var.get()
         if not new_pass or not confirm_pass:
-            messagebox.showerror(
-                "Error", "Please Enter and Confirm New Password.",
+            messagebox.showwarning(
+                "Required", "Please Enter and Confirm New Password.",
                 parent=self.main_frame
             )
             return
         if new_pass != confirm_pass:
-            messagebox.showerror(
+            messagebox.showwarning(
                 "Missmatch", "New Password and Confirmation Don't Match.",
                 parent=self.main_frame
             )
             return
-        success, msg = update_login_password(
-            self.conn, self.stored_username, new_pass
-        )
+        user = self.username_var.get().strip()
+        success, msg = update_login_password(self.conn, user, new_pass)
         if success:
             messagebox.showinfo("Success", msg, parent=self.main_frame)
             self.window.destroy()
@@ -1794,5 +1846,5 @@ if __name__ == "__main__":
     from connect_to_db import connect_db
     conn=connect_db()
     root=tk.Tk()
-    PrivilegePopup(root, conn, "Sniffy")
+    ChangePasswordPopup(root, conn, "Johnie")
     root.mainloop()

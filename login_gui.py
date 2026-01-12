@@ -3,6 +3,7 @@ from tkinter import messagebox
 from datetime import date, datetime, timedelta
 import re, string
 from base_window import BaseWindow
+from windows_utils import PasswordSecurity
 from working_on_employee import (
     fetch_logins_by_username, update_login_password
 )
@@ -79,7 +80,13 @@ class LoginWindow(BaseWindow):
             return
 
         password = login_info["password"]
-        if typed_password != password:
+        if not password:
+            messagebox.showwarning(
+                "Invalid", "Invalid Username or Password.", parent=self.window
+            )
+            self.reset_fields()
+            return
+        if not PasswordSecurity.verify_password(typed_password, password):
             messagebox.showwarning(
                 "Invalid", "Invalid Username or Password.", parent=self.window
             )

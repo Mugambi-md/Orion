@@ -1,9 +1,4 @@
-import tkinter as tk
-from tkinter import messagebox, ttk
-from base_window import BaseWindow
-import datetime
-from working_on_employee import insert_logs
-from working_on_accounting import  SalesJournalRecorder
+import bcrypt
 def search_products(conn, field, keyword):
     """Search products by field (e.g., 'product_name' or 'product_code') using like %keyword%."""
     pattern = f"%{keyword}%"
@@ -25,9 +20,8 @@ def modify_email(conn):
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-            UPDATE cashier_control
-            SET status='open'
-            WHERE id=19;
+            ALTER TABLE logins
+            MODIFY COLUMN password VARCHAR(255) NOT NULL;
             """)
             conn.commit()
             print("Column Updated successfully.")
@@ -53,6 +47,27 @@ def add_sale_time_column_if_missing(conn):
         print(f"Error adding sale time: {e}")
 
 
-from connect_to_db import connect_db
-conn=connect_db()
-# modify_email(conn)
+def hash_password(plain_password: str) -> str:
+    return bcrypt.hashpw(
+        plain_password.encode("utf-8"), bcrypt.gensalt()
+    ).decode("utf-8")
+
+def migrate_passwords(conn):
+    with conn.cursor(dictionary=True) as cursor:
+        cursor.execute("SELECT no, password FROM logins;")
+        users = cursor.fetchall()
+        for user in users:
+            if user["password"].startswith("$2b$"):
+                continue
+            hashed_pass = hash_password(user["password"])
+            cursor.execute("""
+                UPDATE logins
+                SET password = %s
+                WHERE no = %s;
+            """, (hashed_pass, user["no"]))
+    conn.commit()
+    print("Password migration completed successfully.")
+
+# from connect_to_db import connect_db
+# conn=connect_db()
+# migrate_passwords(conn)

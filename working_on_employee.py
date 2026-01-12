@@ -1,5 +1,6 @@
 import datetime
 from datetime import date
+from windows_utils import PasswordSecurity
 
 
 class EmployeeManager:
@@ -96,11 +97,17 @@ class EmployeeManager:
                     return False, f"Username {username} Not Found."
                 designation = result[0]
                 # Insert login
+                password = PasswordSecurity.hash_password("000000")
                 cursor.execute("""
-                INSERT INTO logins (user_code, username, date_created,
-                    designation)
-                VALUES (%s, %s, %s, %s);
-                """, (user_code, username, today, designation))
+                INSERT INTO logins (
+                    user_code,
+                    username,
+                    password,
+                    date_created,
+                    designation
+                    )
+                VALUES (%s, %s, %s, %s, %s);
+                """, (user_code, username, password, today, designation))
                 return True, "Login created."
         except Exception as e:
             return False, f"Insert login Error: {str(e)}."
@@ -196,11 +203,12 @@ def update_login_password(conn, username, new_pass):
     try:
         with conn.cursor() as cursor:
             now = date.today()
+            password = PasswordSecurity.hash_password(new_pass)
             cursor.execute("""
             UPDATE logins
             SET password=%s, date_created=%s
             WHERE username=%s
-            """, (new_pass, now, username))
+            """, (password, now, username))
             conn.commit()
             if cursor.rowcount == 0:
                 return False, f"Username '{username}' not Found."
@@ -328,9 +336,9 @@ def insert_user_privilege(conn, user_code, access_id, pname, name, user):
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-                    INSERT IGNORE INTO login_access (user_code, access_id)
-                    VALUES (%s, %s)
-                    """, (user_code, access_id))
+                INSERT IGNORE INTO login_access (user_code, access_id)
+                VALUES (%s, %s)
+            """, (user_code, access_id))
             conn.commit()
             if cursor.rowcount == 0:
                 return False, f"Privilege already assigned to '{user_code}'."
@@ -394,12 +402,14 @@ def remove_user_privilege(conn, user_code, access_id, pname, name, user):
 def reset_user_password(conn, user_code, name, user, new_password="000000"):
     """Reset user's password to default password and update date_created."""
     today = date.today()
+    password = PasswordSecurity.hash_password(new_password)
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""UPDATE logins
-                    SET password=%s, date_created=%s
-                    WHERE user_code=%s
-                    """, (new_password, today, user_code))
+            cursor.execute("""
+                UPDATE logins
+                SET password=%s, date_created=%s
+                WHERE user_code=%s
+            """, (password, today, user_code))
             if cursor.rowcount == 0:
                 return False, f"No matching user found for '{user_code}'."
         action = f"Reset Password For {name.capitalize()}."
@@ -425,13 +435,14 @@ def check_username_exists(conn, username):
 
 def fetch_password(conn, username):
     try:
-        with conn.cursor() as cursor:
+        with conn.cursor(dictionary=True) as cursor:
             cursor.execute(
                 "SELECT password FROM logins WHERE username=%s", (username,)
             )
-            return cursor.fetchone()
+            password = cursor.fetchone()
+            return True, password
     except Exception as e:
-        raise e
+        return False, f"Error: {str(e)}"
 
 def get_assigned_privileges(conn, identifier):
     """Return status, list of privileges and role for a given username."""
@@ -702,17 +713,28 @@ def fetch_log_filter_data(conn):
     except Exception as e:
         return False, f"Error Fetching Data: {str(e)}."
 
-def delete_log(conn, id):
+
+
+def get_net_sales(conn, username):
+    """Returns Total debit, total credit and net sales
+    for a given username where status = 'open'"""
     try:
         with conn.cursor() as cursor:
-            cursor.execute("DELETE FROM logs WHERE log_id = %s;", (id,))
-            if cursor.rowcount == 0:
-                return False, f"No log found with id: {id}."
-        conn.commit()
-        return True, f"Log id {id} deleted successfully."
+            cursor.execute("""
+                SELECT
+                    IFNULL(SUM(debit), 0) AS total_debit,
+                    IFNULL(SUM(credit), 0) AS total_credit
+                FROM cashier_control
+                WHERE username = %s AND status = 'open';
+            """, (username,))
+            result = cursor.fetchone()
+            total_debit = float(result[0])
+            total_credit = float(result[1])
+            net_sales = total_debit - total_credit
+
+            return True, {"net_sales": net_sales}
     except Exception as e:
-        conn.rollback()
-        return False, f"Error deleting log: {str(e)}."
+        return False, f"Error Getting Net Sales: {str(e)}."
 
 def insert_cashier_sale(conn, username, description, debit):
     """Insert a transaction into cashier control table."""
@@ -721,6 +743,16 @@ def insert_cashier_sale(conn, username, description, debit):
         today = now.date()
         current_time = now.time()
         with conn.cursor() as cursor:
+            # Validate / open session FIRST
+            open_session = CashierOpenSession(conn)
+            ok, sales = get_net_sales(conn, username)
+            opening_bal = sales["net_sales"] if ok else 0.00
+            success, msg = open_session.open_session_if_not_exists(
+                username,
+                opening_bal
+            )
+            if not success:
+                return False, msg
             cursor.execute("""
                 INSERT INTO cashier_control
                 (username, date, time, description, debit, credit, status)
@@ -731,6 +763,47 @@ def insert_cashier_sale(conn, username, description, debit):
     except Exception as e:
         conn.rollback()
         return False, f"Insert Error: {str(e)}."
+
+
+class CashierOpenSession:
+    def __init__(self, conn):
+        self.conn = conn
+
+    def open_session_if_not_exists(self, username, balance=None):
+        date_now = date.today()
+        time_now = datetime.datetime.now().time()
+        opening_balance = balance if balance is not None else 0.00
+        try:
+            with self.conn.cursor(dictionary=True) as cursor:
+                # 1. Check if session exist for today
+                cursor.execute("""
+                    SELECT id, status
+                    FROM cashier_session
+                    WHERE username = %s AND session_date = %s
+                    LIMIT 1;
+                """, (username, date_now))
+                session = cursor.fetchone()
+                # 2. Session exists
+                if session:
+                    if session["status"] == "Open":
+                        return True, "exists"
+                    else:
+                        return False, "Today's session is already Closed."
+                # 3. Create new session
+                cursor.execute("""
+                    INSERT INTO cashier_session (
+                        username,
+                        session_date,
+                        opening_time,
+                        opening_balance,
+                        status
+                    )
+                    VALUES (%s, %s, %s, %s, 'Open')
+                """, (username, date_now, time_now, opening_balance))
+
+                return True, "Created"
+        except Exception as e:
+            return False, f"Opening Session Error: {str(e)}."
 
 
 

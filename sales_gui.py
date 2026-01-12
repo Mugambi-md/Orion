@@ -3,7 +3,9 @@ import tkinter.font as tkFont
 from tkinter import ttk, messagebox
 from window_functionality import to_uppercase
 from windows_utils import CurrencyFormatter
-from working_sales import fetch_sales_product, SalesManager, get_net_sales
+from working_sales import (
+    fetch_sales_product, SalesManager, get_net_sales, CashierSessionService
+)
 from receipt_gui_and_print import ReceiptPrinter
 from lookup_gui import ProductSearchWindow
 from sales_popup import Last24HoursSalesWindow
@@ -32,15 +34,16 @@ class MakeSaleWindow(BaseWindow):
         style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
         self.total_cost_var = tk.StringVar(value="0.00")
         self.sales_manager = SalesManager(self.conn)
+        self.valid_session = CashierSessionService(conn)
         success, totals = get_net_sales(conn, user)
         if success:
-            self.day_sales = int(totals["total_debit"])
+            day_sales = float(totals["total_debit"])
         else:
             messagebox.showerror(
                 "Error", "Failed To Load Total Daily Sales.",
                 parent=self.sale_win
             )
-            self.day_sales = None
+            day_sales = None
             self.sale_win.destroy()
 
         self.main_frame = tk.Frame(
@@ -50,12 +53,17 @@ class MakeSaleWindow(BaseWindow):
         self.add_frame = tk.LabelFrame(
             self.left_frame, bg="white", text="Add To Sales List"
         )
+        sales = f"{day_sales:,.2f}"
+        self.net_label = tk.Label(
+            self.add_frame, text=sales, bg="blue", fg="white", bd=2,
+            relief="ridge", font=("Arial", 11, "bold")
+        )
         self.right_frame = tk.Frame(self.main_frame, bg="white")
         self.sale_list = ttk.Treeview(
             self.right_frame, columns=self.columns, show="headings"
         )
         self.search_entry = tk.Entry(
-            self.add_frame, width=20, bd=2, relief="raised",
+            self.add_frame, width=15, bd=4, relief="raised",
             font=("Arial", 11)
         )
         self.quantity_entry = tk.Entry(
@@ -75,6 +83,7 @@ class MakeSaleWindow(BaseWindow):
 
 
         self.create_widgets()
+        self.check_allowed()
 
     def create_widgets(self):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
@@ -107,11 +116,7 @@ class MakeSaleWindow(BaseWindow):
         self.quantity_entry.bind("<Return>", lambda e: self.add_to_list())
         self.add_button.pack(padx=10, ipadx=5)
         self.post_sale_button.pack(padx=10, ipadx=5)
-        sales = f"Cash: {self.day_sales:,}"
-        tk.Label(
-            self.add_frame, text=sales, bg="blue", fg="white", bd=4,
-            relief="ridge", font=("Arial", 11, "bold")
-        ).pack(side="left", pady=10, ipady=5)
+        self.net_label.pack(side="left", pady=10, ipady=5)
         tk.Button(
             self.add_frame, text=f"Logs ☰", bg="blue", fg="white",
             bd=4, relief="ridge", command=self.logs_window, height=1,
@@ -145,6 +150,26 @@ class MakeSaleWindow(BaseWindow):
             "total", font=("Arial", 12, "bold", "underline")
         )
         self.autosize_columns()
+
+    def refresh_label(self):
+        """Refreshes total sales label."""
+        success, sales = get_net_sales(self.conn, self.user)
+        if not success:
+            messagebox.showerror(
+                "Error",
+                f"Failed to Load Net Sales: {sales}.", parent=self.sale_win
+            )
+        day_sale = float(sales["net_sales"])
+        self.net_label.configure(text=f"{day_sale:,.2f}")
+
+    def check_allowed(self):
+        """Check if user closed previous day."""
+        success, msg = self.valid_session.can_sell(self.user)
+        if not success:
+            messagebox.showwarning(
+                "Error", f"Error Selling:\n{msg}.", parent=self.sale_win
+            )
+            self.search_entry.configure(state="disabled")
 
     def search_product(self):
         code = self.search_entry.get().strip().upper()
@@ -277,6 +302,12 @@ class MakeSaleWindow(BaseWindow):
         self.autosize_columns()
 
     def show_payment_popup(self):
+        success, msg = self.valid_session.can_sell(self.user)
+        if not success:
+            messagebox.showwarning(
+                "Error", f"Error Selling:\n{msg}.", parent=self.sale_win
+            )
+            return
         if not self.sale_items:
             messagebox.showwarning(
                 "No Items", "No Item To pay For.", parent=self.sale_win
@@ -376,6 +407,7 @@ class MakeSaleWindow(BaseWindow):
                     self.user, item_list, payment_method, total_required
                 )
                 if success:
+                    self.refresh_label()
                     receipt_no = result
                     change = total_entered - total_required
                     success, msg = ReceiptPrinter.print_receipt(self.conn, receipt_no)
@@ -398,6 +430,7 @@ class MakeSaleWindow(BaseWindow):
                     self.search_entry.focus_set()
                 else:
                     messagebox.showerror("Error", result, parent=popup)
+                    print(result)
             except Exception as e:
                 messagebox.showerror("Error", str(e), parent=popup)
         cash_entry.bind("<KeyRelease>", update_button_state)
@@ -424,5 +457,5 @@ if __name__ == "__main__":
     from connect_to_db import connect_db
     conn=connect_db()
     root=tk.Tk()
-    MakeSaleWindow(root, conn, "Sniffy")
+    MakeSaleWindow(root, conn, "Bkendi")
     root.mainloop()

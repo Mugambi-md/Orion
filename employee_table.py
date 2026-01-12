@@ -29,18 +29,20 @@ def create_tables(conn):
             """)
             print("Employees table created successfully.")
 
-            cursor.execute("""CREATE TABLE IF NOT EXISTS logins (
-            no INT AUTO_INCREMENT PRIMARY KEY,
-            user_code VARCHAR(10) NOT NULL UNIQUE,
-            username VARCHAR(15) NOT NULL UNIQUE,
-            password VARCHAR(20) NOT NULL DEFAULT '000000',
-            date_created DATE NOT NULL,
-            designation VARCHAR(20) NOT NULL,
-            status ENUM('active', 'disabled') NOT NULL DEFAULT 'active',
-            FOREIGN KEY (username) REFERENCES employees(username)
-                ON UPDATE CASCADE
-                ON DELETE CASCADE
-            );
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS logins (
+                no INT AUTO_INCREMENT PRIMARY KEY,
+                user_code VARCHAR(10) NOT NULL UNIQUE,
+                username VARCHAR(15) NOT NULL UNIQUE,
+                password VARCHAR(255) NOT NULL,
+                pass_change ENUM('true', 'false') NOT NULL DEFAULT 'true',
+                date_created DATE NOT NULL,
+                designation VARCHAR(20) NOT NULL,
+                status ENUM('active', 'disabled') NOT NULL DEFAULT 'active',
+                FOREIGN KEY (username) REFERENCES employees(username)
+                    ON UPDATE CASCADE
+                    ON DELETE CASCADE
+                );
             """)
             print("Logins table created successfully.")
 

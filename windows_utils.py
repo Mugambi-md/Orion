@@ -1,6 +1,8 @@
+
 import tkinter as tk
 import re
 from datetime import date
+import bcrypt
 
 def to_uppercase(entry_widget):
     """Convert the value of an entry widget to uppercase."""
@@ -125,7 +127,6 @@ class ScrollableFrame(tk.Frame):
     def _on_mousewheel(self, event):
         self.canvas.yview_scroll(-1 * (event.delta // 120), "units")
 
-import tkinter as tk
 
 class SentenceCapitalizer:
     """
@@ -161,3 +162,18 @@ class SentenceCapitalizer:
                 pass
 
         widget.bind("<KeyRelease>", auto_capitalize)
+
+class PasswordSecurity:
+    @staticmethod
+    def hash_password(plain_password: str) -> str:
+        """Hash a plain password using bcrypt."""
+        return bcrypt.hashpw(
+            plain_password.encode("utf-8"), bcrypt.gensalt()
+        ).decode("utf-8")
+    @staticmethod
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        """Verify a plain password against stored hash."""
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"),
+            hashed_password.encode("utf-8")
+        )
