@@ -182,7 +182,8 @@ def fetch_logins_by_username(conn, username):
     try:
         with conn.cursor(dictionary=True) as cursor:
             cursor.execute("""
-                SELECT password, date_created, designation, status
+                SELECT password, pass_change, date_created, designation,
+                    status
                 FROM logins
                 WHERE username = %s
             """, (username,))
@@ -190,6 +191,7 @@ def fetch_logins_by_username(conn, username):
             if row:
                 return {
                     "password": row["password"],
+                    "reset_pass": row["pass_change"],
                     "date_created": str(row["date_created"]),
                     "designation": row["designation"],
                     "status": row["status"]
@@ -206,7 +208,7 @@ def update_login_password(conn, username, new_pass):
             password = PasswordSecurity.hash_password(new_pass)
             cursor.execute("""
             UPDATE logins
-            SET password=%s, date_created=%s
+            SET password = %s, pass_change = 'false', date_created=%s
             WHERE username=%s
             """, (password, now, username))
             conn.commit()
@@ -407,7 +409,7 @@ def reset_user_password(conn, user_code, name, user, new_password="000000"):
         with conn.cursor() as cursor:
             cursor.execute("""
                 UPDATE logins
-                SET password=%s, date_created=%s
+                SET password = %s, pass_change = 'true', date_created = %s
                 WHERE user_code=%s
             """, (password, today, user_code))
             if cursor.rowcount == 0:

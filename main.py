@@ -49,6 +49,8 @@ class MugambiPOSApp(BaseWindow):
             self.bottom_frame, text="LOGIN", bd=4, relief="groove",
             font=("Arial", 14, "bold"), command=self.login
         )
+        self.login_btn.focus_set()
+        self.login_btn.bind("<Return>", lambda e: self.login())
         self.admin_btn = tk.Button(
             self.bottom_frame, text="MAINTENANCE", bd=4, relief="groove",
             font=("Arial", 14, "bold"), command=self.admin

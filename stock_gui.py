@@ -1,10 +1,10 @@
 import re
 import tkinter as tk
 from tkinter import ttk
-import tkinter.font as tkFont
 from tkinter import messagebox
 from authentication import VerifyPrivilegePopup, DescriptionFormatter
 from base_window import BaseWindow
+from table_utils import TreeviewSorter
 from accounting_export import ReportExporter
 from working_on_stock import fetch_all_products
 from stock_windows import ProductsDetailsWindow
@@ -60,21 +60,26 @@ class StockWindow(BaseWindow):
         self.tree = ttk.Treeview(
             self.tree_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(
+            self.tree, self.columns, "No", "evenrow", "oddrow"
+        )
+        self.sorter.attach_sorting()
 
         self.build_ui()
         self.update_table()
+        self.sorter.autosize_columns(5)
 
     def build_ui(self):
         """Build user interface."""
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         self.search_frame.pack(side="top", fill="x")
         action_frame = tk.Frame(self.search_frame, bg="lightblue")
-        action_frame.pack(side="top", fill="x", padx=10)
+        action_frame.pack(side="top", fill="x")
         button_actions = {
             "New Product": self.open_new_product_popup,
             "Add Stock": self.open_add_stock_popup,
             "Delete Product": self.delete_product,
-            "Stock Reconciliation": self.open_reconciliation,
+            "Reconciliation": self.open_reconciliation,
             "Products Report": self.open_product_detail_window,
             "Stock Logs": self.open_logs_window,
             "Product Impact": self.sales_analysis
@@ -82,7 +87,7 @@ class StockWindow(BaseWindow):
         for text, action in button_actions.items():
             tk.Button(
                 action_frame, text=text, bd=4, relief="groove", fg="white",
-                bg="dodgerblue", command=action, font=("Arial", 10, "bold")
+                bg="blue", command=action, font=("Arial", 11, "bold")
             ).pack(side="left")
         # Center frame for table and tittle
         self.center_frame.pack(side="left", fill="both", expand=True)
@@ -97,11 +102,15 @@ class StockWindow(BaseWindow):
             font=("Arial", 12, "bold")
         ).pack(side="left", padx=(5, 0))
         self.search_entry.pack(side="left", padx=(0, 5))
-        self.search_entry.bind("<KeyRelease>", lambda e: self.perform_search())
+        self.search_entry.bind(
+            "<KeyRelease>", lambda e: self.perform_search()
+        )
+        label_text = "Stock Products Details."
         tk.Label(
-            self.search_frame, text="Stock Items Details", bd=4, relief="flat",
-            bg="lightblue", font=("Arial", 16, "bold", "underline")
-        ).pack(side="left", padx=30)
+            self.search_frame, text=label_text, bd=4, relief="flat",
+            fg="blue", bg="lightblue", width=30,
+            font=("Arial", 18, "bold", "underline")
+        ).pack(side="left")
         btn_frame = tk.Frame(
             self.search_frame, bg="lightblue", bd=2, relief="raised"
         )
@@ -114,8 +123,8 @@ class StockWindow(BaseWindow):
         }
         for text, command in buttons.items():
             tk.Button(
-                btn_frame, text=text, bd=4, relief="raised", bg="dodgerblue",
-                fg="white", command=command
+                btn_frame, text=text, bd=2, relief="ridge", bg="dodgerblue",
+                fg="white", font=("Arial", 10, "bold"), command=command
             ).pack(side="left")
 
         self.tree_frame.pack(fill="both", expand=True)
@@ -139,9 +148,8 @@ class StockWindow(BaseWindow):
             "<Button-5>", lambda e: self.tree.yview_scroll(1, "units")
         )
         # Define alternating row styles
-        self.tree.tag_configure("row1", background="#d1ecf1")  # Cyan tint
-        self.tree.tag_configure("row2", background="#f8d7da")  # Pink/red tint
-        self.tree.tag_configure("row3", background="#fff3cd")  # Yellow tint
+        self.tree.tag_configure("evenrow", background="#fffde7")
+        self.tree.tag_configure("oddrow", background="#e0f7e9")
 
     def update_table(self, products=None):
         self.tree.delete(*self.tree.get_children())
@@ -149,11 +157,11 @@ class StockWindow(BaseWindow):
             self.current_products = self.all_products[:]
         else:
             self.current_products = products[:]
-        formatter = DescriptionFormatter(40, 10)
+        formatter = DescriptionFormatter(35, 10)
         for i, row in enumerate(self.current_products, start=1):
             name = re.sub(r"\s+", " ", str(row["product_name"])).strip()
             desc = formatter.format(row["description"])
-            tag = f"row{(i % 3) + 1}"
+            tag = "evenrow" if i % 2 == 0 else "oddrow"
             self.tree.insert("", "end", values=(
                 i,
                 row["product_code"],
@@ -167,19 +175,6 @@ class StockWindow(BaseWindow):
                 row["date_replenished"].strftime("%d/%m/%Y")
             ), tags=(tag,))
 
-        self.autosize_columns()
-
-    def autosize_columns(self):
-        """Auto-resize columns based on the content."""
-        font = tkFont.Font()
-        for col in self.columns:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                width = font.measure(text)
-                if width > max_width:
-                    max_width = width
-            self.tree.column(col, width=max_width + 5)
 
     def perform_search(self):
         keyword = self.search_var.get().strip()
@@ -301,9 +296,9 @@ class StockWindow(BaseWindow):
         exporter.print()
 
 
-# if __name__ == "__main__":
-#     from connect_to_db import connect_db
-#     conn = connect_db()
-#     root = tk.Tk()
-#     StockWindow(root, conn, "sniffy")
-#     root.mainloop()
+if __name__ == "__main__":
+    from connect_to_db import connect_db
+    conn = connect_db()
+    root = tk.Tk()
+    StockWindow(root, conn, "sniffy")
+    root.mainloop()

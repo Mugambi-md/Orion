@@ -65,10 +65,18 @@ class AdminWindow:
 
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        foot_frame = tk.Frame(
+            self.main_frame, bg="white", bd=2, relief="ridge"
+        )
+        foot_frame.pack(side="bottom", fill="x")
         left_frame = tk.Frame(
             self.main_frame, bg="lightblue", bd=4, relief="ridge"
         )
         left_frame.pack(side="left", fill="y")
+        tk.Label(
+            left_frame, text="SwiftGlance", bg="lightblue", fg="blue",
+            bd=4, relief="groove", font=("Arial", 20, "bold", "underline")
+        ).pack(side="top", fill="x", ipady=5)
         btn_frame = ScrollableFrame(left_frame, "lightblue", 150)
         btn_frame.pack(side="left", fill="y")
         btn_area = btn_frame.scrollable_frame
@@ -191,6 +199,15 @@ class AdminWindow:
                 btn_area, text=text, command=command, bg="dodgerblue", bd=4,
                 relief="groove", fg="white", width=12, font=("Arial", 11)
             ).pack(ipadx=5, fill="x")
+        tk.Label(
+            foot_frame, text=f"User: {self.user}", bg="white", width=10,
+            fg="blue", font=("Arial", 11, "italic")
+        ).pack(side="left")
+        footer = tk.Label(
+            foot_frame, text="POINT OF SALE SYSTEM v1.0", bg="white",
+            fg="blue", font=("Arial", 12, "italic"), width=40
+        )
+        footer.pack(side="left", padx=10)
 
 
     def has_privilege(self, privilege: str) -> bool:

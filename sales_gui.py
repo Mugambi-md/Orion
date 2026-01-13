@@ -118,7 +118,7 @@ class MakeSaleWindow(BaseWindow):
         self.post_sale_button.pack(padx=10, ipadx=5)
         self.net_label.pack(side="left", pady=10, ipady=5)
         tk.Button(
-            self.add_frame, text=f"Logs ☰", bg="blue", fg="white",
+            self.add_frame, text=f"Logs ΞΞ", bg="blue", fg="white",
             bd=4, relief="ridge", command=self.logs_window, height=1,
             font=("Arial", 11, "bold")
         ).pack(side="left", ipadx=2, pady=10)
@@ -167,7 +167,8 @@ class MakeSaleWindow(BaseWindow):
         success, msg = self.valid_session.can_sell(self.user)
         if not success:
             messagebox.showwarning(
-                "Error", f"Error Selling:\n{msg}.", parent=self.sale_win
+                "Close Day", f"Not Allowed To sell:\n{msg}",
+                parent=self.sale_win
             )
             self.search_entry.configure(state="disabled")
 

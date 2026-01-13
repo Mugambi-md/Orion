@@ -122,12 +122,12 @@ class SystemDashboard:
         tk.Label(
             foot_frame, text=f"User: {self.user}", bg="white", width=10,
             fg="blue", font=("Arial", 11, "italic")
-        ).pack(side="left", padx=(5, 40))
+        ).pack(side="left", padx=10)
         footer = tk.Label(
             foot_frame, text="POINT OF SALE SYSTEM v1.0", bg="white",
-            fg="blue", font=("Arial", 12, "italic"), width=30
+            fg="blue", font=("Arial", 12, "italic"), width=40
         )
-        footer.pack(side="left", padx=40)
+        footer.pack(side="left", padx=10)
         tk.Label(
             btn_area, text="Sales Shortcuts", fg="blue", bg="lightgray",
             font=("Arial", 12, "bold", "underline")

@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from datetime import date, datetime, timedelta
-import re, string
+import string
 from base_window import BaseWindow
 from windows_utils import PasswordSecurity
 from working_on_employee import (
@@ -15,7 +15,7 @@ class LoginWindow(BaseWindow):
     def __init__(self, master, conn, update_pass_callback=None):
         self.master = master
         self.window = tk.Toplevel(master)
-        self.window.title("Login")
+        self.window.title("Employee Login")
         self.window.configure(bg="lightgray")
         self.center_window(self.window, 270, 150, master)
         self.window.transient(master)
@@ -40,9 +40,10 @@ class LoginWindow(BaseWindow):
         # Info label
         label_frame = tk.Frame(self.window, bg="lightgray")
         label_frame.grid(row=0, column=0, columnspan=2)
+        label_text = "Enter Valid Username and Password."
         tk.Label(
-            label_frame, text="Enter Valid Username and Password.", fg="blue",
-            bg="lightgray", font=("Arial", 11, "italic", "underline")
+            label_frame, text=label_text, fg="blue", bg="lightgray",
+            font=("Arial", 11, "italic", "underline")
         ).pack(anchor="center")
         tk.Label(
             self.window, text="Username:", bg="lightgray",
@@ -61,11 +62,6 @@ class LoginWindow(BaseWindow):
         self.pass_entry.bind("<Return>", lambda e: self.login_btn.focus_set())
         self.login_btn.grid(row=3, column=0, columnspan=2, pady=5)
         self.login_btn.bind("<Return>", lambda e: self.handle_login())
-
-    @staticmethod
-    def has_six_consecutive_same_chars(password):
-        """Check if password has 6 consecutive identical characters."""
-        return re.search(r'(.)\1{5}', password) is not None
 
     def handle_login(self):
         username = self.username_entry.get().strip().lower()
@@ -104,8 +100,7 @@ class LoginWindow(BaseWindow):
             login_info["date_created"], "%Y-%m-%d"
         ).date()  # Password expiry (30 days)
         expired = date.today() - date_created > timedelta(days=30)
-        weak_password = self.has_six_consecutive_same_chars(password)
-
+        weak_password = login_info["reset_pass"] == "true"
         # Weak Password and Expired Password
         if expired or weak_password:
             messagebox.showinfo(
@@ -196,12 +191,21 @@ class UpdatePasswordWindow(BaseWindow):
         new_pass = self.entries["New Password:"].get()
         confirm = self.entries["Confirm Password:"].get()
 
-        if current != self.current_password:
+        if not PasswordSecurity.verify_password(current, self.current_password):
             messagebox.showerror(
                 "Error", "Invalid Current Password.", parent=self.window
             )
             return
-
+        if PasswordSecurity.verify_password(new_pass, self.current_password):
+            messagebox.showwarning(
+                "No Changes",
+                "Create New Password, Don't Use Existing Password.",
+                parent=self.window
+            )
+            self.entries["New Password:"].focus_set()
+            self.entries["New Password:"].selection_range(0, tk.END)
+            self.entries["New Password:"].icursor(tk.END)
+            return
         if new_pass != confirm:
             messagebox.showerror(
                 "Mismatch", "New Password do not Match", parent=self.window
@@ -282,11 +286,6 @@ class AdminLoginWindow(BaseWindow):
         self.login_btn.grid(row=3, column=0, columnspan=2, pady=5)
         self.login_btn.bind("<Return>", lambda e: self.handle_login())
 
-    @staticmethod
-    def has_six_consecutive_same_chars(password):
-        """Check if password has 6 consecutive identical characters."""
-        return re.search(r'(.)\1{5}', password) is not None
-
     def handle_login(self):
         username = self.username_entry.get().strip().lower()
         typed_password = self.pass_entry.get()
@@ -301,7 +300,7 @@ class AdminLoginWindow(BaseWindow):
 
         role = login_info["designation"]
         password = login_info["password"]
-        if typed_password != password:
+        if not PasswordSecurity.verify_password(typed_password, password):
             messagebox.showwarning(
                 "Invalid", "Invalid Username or Password.", parent=self.window
             )
@@ -326,7 +325,7 @@ class AdminLoginWindow(BaseWindow):
             login_info["date_created"], "%Y-%m-%d"
         ).date()  # Password expiry (30 days)
         expired = date.today() - date_created > timedelta(days=30)
-        weak_password = self.has_six_consecutive_same_chars(password)
+        weak_password = login_info["reset_pass"] == "true"
 
         # Weak Password and Expired Password
         if expired or weak_password:

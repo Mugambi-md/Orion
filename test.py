@@ -21,12 +21,13 @@ def modify_email(conn):
         with conn.cursor() as cursor:
             cursor.execute("""
             ALTER TABLE logins
-            MODIFY COLUMN password VARCHAR(255) NOT NULL;
+            ADD COLUMN pass_change ENUM('true', 'false') NOT NULL DEFAULT 'true'
+            AFTER password;
             """)
             conn.commit()
-            print("Column Updated successfully.")
+            print("Pass Change Column Added successfully.")
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error: {str(e)}")
 
 def add_sale_time_column_if_missing(conn):
     try:
@@ -70,4 +71,4 @@ def migrate_passwords(conn):
 
 # from connect_to_db import connect_db
 # conn=connect_db()
-# migrate_passwords(conn)
+# modify_email(conn)
