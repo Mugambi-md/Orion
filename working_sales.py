@@ -399,7 +399,7 @@ def fetch_sales_items(conn, year, month=None, day=None, user=None):
                     unit_price,
                     total_amount
                 FROM sale_items
-                WHERE YEAR(date) = %s
+                WHERE quantity > 0 AND YEAR(date) = %s
             """
             params = [year]
             if month:
@@ -1079,12 +1079,12 @@ class CashierSessionService:
             return False, f"Session Validation Error: {str(e)}"
 
 
-if __name__ == "__main__":
-    from connect_to_db import connect_db
-    conn=connect_db()
-    verify_session = CashierSessionService(conn)
-    success, msg = verify_session.can_sell("BKendi")
-    if not success:
-        print(success, msg)
-    else:
-        print(success, msg)
+# if __name__ == "__main__":
+#     from connect_to_db import connect_db
+#     conn=connect_db()
+#     verify_session = CashierSessionService(conn)
+#     success, msg = verify_session.can_sell("BKendi")
+#     if not success:
+#         print(success, msg)
+#     else:
+#         print(success, msg)

@@ -45,8 +45,8 @@ class StockWindow(BaseWindow):
         ]
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("Treeview", font=("Arial", 11))
-        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
+        # style.configure("Treeview", font=("Arial", 11))
+        # style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
         self.search_type = tk.StringVar(value="Name")
         self.search_var = tk.StringVar()
         self.search_option = ttk.Combobox(
@@ -60,9 +60,8 @@ class StockWindow(BaseWindow):
         self.tree = ttk.Treeview(
             self.tree_frame, columns=self.columns, show="headings"
         )
-        self.sorter = TreeviewSorter(
-            self.tree, self.columns, "No", "evenrow", "oddrow"
-        )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
         self.sorter.attach_sorting()
 
         self.build_ui()

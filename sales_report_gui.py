@@ -1,7 +1,6 @@
 import re
 import tkinter as tk
 from tkinter import ttk, messagebox
-import tkinter.font as tkFont
 from sales_gui import MakeSaleWindow
 from working_on_stock import view_all_products
 from base_window import BaseWindow
@@ -9,6 +8,7 @@ from authentication import VerifyPrivilegePopup
 from accounting_export import ReportExporter
 from orders_gui import OrdersWindow
 from log_popups_gui import SalesLogsWindow, MonthlyReversalLogs
+from table_utils import TreeviewSorter
 from sales_popup import (
     SalesControlReportWindow, MonthlySalesSummary, SalesReversalWindow,
     YearlySalesWindow, YearlyProductSales, CashierReturnTreasury,
@@ -30,8 +30,6 @@ class SalesGUI(BaseWindow):
         self.current_products = self.all_products
         style = ttk.Style(self.master)
         style.theme_use("clam")
-        style.configure("Treeview", font=("Arial", 11))
-        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
         self.columns = [
             "No", "Product Code", "Product Name", "Description", "Quantity",
             "Cost", "Retail Price", "W.Sale Price", "Min Stock"
@@ -70,14 +68,18 @@ class SalesGUI(BaseWindow):
         self.product_table = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.product_table, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
 
         self.build_ui()
         self.populate_table()
         self.sort_table()
+        self.sorter.autosize_columns(5)
 
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        self.left_frame.pack(pady=5, side="top", fill="x")
+        self.left_frame.pack(pady=(5, 0), side="top", fill="x")
         buttons = {
             "Sell": self.open_sell_window,
             "Return Treasury": self.return_treasury_window,
@@ -102,9 +104,9 @@ class SalesGUI(BaseWindow):
         # Table Title
         tk.Label(
             self.center_frame, text="Available Products In Stock", bd=2,
-            relief="ridge", bg="lightblue",
-            font=("Arial", 16, "bold", "underline")
-        ).pack(anchor="center", ipadx=10, pady=(5, 0))
+            relief="flat", bg="lightblue", fg="blue",
+            font=("Arial", 18, "bold", "underline")
+        ).pack(anchor="center", ipadx=10, pady=(2, 0))
         tk.Label(
             self.top_controls, text="Search By:", bg="lightblue",
             font=("Arial", 12, "bold")
@@ -212,18 +214,8 @@ class SalesGUI(BaseWindow):
         self.product_table.tag_configure("evenrow", background='#add8e6')  # Light Blue
         self.product_table.tag_configure("oddrow", background='#ffffff')  # white
         self.product_table.tag_configure("thirdrow", background='#d3d3d3')  # Light grey
-        self.resize_columns()
+        self.sorter.autosize_columns()
 
-    def resize_columns(self):
-        font = tkFont.Font()  # Auto-size columns
-        for col in self.columns:
-            max_width = font.measure(col)  # Start with header width
-            for item in self.product_table.get_children():
-                text = str(self.product_table.set(item, col))
-                width = font.measure(text)
-                if width > max_width:
-                    max_width = width
-            self.product_table.column(col, width=max_width)
 
     def update_search_label(self, event=None):
         if self.search_mode.get() == "Code":

@@ -1,8 +1,9 @@
+import tkinter
 import tkinter.font as tkFont
 
 
 class TreeviewSorter:
-    def __init__(self, tree, cols, no_col, even_tag, odd_tag):
+    def __init__(self, tree, cols, no_col, style_name="App.Treeview"):
         """
         tree - (ttk.Treeview instance). cols - (list of column names).
         no_col - (column used for numbering (not sortable)). zebra -
@@ -11,9 +12,32 @@ class TreeviewSorter:
         self.tree = tree
         self.columns = cols
         self.number_column = no_col
-        self.even_tag = even_tag
-        self.odd_tag = odd_tag
+        # self.even_tag = even_tag
+        # self.odd_tag = odd_tag
         self.sort_direction = {}
+        self.style_name = style_name
+        self.heading_style = f"{style_name}.Heading"
+
+    def apply_style(self, style):
+        """Apply default treeview styling. Fonts and theme are fixed."""
+        # Apply theme only if not already active
+        try:
+            if style.theme_use() != "clam":
+                style.theme_use("clam")
+        except tkinter.TclError:
+            style.theme_use("clam")
+        style.configure(self.style_name, font=("Arial", 11))
+        style.configure(self.heading_style, font=("Arial", 13, "bold"))
+        self.tree.configure(style=self.style_name)
+
+    def set_row_height(self, style, height=None):
+        """Update row height dynamically (Optional)."""
+        style.configure(self.style_name)
+        style.configure(
+            self.style_name, rowheight=height if height else style.lookup(
+                "Treeview", "rowheight"
+            )
+        )
 
     def attach_sorting(self):
         """Attach sorting behavior to treeview headings."""
@@ -27,24 +51,30 @@ class TreeviewSorter:
         if col == self.number_column:
             return
         reverse = self.sort_direction.get(col, False)
-        data = []
+        sortable = []
+        fixed = []
         for item in self.tree.get_children():
+            tags = self.tree.item(item, "tags")
+            # Keep TOTAL (or any fixed-tagged rows) out of sorting
+            if "total" in tags:
+                fixed.append(item)
+                continue
             value = self.tree.set(item, col)
-            data.append((value, item))
+            sortable.append((value, item))
 
         # Numeric sort -- fallback to string
         try:
-            data.sort(
+            sortable.sort(
                 key=lambda x: float(str(x[0]).replace(",", "")),
                 reverse=reverse
             )
         except ValueError:
-            data.sort(
+            sortable.sort(
                 key=lambda x: str(x[0]).lower(), reverse=reverse
             )
 
         # Reorder rows
-        for index, (_, item) in enumerate(data):
+        for index, (_, item) in enumerate(sortable):
             self.tree.move(item, "", index)
 
         # Toggle direction
@@ -63,12 +93,22 @@ class TreeviewSorter:
 
     def renumber_rows(self):
         """Renumber rows and apply zebra striping."""
-        for index, item in enumerate(self.tree.get_children(), start=1):
+        index = 1
+        for item in self.tree.get_children():
+            tags = set(self.tree.item(item, "tags"))
+            if "total" in tags:
+                continue
             if self.number_column in self.columns:
                 self.tree.set(item, self.number_column, index)
-
-                tag = self.even_tag if index % 2 == 0 else self.odd_tag
-                self.tree.item(item, tags=(tag,))
+                # Remove old zebra tags
+                tags.discard("evenrow")
+                tags.discard("oddrow")
+                # Apply new zebra tag
+                tags.add("evenrow" if index % 2 == 0 else "oddrow")
+                self.tree.item(item, tags=tuple(tags))
+                # tag = self.even_tag if index % 2 == 0 else self.odd_tag
+                # self.tree.item(item, tags=(tag,))
+                index += 1
 
     def autosize_columns(self, padding=None):
         """Auto resize columns based on header and cell content."""
