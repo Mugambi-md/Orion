@@ -1,12 +1,12 @@
 import tkinter as tk
 from tkinter import ttk
-import tkinter.font as tkFont
 import tkinter.messagebox as messagebox
 from base_window import BaseWindow
 from new_order_gui import NewOrderWindow
 from order_utils import OrderItemsGui
 from authentication import VerifyPrivilegePopup
 from log_popups_gui import OrderLogsWindow
+from table_utils import TreeviewSorter
 from order_windows import (
     OrderedItemsWindow, UnpaidOrdersWindow, PendingOrdersWindow,
     EditOrdersWindow,
@@ -58,8 +58,6 @@ class OrdersWindow(BaseWindow):
         # Bold Table Headings and content font
         style = ttk.Style(self.window)
         style.theme_use("clam")
-        style.configure("Treeview", rowheight=20, font=("Arial", 11))
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
         self.main_frame = tk.Frame(
             self.window, bg="lightblue", bd=4, relief="solid"
         )
@@ -74,6 +72,9 @@ class OrdersWindow(BaseWindow):
         self.tree = ttk.Treeview(
             self.table_frame, show="headings", columns=self.columns
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
 
         self.setup_ui()
         self.load_orders()
@@ -81,7 +82,8 @@ class OrdersWindow(BaseWindow):
     def setup_ui(self):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         top_frame = tk.Frame(self.main_frame, bg="lightblue") # Top frame for buttons
-        top_frame.pack(side=tk.TOP, fill=tk.X, padx=5)
+        top_frame.pack(side=tk.TOP, fill=tk.X)
+
         for text, command in self.buttons.items():
             tk.Button(
                 top_frame, text=text, command=command, bd=4, relief="groove",
@@ -89,19 +91,20 @@ class OrdersWindow(BaseWindow):
             ).pack(side=tk.LEFT)
         # Orders Table (left)
         self.orders_frame.pack(fill=tk.BOTH, expand=True)
+
         self.button_frame.pack(side=tk.TOP, fill=tk.X, padx=5)
-        title_frame = tk.Frame(self.button_frame, bg="blue")
-        title_frame.pack(side="left", padx=20)
+        title_frame = tk.Frame(self.button_frame, bg="lightblue")
+        title_frame.pack(side="top", fill="x")
         year = self.year_cb.get()
         title_t = f"All Pending & Delivered Orders in {year}."
         tk.Label(
-            title_frame, text=title_t, bd=4, relief="ridge", bg="lightblue",
-            fg="blue", font=("Arial", 16, "bold", "underline")
+            title_frame, text=title_t, bg="lightblue", fg="blue",
+            font=("Arial", 18, "bold", "underline")
         ).pack(anchor="center", ipadx=10)
         tk.Label(
-            self.button_frame, text="Select Year:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).pack(side="left", padx=(5, 0))
+            self.button_frame, text="Select Order Year:", bg="lightblue",
+            font=("Arial", 12, "bold")
+        ).pack(side="left", padx=(2, 0))
         self.year_cb.pack(side="left", padx=(0, 5))
         self.year_cb.bind(
             "<<ComboboxSelected>>", lambda e: self.load_orders()
@@ -158,7 +161,7 @@ class OrdersWindow(BaseWindow):
                 f"{order['amount']:,.2f}",
                 order["status"]
             ), tags=(tag,))
-        self.autosize_columns()
+        self.sorter.autosize_columns()
 
     def view_order_details(self):
         """Open the order details window."""
@@ -180,24 +183,13 @@ class OrdersWindow(BaseWindow):
                 "Order ID": order["order_id"],
                 "Customer": order["customer_name"],
                 "Contact": order["contact"],
-                "Date": order["date_placed"],
-                "Deadline": order["deadline"],
-                "Amount":order["amount"],
+                "Date": order["date_placed"].strftime("%d/%m/%Y"),
+                "Deadline": order["deadline"].strftime("%d/%m/%Y"),
+                "Amount": f"{order["amount"]:,.2f}",
                 "Status": order["status"]
                 })
         preview = ReportPreviewer(self.user)
         preview.show(Orders=data)
-
-    def autosize_columns(self):
-        font = tkFont.Font()
-        for col in self.columns:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                cell_value = str(self.tree.set(item, col))
-                cell_width = font.measure(cell_value)
-                if cell_width > max_width:
-                    max_width = cell_width
-            self.tree.column(col, width=max_width)
 
     def has_privilege(self, privilege: str) -> bool:
         """Check if the current user has the required privilege."""

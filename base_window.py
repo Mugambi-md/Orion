@@ -1,13 +1,35 @@
 import tkinter as tk
+import os
 
 
 class BaseWindow:
+    ICON_PATH = "myicon.ico"
+
+    @staticmethod
+    def set_icon(window):
+        """Sets the window icon for Tk or Toplevel."""
+        if not os.path.exists(BaseWindow.ICON_PATH):
+            return
+
+        try:
+            if BaseWindow.ICON_PATH.endswith(".ico"):
+                window.iconbitmap(BaseWindow.ICON_PATH)
+            else:
+                icon = tk.PhotoImage(file=BaseWindow.ICON_PATH)
+                window.iconphoto(True, icon)
+        except (tk.TclError, FileNotFoundError):
+            # Icon format not supported or platform limitation
+            pass
+
     @staticmethod
     def center_window(window, width=800, height=600, parent=None):
         """Centers a Tk or Toplevel window.
         - If 'parent' is given, centers relative to the parent window.
         - Otherwise, centers on the screen."""
-        window.update_idletasks() # Ensure window has calculated dimensions
+        # Ensure window has calculated dimensions
+        window.update_idletasks()
+        # Apply icon automatically
+        BaseWindow.set_icon(window)
         screen_width = window.winfo_screenwidth()
         screen_height = window.winfo_screenheight()
         if parent:
@@ -26,19 +48,3 @@ class BaseWindow:
         y = max(0, min(y, screen_height - height))
         window.geometry(f"{width}x{height}+{x}+{y}")
 
-# class BaseWindow:
-#     @staticmethod
-#     def center_window(self, window, width=800, height=600):
-#         """Centers a Tk or Toplevel window on the screen."""
-#         window.update_idletasks() # Ensure window has calculated dimensions
-#         screen_width = window.winfo_screenwidth()
-#         screen_height = window.winfo_screenheight()
-#         x = int((screen_width - width) / 2)
-#         y = int((screen_height - height) / 2)
-#         window.geometry(f"{width}x{height}+{x}+{y}")
-
-
-# if __name__ == "__main__":
-#     root = tk.Tk()
-#     BasePopWindow.center_window(root, 600, 500)
-#     root.mainloop()

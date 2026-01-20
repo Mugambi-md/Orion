@@ -5,7 +5,8 @@ import tkinter.font as tkFont
 from tkinter import ttk, messagebox
 from base_window import BaseWindow
 from lookup_gui import ProductSearchWindow
-from windows_utils import to_uppercase, auto_format_date
+from windows_utils import to_uppercase, auto_format_date, CurrencyFormatter
+from table_utils import TreeviewSorter
 from working_on_orders import (
     insert_order_data, fetch_order_product, search_product_codes
 )
@@ -26,50 +27,50 @@ class NewOrderWindow(BaseWindow):
         self.total_amount = 0
         # Bold Table Headings and content font
         style = ttk.Style(self.master)
-        style.configure("Treeview", font=("Arial", 10))
-        style.configure(
-            "Treeview.Heading", font=("Arial", 11, "bold", "underline")
-        )
+        style.theme_use("clam")
         self.main_frame = tk.Frame(
             self.master, bg="lightblue", bd=4, relief="solid"
         )
         self.left_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.customer_name_entry = tk.Entry(
             self.left_frame, bd=2, relief="raised", font=("Arial", 11),
-            width=23
+            width=20
         )
         self.contact_entry = tk.Entry(
             self.left_frame, bd=2, relief="raised", font=("Arial", 11),
-            width=12
+            width=11
         )
         self.deadline_entry = tk.Entry(
             self.left_frame, bd=2, relief="raised", font=("Arial", 11),
-            width=11
+            width=10
         )
         # Next Button
         self.next_button = tk.Button(
             self.left_frame, text="Next", command=self.handle_next, width=10,
-            bd=4, relief="solid"
+            bd=4, relief="groove", font=("Arial", 10, "bold")
         )
         self.search_section = tk.Frame(self.left_frame, bg="lightblue")
         self.product_code_entry = tk.Entry(
             self.search_section, bd=2, relief="raised", font=("Arial", 11)
         )
-        self.suggestions_listbox = tk.Listbox(self.search_section, bg="lightgray")
+        self.suggestions_listbox = tk.Listbox(
+            self.search_section, bg="lightgray"
+        )
         self.search_button = tk.Button(
-            self.search_section, text="Search", command=self.search_product
+            self.search_section, text="Search", command=self.search_product,
+            bd=4, relief="groove", font=("Arial", 10, "bold")
         )
         self.quantity_entry = tk.Entry(
             self.search_section, bd=2, relief="raised", font=("Arial", 11),
             width=8
         )
         self.add_button = tk.Button(
-            self.search_section, text="Add to Order", bd=4, relief="solid",
-            command=self.add_to_order
+            self.search_section, text="Add to Order", bd=4, relief="groove",
+            command=self.add_to_order, font=("Arial", 10, "bold")
         )
         self.submit_button = tk.Button(
-            self.search_section, text="Submit Order", bd=4, relief="solid",
-            command=self.submit_order
+            self.search_section, text="Submit Order", bd=4, relief="groove",
+            command=self.submit_order, font=("Arial", 10, "bold")
         )
         self.product_name_var = tk.StringVar()
         self.wholesale_price_var = tk.StringVar()
@@ -77,33 +78,42 @@ class NewOrderWindow(BaseWindow):
         self.right_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.button_frame = tk.Frame(self.right_frame, bg="lightblue")
         self.delete_btn = tk.Button(
-            self.button_frame, text="Delete Item", bd=4, relief="solid",
+            self.button_frame, text="Delete Item", bd=4, relief="ridge",
             command=self.delete_selected_item
         )
         self.columns = [
             "No.", "Product Code", "Product Name", "Quantity", "Unit Price",
             "Total Price"
         ]
-        self.tree = ttk.Treeview(self.right_frame, columns=self.columns,
-                                 show="headings", selectmode="browse")
+        self.tree = ttk.Treeview(
+            self.right_frame, columns=self.columns, show="headings",
+            selectmode="browse"
+        )
         self.total_label = tk.Label(
             self.right_frame, text="Total Cost: KES 0.00", fg="red",
             font=("Arial", 13, "bold")
         )
         (self.product_name, self.wholesale_price,
          self.retail_price) = None, None, None
-
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No.")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
         self.build_ui()
+
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
         self.left_frame.pack(side="left", fill="y")
         # Customer Info (2 - columns: label top, entry below)
         tk.Label(
+            self.left_frame, text="", bg="lightblue"
+        ).grid(row=0, column=0, columnspan=3)
+        tk.Label(
             self.left_frame, text="Customer Name:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).grid(row=0, column=0, padx=5, pady=(5, 2))
-        self.customer_name_entry.grid(row=1, column=0, padx=(5, 0), pady=2)
+            font=("Arial", 12, "bold")
+        ).grid(row=1, column=0, pady=(5, 0), sticky="w")
+        self.customer_name_entry.grid(row=2, column=0, pady=(0, 5))
         self.customer_name_entry.focus_set()
         self.customer_name_entry.bind(
             "<Return>", lambda e: self.contact_entry.focus_set()
@@ -113,22 +123,23 @@ class NewOrderWindow(BaseWindow):
         )
         tk.Label(
             self.left_frame, text="Contact:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).grid(row=0, column=1, padx=5, pady=(5, 2))
-        self.contact_entry.grid(row=1, column=1, pady=2)
+            font=("Arial", 12, "bold")
+        ).grid(row=1, column=1, pady=(5, 0), sticky="w")
+        self.contact_entry.grid(row=2, column=1, pady=(0, 5))
         self.contact_entry.bind(
             "<Return>", lambda e: self.deadline_entry.focus_set()
         )
         tk.Label(
             self.left_frame, text="Deadline:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).grid(row=0, column=2, padx=5, pady=(5, 2))
-        self.deadline_entry.grid(row=1, column=2, padx=(0, 5), pady=2)
+            font=("Arial", 12, "bold")
+        ).grid(row=1, column=2, pady=(5, 0), sticky="w")
+        self.deadline_entry.grid(row=2, column=2, pady=(0, 5))
         self.deadline_entry.bind("<KeyRelease>", auto_format_date)
         self.deadline_entry.bind("<Return>", lambda e: self.handle_next())
-        self.next_button.grid(row=2, column=0, columnspan=3, padx=5, pady=2)
-        tk.Label(self.left_frame, text="", bg="lightblue"
-                 ).grid(row=3, column=0, columnspan=3, pady=5)
+        self.next_button.grid(row=3, column=0, columnspan=3, padx=5, pady=2)
+        tk.Label(
+            self.left_frame, text="", bg="lightblue"
+        ).grid(row=4, column=0, columnspan=3, pady=5)
         # Product search section (initially hidden)
         self.search_section.columnconfigure(0, weight=1)
         self.search_section.columnconfigure(1, weight=1)
@@ -164,20 +175,20 @@ class NewOrderWindow(BaseWindow):
             bd=4, relief="solid", command=self.lookup_items
         ).grid(row=7, column=0, columnspan=3)
         self.right_frame.pack(side="right", fill="both", expand=True)
-        self.button_frame.pack(fill=tk.X, pady=(0, 2))
+        self.button_frame.pack(fill=tk.X)
         tk.Label(
             self.button_frame, text="Order Items List.", bg="lightblue",
-            font=("Arial", 15, "bold", "underline")
-        ).pack(pady=5, anchor="center")
+            fg="blue", font=("Arial", 15, "bold", "underline")
+        ).pack(pady=(5, 0), anchor="center")
         self.delete_btn.pack(side=tk.RIGHT, padx=5)
         self.delete_btn.pack_forget()
         for col in self.columns:
             self.tree.heading(col, text=col)
-            width = 30 if col == "No." else 50
-            self.tree.column(col, width=width, anchor="center")
+            self.tree.column(col, width=30, anchor="center")
         self.tree.pack(expand=True, fill=tk.BOTH)
         self.total_label.pack(side=tk.RIGHT,padx=5)
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_selection_change)
+
         
     def on_tree_selection_change(self, event=None):
         selected = self.tree.selection()
@@ -261,6 +272,7 @@ class NewOrderWindow(BaseWindow):
             self.tree.insert("", "end", values=(
                 index_no, code, name, qty, formated_price, formated_total
             ))
+            self.sorter.autosize_columns()
             self.order_items.append({
                 "product_code": code,
                 "product_name": self.product_name,
@@ -364,7 +376,7 @@ class NewOrderWindow(BaseWindow):
     def search_product(self):
         code = self.product_code_entry.get().upper()
         try:
-            result = fetch_order_product(code)
+            result = fetch_order_product(self.conn, code)
             self.product_name = result["product_name"]
             self.wholesale_price = float(result["wholesale_price"])
             self.retail_price = float(result["retail_price"])
@@ -462,33 +474,43 @@ class NewOrderWindow(BaseWindow):
     def payment_dialog(self, on_complete_callback):
         """Custom dialog for entering Cash and Mpesa amounts."""
         dialog = tk.Toplevel(self.master)
-        dialog.title("Payment Details")
+        dialog.title("Payments")
         dialog.configure(bg="lightgreen")
         dialog.grab_set()
-        self.center_window(dialog, 250, 200, self.master)
+        self.center_window(dialog, 200, 150, self.master)
 
+        # Variables
+        cash_var = tk.StringVar()
+        mpesa_var = tk.StringVar()
         # Labels and Entries
-        tk.Label(
-            dialog, text="Cash:", bg="lightgreen", font=("Arial", 11, "bold")
-        ).grid(row=0, column=0, pady=5, padx=(5, 0), sticky="e")
-        cash_entry = tk.Entry(dialog, bd=2, relief="raised",
-                              font=("Arial", 11))
+        tk.Label(dialog, text="Cash:", bg="lightgreen", font=(
+            "Arial", 11, "bold"
+        )).grid(row=0, column=0, pady=5, padx=(5, 0), sticky="e")
+        cash_entry = tk.Entry(
+            dialog, bd=4, relief="raised", font=("Arial", 11), width=10,
+            textvariable=cash_var
+        )
         cash_entry.grid(row=0, column=1, padx=(0, 5), pady=5)
         cash_entry.focus_set()
-        tk.Label(
-            dialog, text="Mpesa:", bg="lightgreen", font=("Arial", 11, "bold")
-        ).grid(row=1, column=0, pady=5, padx=(5, 0), sticky="e")
-        mpesa_entry = tk.Entry(dialog, bd=2, relief="raised",
-                               font=("Arial", 11))
+        tk.Label(dialog, text="Mpesa:", bg="lightgreen", font=(
+            "Arial", 11, "bold"
+        )).grid(row=1, column=0, pady=5, padx=(5, 0), sticky="e")
+        mpesa_entry = tk.Entry(
+            dialog, bd=4, relief="raised", font=("Arial", 11), width=10,
+            textvariable=mpesa_var
+        )
         mpesa_entry.grid(row=1, column=1, padx=(0, 5), pady=5)
+        # Attach Currency formatter
+        CurrencyFormatter.add_currency_trace(cash_var, cash_entry)
+        CurrencyFormatter.add_currency_trace(mpesa_var, mpesa_entry)
         # Button Frame
         button_frame = tk.Frame(dialog, bg="lightgreen")
         button_frame.grid(row=2, column=0, columnspan=2, pady=10)
 
         def on_ok():
             try:
-                cash = float(cash_entry.get() or 0)
-                mpesa = float(mpesa_entry.get() or 0)
+                cash = float(cash_var.get().replace(",", "") or 0)
+                mpesa = float(mpesa_var.get().replace(",", "") or 0)
                 paid_amount = cash + mpesa
                 dialog.destroy()
                 on_complete_callback(paid_amount, cash, mpesa)
@@ -500,10 +522,13 @@ class NewOrderWindow(BaseWindow):
             dialog.destroy()
 
         tk.Button(
-            button_frame, text="OK", width=8, command=on_ok
+            button_frame, text="OK", width=5, command=on_ok, bg="blue",
+            fg="white", bd=4, relief="groove", font=("Arial", 10, "bold")
         ).pack(side="left", padx=10)
         tk.Button(
-            button_frame, text="Cancel", width=8, command=on_cancel
+            button_frame, text="Cancel", width=8, command=on_cancel,
+            bg="blue", fg="white", bd=4, relief="groove",
+            font=("Arial", 10, "bold")
         ).pack(side="right", padx=10)
         # Keyboard shortcuts
         cash_entry.bind("<Return>", lambda e: mpesa_entry.focus_set())

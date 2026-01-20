@@ -122,10 +122,30 @@ class ScrollableFrame(tk.Frame):
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
 
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        # Mousewheel binding only when mouse is over canvas or inner frame
+        for widget in (self.canvas, self.scrollable_frame):
+            widget.bind("<Enter>", self._bind_mousewheel)
+            widget.bind("<Enter>", self._unbind_mousewheel)
+
+    def _bind_mousewheel(self, event):
+        # Windows/ macOS
+        self.canvas.bind("<Mousewheel>", self._on_mousewheel)
+        self.canvas.bind("<Button-4>", self._on_linux_scroll_up)
+        self.canvas.bind("<Button-5>", self._on_linux_scroll_down)
+
+    def _unbind_mousewheel(self, event):
+        self.canvas.unbind("<MouseWheel>")
+        self.canvas.unbind("<Button-4>")
+        self.canvas.unbind("<Button-5>")
 
     def _on_mousewheel(self, event):
         self.canvas.yview_scroll(-1 * (event.delta // 120), "units")
+
+    def _on_linux_scroll_up(self, event):
+        self.canvas.yview_scroll(-1, "units")
+
+    def _on_linux_scroll_down(self, event):
+        self.canvas.yview_scroll(1, "units")
 
 
 class SentenceCapitalizer:

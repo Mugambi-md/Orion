@@ -4,6 +4,7 @@ import tkinter.font as tkFont
 from tkinter import ttk, messagebox
 from base_window import BaseWindow
 from authentication import VerifyPrivilegePopup
+from table_utils import TreeviewSorter
 from windows_utils import (
     only_digits, capitalize_customer_name, is_valid_email,
     CurrencyFormatter, SentenceCapitalizer, PasswordSecurity
@@ -22,7 +23,7 @@ from working_on_employee import (
 class EmployeePopup(BaseWindow):
     def __init__(self, master, conn, user):
         self.window = tk.Toplevel(master)
-        self.window.title("Add New Employee")
+        self.window.title("New Employee")
         self.center_window(self.window, 300, 320, master)
         self.window.configure(bg="lightgreen")
         self.window.transient(master)

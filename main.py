@@ -22,23 +22,24 @@ class MugambiPOSApp(BaseWindow):
         self.bg_label.place(x=0, y=0, relwidth=1, relheight=1)
         # Bind resizing
         self.master.bind("<Configure>", self.resize_background)
+        title = "SwiftGlance Sales System"
         self.title_label = tk.Label(
-            master, text="SwiftGlance Sales System", bd=4, relief="ridge",
-            font=("Arial", 18, "bold", "underline"), fg="white", bg="black"
+            master, text=title, bd=4, relief="ridge", fg="blue",
+            bg="lightgray", font=("Arial", 20, "bold", "underline")
         ) # Title Label
         self.title_label.pack(pady=(30, 10), ipadx=10, anchor="center")
-        self.date_frame = tk.Frame(master, bg="lightblue")
+        self.date_frame = tk.Frame(master, bd=2, relief="ridge")
         day = DateFormatter.get_today_formatted()
         self.date_label = tk.Label(
             self.date_frame, text=day, fg="dodgerblue", anchor="center",
             bd=2, relief="ridge", font=("Arial", 14, "bold", "underline")
         )
         self.date_label.pack(ipadx=5, anchor="center")
-        self.version_frame = tk.Frame(master, bg="#222222")
+        self.version_frame = tk.Frame(master, bg="gray13")
         self.version_frame.pack(fill='x', pady=(10, 0), side="bottom")
         self.version_label = tk.Label(
-            self.version_frame, text="POS SystemV1.0", bd=2, relief="raised",
-            bg="black", fg="white", font=("Arial", 11, "italic", "underline")
+            self.version_frame, text="POS SystemV1.0",bg="gray13",
+            fg="white", font=("Arial", 12, "italic", "underline")
         )
         self.version_label.pack(ipadx=10, anchor="center") # Version Label
         self.bottom_frame = tk.Frame(
@@ -65,7 +66,9 @@ class MugambiPOSApp(BaseWindow):
         self.date_frame.pack(pady=(10, 5), padx=10, side="bottom")
 
     def resize_background(self, event):
-        resized = self.original_bg.resize((event.width, event.height), Image.Resampling.LANCZOS)
+        resized = self.original_bg.resize(
+            (event.width, event.height), Image.Resampling.LANCZOS
+        )
         self.bg_image = ImageTk.PhotoImage(resized)
         self.bg_label.config(image=self.bg_image) # type: ignore
         self.bg_image.image = self.bg_image

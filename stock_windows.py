@@ -1,6 +1,5 @@
 import re
 import tkinter as tk
-import tkinter.font as tkFont 
 from tkinter import ttk, messagebox
 from base_window import BaseWindow
 from analysis_gui_pie import AnalysisWindow
@@ -8,6 +7,7 @@ from working_on_stock import view_all_products, fetch_deleted_products
 from accounting_export import ReportExporter
 from authentication import VerifyPrivilegePopup, DescriptionFormatter
 from stock_popups import RestoreProductPopup
+from table_utils import TreeviewSorter
 
 
 class ProductsDetailsWindow(BaseWindow):
@@ -23,21 +23,24 @@ class ProductsDetailsWindow(BaseWindow):
         self.conn = conn
         self.title = "AVAILABLE  PRODUCTS  INFORMATION"
         self.columns = [
-            "No", "Code", "Name", "Description", "Quantity", "Cost",
+            "No", "Code", "Name", "Description", "Quantity", "Unit Cost",
             "Wholesale Price", "Retail Price", "Min Stock"
         ]
         style = ttk.Style(self.window)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
-        style.configure("Treeview", font=("Arial", 11))
         self.main_frame = tk.Frame(
             self.window, bg="green", bd=4, relief="solid"
         )
-        self.tree_frame = tk.Frame(self.main_frame, bg="green")
-
+        self.tree_frame = tk.Frame(
+            self.main_frame, bg="green", bd=4, relief="ridge"
+        )
         self.tree = ttk.Treeview(
             self.tree_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
         self.create_widgets()
         self.populate_table()
@@ -49,8 +52,8 @@ class ProductsDetailsWindow(BaseWindow):
         top_frame.pack(side="top", fill="x", padx=5)
         # Buttons on top and Table Title
         tk.Label(
-            top_frame, text=self.title, bg="green", fg="white", bd=2,
-            relief="groove", font=("Arial", 17, "bold", "underline")
+            top_frame, text=self.title, bg="green", fg="white", width=35,
+            font=("Arial", 18, "bold", "underline")
         ).pack(side="left", padx=10)
         buttons = {
             "Print": self.on_print,
@@ -60,8 +63,8 @@ class ProductsDetailsWindow(BaseWindow):
         }
         for text, command in buttons.items():
             tk.Button(
-                top_frame, text=text, font=("Arial", 12), bg="blue", bd=4,
-                relief="groove", command=command
+                top_frame, text=text, bg="blue", fg="white", bd=4,
+                relief="groove", font=("Arial", 11, "bold"), command=command
             ).pack(side="right")
         self.tree_frame.pack(fill="both", expand=True)
         scrollbar = ttk.Scrollbar(
@@ -84,9 +87,6 @@ class ProductsDetailsWindow(BaseWindow):
             "grandtotalrow", background="#c5cae9",
             font=("Arial", 12, "bold", "underline")
         )
-        self.tree.bind("<MouseWheel>", lambda e:self.tree.yview_scroll(
-            int(-1 * (e.delta / 120)), "units"
-        ))
 
     def populate_table(self):
         products = view_all_products(self.conn)
@@ -94,7 +94,7 @@ class ProductsDetailsWindow(BaseWindow):
         total_cost = 0.0
         total_wholesale = 0.0
         total_retail = 0.0
-        formatter = DescriptionFormatter()
+        formatter = DescriptionFormatter(40, 5)
         for i, product in enumerate(products, start=1):
             name = re.sub(r"\s+", " ", str(product["product_name"])).strip()
             description = formatter.format(product["description"])
@@ -130,7 +130,9 @@ class ProductsDetailsWindow(BaseWindow):
                 f"{total_retail:,.2f}",
                 ""
             ]
-            self.tree.insert("", "end", values=total_values, tags=("totalrow",))
+            self.tree.insert(
+                "", "end", values=total_values, tags=("totalrow",)
+            )
             grand_total_cost = total_cost * total_qty
             grand_total_wholesale = total_wholesale * total_qty
             grand_total_retail = total_retail * total_qty
@@ -146,20 +148,7 @@ class ProductsDetailsWindow(BaseWindow):
                 ""
             ), tags=("grandtotalrow",))
 
-        self.resize_columns()
-
-    def resize_columns(self):
-        """Auto-resize columns based on the content."""
-        font = tkFont.Font()
-        for col in self.columns:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                width = font.measure(text)
-                if width > max_width:
-                    max_width = width
-            self.tree.column(col, width=max_width)
-
+        self.sorter.autosize_columns()
 
     def has_privilege(self, privilege: str) -> bool:
         """Check if the current user has the required privilege."""
@@ -185,7 +174,7 @@ class ProductsDetailsWindow(BaseWindow):
                 "Name": vals[2] or "",
                 "Description": vals[3] or "",
                 "Quantity": vals[4] or "",
-                "Cost": vals[5] or "",
+                "Unit Cost": vals[5] or "",
                 "Wholesale Price": vals[6] or "",
                 "Retail Price": vals[7] or "",
                 "Min Stock Level": vals[8] or ""
@@ -195,7 +184,7 @@ class ProductsDetailsWindow(BaseWindow):
     def _make_exporter(self):
         title = "Available Product Information"
         columns = [
-            "No", "Code", "Name", "Description", "Quantity", "Cost",
+            "No", "Code", "Name", "Description", "Quantity", "Unit Cost",
             "Wholesale Price", "Retail Price", "Min Stock Level"
         ]
         rows = self._collect_rows()
@@ -249,7 +238,7 @@ class DeletedItemsWindow(BaseWindow):
     def __init__(self, root, conn, user):
         self.top = tk.Toplevel(root)
         self.top.title("Deleted Products")
-        self.center_window(self.top, 1200, 650, root)
+        self.center_window(self.top, 1250, 700, root)
         self.top.configure(bg="lightblue")
         self.top.transient(root)
         self.top.grab_set()
@@ -258,8 +247,6 @@ class DeletedItemsWindow(BaseWindow):
         self.user = user
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
-        style.configure("Treeview", font=("Arial", 11))
         self.columns = [
             "No", "Code", "Name", "Description", "Quantity", "Cost",
             "Wholesale Price", "Retail Price", "Min Stock", "Restocked"
@@ -267,11 +254,16 @@ class DeletedItemsWindow(BaseWindow):
         self.main_frame = tk.Frame(
             self.top, bg="lightblue", bd=4, relief="solid"
         )
-        self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
+        self.table_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=4, relief="ridge"
+        )
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
-
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
         self.build_ui()
         self.load_data()
@@ -279,17 +271,15 @@ class DeletedItemsWindow(BaseWindow):
     def build_ui(self):
         """UI set up."""
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
-        top_frame = tk.Frame(
-            self.main_frame, bg="lightblue", bd=4, relief="ridge"
-        )
+        top_frame = tk.Frame(self.main_frame, bg="lightblue")
         top_frame.pack(side="top", fill="x")
         l_text = "Previously Deleted Products."
         tk.Label(
-            top_frame, text=l_text, bg="lightblue", fg="blue", bd=4,
-            relief="groove", font=("Arial", 16, "bold", "underline")
-        ).pack(side="left", ipadx=20, padx=10)
+            top_frame, text=l_text, bg="lightblue", fg="blue",
+            font=("Arial", 18, "bold", "underline")
+        ).pack(side="left", padx=10)
         btn_frame = tk.Frame(top_frame, bg="lightblue")
-        btn_frame.pack(side="right")
+        btn_frame.pack(side="right", padx=5)
         buttons = {
             "Restore": self.restore_product,
             "Export PDF": self.on_export_pdf,
@@ -337,7 +327,7 @@ class DeletedItemsWindow(BaseWindow):
                 row["min_stock_level"],
                 row["date_replenished"].strftime("%d/%m/%Y")
             ), tags=(tag,))
-        self.autosize_columns()
+        self.sorter.autosize_columns()
 
     def has_privilege(self, privilege: str) -> bool:
         """Check if the current user has the required privilege."""
@@ -410,14 +400,3 @@ class DeletedItemsWindow(BaseWindow):
             self.top, self.conn, self.user, self.load_data, code
         )
 
-    def autosize_columns(self):
-        """Auto-resize columns based on the content."""
-        font = tkFont.Font()
-        for col in self.columns:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                width = font.measure(text)
-                if width > max_width:
-                    max_width = width
-            self.tree.column(col, width=max_width)

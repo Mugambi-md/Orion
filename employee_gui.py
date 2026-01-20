@@ -1,10 +1,10 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from base_window import BaseWindow
-import tkinter.font as tkFont
 from accounting_export import ReportExporter
 from authentication import VerifyPrivilegePopup
 from working_on_employee import fetch_all_employee_details
+from table_utils import TreeviewSorter
 from employee_gui_popup import (
     EmployeePopup, LoginStatusPopup, PrivilegePopup, AssignPrivilegePopup,
     UserPrivilegesPopup, DepartmentsPopup, RemovePrivilegePopup,
@@ -17,7 +17,7 @@ class EmployeeManagementWindow(BaseWindow):
         self.window = tk.Toplevel(parent)
         self.window.title("Employee Management")
         self.window.configure(bg="lightgreen")
-        self.center_window(self.window, 1300, 700, parent)
+        self.center_window(self.window, 1350, 700, parent)
         self.window.transient(parent)
         self.window.grab_set()
 
@@ -31,16 +31,16 @@ class EmployeeManagementWindow(BaseWindow):
             self.all_data = data
         self.columns = [
             "No", "Name", "User Code", "Username", "Department",
-            "Designation", "ID No", "Phone", "Email", "Salary", "Status"
+            "Designation", "ID No", "Phone", "Email", "Status"
         ]
-        style = ttk.Style()
-        style.theme_use("alt")
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", font=("Arial", 11))
+        style = ttk.Style(self.window)
+        style.theme_use("clam")
         self.main_frame = tk.Frame(
             self.window, bg="lightgreen", bd=4, relief="solid"
         )
-        self.right_frame = tk.Frame(self.main_frame, bg="lightgreen")
+        self.right_frame = tk.Frame(
+            self.main_frame, bg="lightgreen", bd=4, relief="ridge"
+        )
         self.top_frame = tk.Frame(self.right_frame, bg="lightgreen")
         self.btn_frame = tk.Frame(self.top_frame, bg="lightgreen")
         self.search_fields = [
@@ -59,6 +59,10 @@ class EmployeeManagementWindow(BaseWindow):
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
         self.setup_widgets()
         self.load_data()
@@ -67,14 +71,14 @@ class EmployeeManagementWindow(BaseWindow):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
         # Left Frame With action buttons
         top_frame = tk.Frame(self.main_frame, bg="lightgreen")
-        top_frame.pack(side="top", fill="x", padx=5, pady=(0, 5))
+        top_frame.pack(side="top", fill="x")
         actions = [
             ("Departments", self.departments),
-            ("Create Privilege", self.create_priv),
-            ("Add New\nEmployee", self.add_employee),
-            ("Assigned Privilege", self.view_user_priv),
-            ("Assign Privilege", self.give_priv),
-            ("Remove Privilege", self.remove_privilege),
+            ("Create\nPrivilege", self.create_priv),
+            ("New\nEmployee", self.add_employee),
+            ("Assigned\nPrivilege", self.view_user_priv),
+            ("Assign\nPrivilege", self.give_priv),
+            ("Remove\nPrivilege", self.remove_privilege),
             ("Deactivate/Activate\nEmployee", self.deactivate_employee),
             ("Edit Employee\nInformation", self.edit_employee),
             ("Reset User\nPassword", self.reset_pass)
@@ -82,20 +86,19 @@ class EmployeeManagementWindow(BaseWindow):
         for text, command in actions:
             tk.Button(
                 top_frame, text=text, command=command, bd=4, relief="groove",
-                bg="blue", fg="white", font=("Arial", 10, "bold"), height=2
+                bg="blue", fg="white", font=("Arial", 11, "bold"), height=2
             ).pack(side="left")
         # Right Frame
         self.right_frame.pack(side="left", expand=True, fill="both")
         self.top_frame.pack(fill="x") # Top Title Frame
         tk.Label(
-            self.top_frame, text="Current Employees Information", bd=2,
-            relief="ridge", font=("Arial", 16, "bold", "underline"),
-            bg="lightgreen", fg="blue"
-        ).pack(side="left", padx=20, ipadx=10)
+            self.top_frame, text="Current Employees Information", fg="blue",
+            bg="lightgreen", font=("Arial", 18, "bold", "underline")
+        ).pack(side="left")
         # Top Button Frame
         self.btn_frame.pack(side="right", padx=5)
         tk.Label(
-            self.btn_frame, text="Search by:", font=("Arial", 11, "bold"),
+            self.btn_frame, text="Search By:", font=("Arial", 11, "bold"),
             bg="lightgreen"
         ).pack(side="left", padx=(5, 0))
         search_combo = ttk.Combobox(
@@ -117,7 +120,7 @@ class EmployeeManagementWindow(BaseWindow):
         for text, command in btn_action:
             tk.Button(
                 self.btn_frame, text=text, command=command, bg="lightblue",
-                bd=2, relief="groove", font=("Arial", 10)
+                bd=2, relief="groove", font=("Arial", 10, "bold")
             ).pack(side="left")
         self.table_frame.pack(fill="both", expand=True)
         scrollbar = tk.Scrollbar(
@@ -126,19 +129,9 @@ class EmployeeManagementWindow(BaseWindow):
         scrollbar.pack(side="right", fill="y")
         for col in self.columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", width=50)
+            self.tree.column(col, anchor="center", width=30)
         self.tree.configure(yscrollcommand=scrollbar.set)
         self.tree.pack(side="left", fill="both", expand=True)
-        # Enable mousewheel scroll
-        self.tree.bind("<MouseWheel>", lambda e: self.tree.yview_scroll(
-            -1 * int(e.delta / 120), "units"
-        ))
-        self.tree.bind(
-            "<Button-4>", lambda e: self.tree.yview_scroll(-1, "units")
-        )
-        self.tree.bind(
-            "<Button-5>", lambda e: self.tree.yview_scroll(1, "units")
-        )
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
 
@@ -162,10 +155,9 @@ class EmployeeManagementWindow(BaseWindow):
                 row["national_id"],
                 row["phone"],
                 row["email"],
-                f"{row['salary']:,.2f}",
                 row["status"]
             ), tags=(tag,))
-        self.autosize_columns()
+        self.sorter.autosize_columns()
 
     def filter_table(self, event=None):
         keyword = self.search_entry.get().strip().lower()
@@ -199,15 +191,6 @@ class EmployeeManagementWindow(BaseWindow):
                 if str(row["designation"]).lower().startswith(keyword)
             ]
         self.load_data(data)
-
-    def autosize_columns(self):
-        font = tkFont.Font()
-        for col in self.columns:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                max_width = max(max_width, font.measure(text))
-            self.tree.column(col, width=max_width + 5)
 
     def update_search_label(self):
         selected = self.search_option.get()
@@ -295,8 +278,7 @@ class EmployeeManagementWindow(BaseWindow):
                 "ID No": vals[6],
                 "Phone": vals[7],
                 "Email": vals[8],
-                "Salary": vals[9],
-                "Status": vals[10]
+                "Status": vals[9]
             })
         return rows
 
@@ -304,7 +286,7 @@ class EmployeeManagementWindow(BaseWindow):
         title = "Employee Data"
         columns = [
             "No", "Name", "User Code", "Username", "Department",
-            "Designation", "ID No", "Phone", "Email", "Salary", "Status"
+            "Designation", "ID No", "Phone", "Email", "Status"
         ]
         rows = self._collect_rows()
         return ReportExporter(self.window, title, columns, rows)

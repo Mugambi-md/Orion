@@ -188,7 +188,7 @@ class AddItemWindow(BaseWindow):
 class EditQuantityWindow(BaseWindow):
     def __init__(self, parent, conn, item_data, refresh_items_callback, user):
         self.top = tk.Toplevel(parent)
-        self.top.title("Edit Order Item Quantity")
+        self.top.title("Edit Order Quantity")
         self.top.configure(bg="lightblue")
         self.center_window(self.top, 300, 250, parent)
         self.top.transient(parent)
@@ -202,10 +202,13 @@ class EditQuantityWindow(BaseWindow):
         self.product_name = None
         self.wholesale_price = None
         self.retail_price = None
-        self.main_frame = tk.Frame(self.top, bg="lightblue", bd=2, relief="solid")
+        self.main_frame = tk.Frame(
+            self.top, bg="lightblue", bd=2, relief="solid"
+        )
         # Product Code
         self.product_code_entry = tk.Entry(
-            self.main_frame, bd=2, relief="raised", font=("Arial", 11), width=15
+            self.main_frame, bd=2, relief="raised", width=15,
+            font=("Arial", 11)
         )
         # Search Button (can be expanded later)
         self.search_button = tk.Button(

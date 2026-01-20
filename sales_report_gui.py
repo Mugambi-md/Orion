@@ -374,10 +374,3 @@ class SalesGUI(BaseWindow):
         if not self.has_privilege("Work On Order"):
             return
         OrdersWindow(self.master, self.conn, self.user)
-
-if __name__ == "__main__":
-    from connect_to_db import connect_db
-    conn=connect_db()
-    root=tk.Tk()
-    SalesGUI(root, conn, "Sniffy")
-    root.mainloop()

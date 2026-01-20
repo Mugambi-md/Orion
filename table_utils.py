@@ -54,9 +54,9 @@ class TreeviewSorter:
         sortable = []
         fixed = []
         for item in self.tree.get_children():
-            tags = self.tree.item(item, "tags")
+            tags = set(self.tree.item(item, "tags"))
             # Keep TOTAL (or any fixed-tagged rows) out of sorting
-            if "total" in tags:
+            if tags & {"total", "totalrow", "grandtotalrow"}:
                 fixed.append(item)
                 continue
             value = self.tree.set(item, col)
@@ -96,7 +96,7 @@ class TreeviewSorter:
         index = 1
         for item in self.tree.get_children():
             tags = set(self.tree.item(item, "tags"))
-            if "total" in tags:
+            if tags & {"total", "totalrow", "grandtotalrow"}:
                 continue
             if self.number_column in self.columns:
                 self.tree.set(item, self.number_column, index)
@@ -129,3 +129,25 @@ class TreeviewSorter:
                     max_width = width
 
             self.tree.column(col, width=max_width + spacing)
+
+    def bind_mousewheel(self):
+        def _on_mousewheel(event):
+            if event.delta:
+                self.tree.yview_scroll(
+                    int(-1 * (event.delta / 120)), "units"
+                )
+
+        def _on_linux_scroll_up(event):
+            self.tree.yview_scroll(-1, "units")
+
+        def _on_linux_scroll_down(event):
+            self.tree.yview_scroll(1, "units")
+
+        self.tree.bind("<Enter>", lambda e: self.tree.bind(
+            "<MouseWheel>", _on_mousewheel
+        ))
+        self.tree.bind(
+            "<Leave>", lambda e: self.tree.unbind("<MouseWheel>")
+        )
+        self.tree.bind("<Button-4>", _on_linux_scroll_up)
+        self.tree.bind("<Button-5>", _on_linux_scroll_down)
