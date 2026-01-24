@@ -55,15 +55,16 @@ def create_tables(conn):
             """)
             print("Access table created successfully.")
 
-            cursor.execute("""CREATE TABLE IF NOT EXISTS login_access (
-            user_code VARCHAR(10),
-            access_id INT,
-            PRIMARY KEY (user_code, access_id),
-            FOREIGN KEY (user_code) REFERENCES logins(user_code)
-                ON DELETE CASCADE,
-            FOREIGN KEY (access_id) REFERENCES access(no)
-                ON DELETE CASCADE
-            );
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS login_access (
+                user_code VARCHAR(10),
+                access_id INT,
+                PRIMARY KEY (user_code, access_id),
+                FOREIGN KEY (user_code) REFERENCES logins(user_code)
+                    ON DELETE CASCADE,
+                FOREIGN KEY (access_id) REFERENCES access(no)
+                    ON DELETE CASCADE
+                );
             """)
             print("Login Access table created successfully.")
 

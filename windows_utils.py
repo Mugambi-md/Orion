@@ -153,7 +153,6 @@ class SentenceCapitalizer:
     Auto-capitalizes the first letter of every sentence in a Text widget
     while the user is typing.
     """
-
     @staticmethod
     def bind(widget: tk.Text):
         def auto_capitalize(event=None):
@@ -182,6 +181,7 @@ class SentenceCapitalizer:
                 pass
 
         widget.bind("<KeyRelease>", auto_capitalize)
+
 
 class PasswordSecurity:
     @staticmethod

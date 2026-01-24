@@ -326,13 +326,15 @@ def get_all_privileges(conn):
     """Retrieve all privileges from access table with their IDs.
     Returns: List of tuples: [(no, privilege), ...]"""
     try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                "SELECT no, privilege FROM access ORDER BY privilege ASC"
-            )
-            return cursor.fetchall()
+        with conn.cursor(dictionary=True) as cursor:
+            cursor.execute("""
+            SELECT no, privilege, clearance
+            FROM access ORDER BY privilege ASC;
+            """)
+            rows = cursor.fetchall()
+            return True, rows
     except Exception as e:
-        raise e
+        return False, f"Error Fetching Privileges: {str(e)}."
 
 def insert_user_privilege(conn, user_code, access_id, pname, name, user):
     try:
@@ -807,14 +809,21 @@ class CashierOpenSession:
         except Exception as e:
             return False, f"Opening Session Error: {str(e)}."
 
-
-
-# from connect_to_db import connect_db
-# conn=connect_db()
-# success, result = fetch_cashier_control_users(conn)
-#
-# if success:
-#     for row in result:
-#         print(row)
-# else:
-#     print(result)
+def fetch_unassigned_privileges(conn, username):
+    """Fetch all privileges and clearance not assigned to the given user."""
+    try:
+        with conn.cursor(dictionary=True) as cursor:
+            cursor.execute("""
+                SELECT a.no, a.privilege, a.clearance FROM access a
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM login_access la
+                    JOIN logins l ON l.user_code = la.user_code
+                    WHERE la.access_id = a.no AND l.username = %s
+                );
+            """, (username,))
+            rows = cursor.fetchall()
+        return True, rows
+    except Exception as e:
+        conn.rollback()
+        return False, f"Error Fetching Unassigned Privileges: {str(e)}."

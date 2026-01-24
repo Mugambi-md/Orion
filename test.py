@@ -69,6 +69,54 @@ def migrate_passwords(conn):
     conn.commit()
     print("Password migration completed successfully.")
 
+def update_access_clearance(conn):
+    """
+    Update clearance column for access records where clearance is NULL or empty.
+    Rules:
+    - One-word privilege -> 'access <privilege>'
+    - Multi-word privilege -> privilege as-is
+
+    Returns:
+        (success: bool, message: str)
+    """
+    try:
+        with conn.cursor(dictionary=True) as cursor:
+            # Fetch privileges with no clearance
+            cursor.execute("""
+                SELECT no, privilege
+                FROM access
+                WHERE clearance IS NULL OR clearance = '';
+            """)
+            rows = cursor.fetchall()
+
+            if not rows:
+                return True, "No access records require updating."
+
+            update_query = """
+                UPDATE access
+                SET clearance = %s
+                WHERE no = %s;
+            """
+
+            for row in rows:
+                privilege = row["privilege"].strip()
+
+                # Check if single-word or multi-word
+                if len(privilege.split()) == 1:
+                    clearance = f"access {privilege}"
+                else:
+                    clearance = privilege
+
+                cursor.execute(update_query, (clearance, row["no"]))
+
+        conn.commit()
+        return True, f"{len(rows)} access records updated successfully."
+
+    except Exception as e:
+        conn.rollback()
+        return False, f"Failed to update access clearance: {str(e)}."
+
 # from connect_to_db import connect_db
 # conn=connect_db()
-# modify_email(conn)
+# success, msg = update_access_clearance(conn)
+# print(success, msg)
