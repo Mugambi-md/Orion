@@ -116,7 +116,20 @@ def update_access_clearance(conn):
         conn.rollback()
         return False, f"Failed to update access clearance: {str(e)}."
 
+def update_cash_control(conn):
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+            UPDATE cashier_control
+            SET debit = %s,
+                credit = %s
+            WHERE id = %s;
+            """, (0.00, 96400, 36))
+        conn.commit()
+        print("Updated Successfully.")
+    except Exception as e:
+        print(f"Error Updating: {str(e)}.")
+
 # from connect_to_db import connect_db
 # conn=connect_db()
-# success, msg = update_access_clearance(conn)
-# print(success, msg)
+# update_cash_control(conn)

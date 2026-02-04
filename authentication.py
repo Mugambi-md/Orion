@@ -112,6 +112,7 @@ class DescriptionFormatter:
         self.min_second = min_second or self.DEFAULT_MIN_SECOND
 
     def format(self, text: str):
+        """Truncate long lines into maximum length."""
         if not text:
             return ""
         text = re.sub(r"\s+", " ", text).strip() # Normalize spaces
@@ -129,3 +130,25 @@ class DescriptionFormatter:
             return first_part + "..."
         else:
             return text
+
+    def wrap(self, text: str):
+        """Wrap text into two lines instead of truncating."""
+        if not text:
+            return ""
+        text = re.sub(r"\s+", " ", text).strip()
+
+        if len(text) <= self.max_len:
+            return text
+        # Find wrap position
+        break_at = text.rfind(" ", 0, self.max_len)
+        if break_at == -1:
+            break_at = text.find(" ", self.max_len)
+        if break_at == -1:
+            break_at = self.max_len
+
+        first_line = text[:break_at].rstrip()
+        second_line = text[break_at:].lower()
+
+        if len(second_line) >= self.min_second:
+            return f"{first_line}\n{second_line}"
+        return text

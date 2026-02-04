@@ -43,10 +43,8 @@ class StockWindow(BaseWindow):
             "No", "Code", "Name", "Description", "Quantity", "Cost",
             "Wholesale Price", "Retail Price", "Min Stock", "Restocked"
         ]
-        style = ttk.Style()
+        style = ttk.Style(self.master)
         style.theme_use("clam")
-        # style.configure("Treeview", font=("Arial", 11))
-        # style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
         self.search_type = tk.StringVar(value="Name")
         self.search_var = tk.StringVar()
         self.search_option = ttk.Combobox(

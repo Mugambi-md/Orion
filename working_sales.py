@@ -8,9 +8,6 @@ class SalesManager:
     def __init__(self, conn):
         self.conn = conn
         self.accounts = {
-            "Sales Revenue": {
-                "type": "Revenue", "description": "Income from sales"
-            },
             "Sales Control": {
                 "type": "Revenue",
                 "description": "Sales collected by cashier"
@@ -28,8 +25,6 @@ class SalesManager:
         transaction_lines = [
             {"account_name": "Cost of Goods Sold", "debit": float(cost),
              "credit": 0, "description": desc},
-            {"account_name": "Sales Revenue", "debit": 0,
-             "credit": float(amount_paid), "description": "Sales."},
             {"account_name": "Inventory", "debit": 0,
              "credit": float(cost), "description": "Sales."},
             {"account_name": "Sales Control", "debit": 0.00,
@@ -557,7 +552,7 @@ def delete_rejected_reversal(conn, receipt_no, product_code, username):
         with conn.cursor() as cursor:
             cursor.execute("""
             DELETE FROM sales_reversal
-            WHERE receipt_no = %s AND product_code = %s AND authorized =%s;
+            WHERE receipt_no = %s AND product_code = %s AND authorized = %s;
             """, (receipt_no, product_code, "Rejected"))
 
             if cursor.rowcount == 0:
@@ -842,7 +837,7 @@ def get_net_sales(conn, username):
             result = cursor.fetchone()
             total_debit = float(result[0])
             total_credit = float(result[1])
-            net_sales = total_debit - total_credit
+            net_sales = total_credit - total_debit
 
             return True, {
                 "total_debit": total_debit,
@@ -889,23 +884,21 @@ class CashierControl:
 
     def _record_cash_journal(self, amount, reference, desc):
         account_details = {
-            "Cash": {"type": "Asset", "description": "Cash in Hand"},
+            "Sales Revenue": {
+                "type": "Revenue", "description": "Income from sales"
+            },
             "Sales Control": {
                 "type": "Revenue",
                 "description": "Sales collected by cashier"
             }
         }
         transaction_lines = [
-            {
-                "account_name": "Cash",
-                "debit": amount,
-                "credit": 0.00,
-                "description": desc
-            },
+            {"account_name": "Sales Revenue", "debit": 0,
+             "credit": float(amount), "description": desc},
             {
                 "account_name": "Sales Control",
-                "debit": 0.00,
-                "credit": amount,
+                "debit": amount,
+                "credit": 0.00,
                 "description": desc
             }
         ]
@@ -977,18 +970,19 @@ class CashierControl:
                 # Ensure there is an open session
                 cursor.execute("""
                     SELECT id FROM cashier_session
-                    WHERE username = %s AND session_date = %s
-                        AND status='Open'
+                    WHERE username = %s AND status='Open'
+                        OR closing_balance > 0
+                    ORDER BY id DESC
                     LIMIT 1
-                """, (username, sale_day))
+                """, (username,))
                 session = cursor.fetchone()
                 if not session:
                     return False, "No Open Cashier Session Found to Close."
-                session_id = session["id"]
+                session_id = session[0]
                 # Credit: Ended transaction day
                 self._insert_entry(
                     cursor, username, sale_day, sale_time,
-                    "Ended Transaction Day", 0.00, amount
+                    "Ended Transaction Day", amount, 0.00
                 )
                 # Close all open rows for cashier
                 cursor.execute("""
@@ -999,7 +993,7 @@ class CashierControl:
                 # Debit: Balance brought down
                 self._insert_entry(
                     cursor, username, sale_day, sale_time,
-                    "Balance Brought Down", balance, 0.00
+                    "Balance Brought Down", 0.00, balance
                 )
                 # Close Cashier Session
                 cursor.execute("""
@@ -1016,7 +1010,7 @@ class CashierControl:
             )
             if not ok:
                 self.conn.rollback()
-                return False, msg
+                return False, f"Error Recording Journal: {msg}"
             action = f"Ended Day For {username} with Ksh. {amount:,.2f}."
             success, msg = insert_logs(
                 self.conn, self.user, "Sales", action

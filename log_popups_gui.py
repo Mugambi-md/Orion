@@ -1,12 +1,12 @@
 import re
 import tkinter as tk
 from tkinter import ttk
-import tkinter.font as tkFont
 from tkinter import messagebox
 from datetime import date
 from authentication import VerifyPrivilegePopup, DescriptionFormatter
 from base_window import BaseWindow
 from accounting_export import ReportExporter
+from table_utils import TreeviewSorter
 from working_on_accounting import (
     fetch_finance_log_filter_data, fetch_finance_logs,
 )
@@ -25,7 +25,7 @@ class FinanceLogsWindow(BaseWindow):
         self.top = tk.Toplevel(parent)
         self.top.title("Finance Logs")
         self.top.configure(bg="lightblue")
-        self.center_window(self.top, 1100, 700, parent)
+        self.center_window(self.top, 1050, 700, parent)
         self.top.transient(parent)
         self.top.grab_set()
 
@@ -53,31 +53,33 @@ class FinanceLogsWindow(BaseWindow):
         ]
         style = ttk.Style(self.top)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", rowheight=40, font=("Arial", 10))
         self.main_frame = tk.Frame(self.top, bg="lightblue", bd=4, relief="solid")
         self.top_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.filter_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.year_cb = ttk.Combobox(
             self.filter_frame, textvariable=self.selected_year, width=5,
-            state="readonly", values=self.years, font=("Arial", 11)
+            state="readonly", values=self.years, font=("Arial", 12)
         )
         self.user_cb = ttk.Combobox(
             self.filter_frame, textvariable=self.selected_user, width=7,
-            state="disabled", values=self.users, font=("Arial", 11)
+            state="disabled", values=self.users, font=("Arial", 12)
         )
         self.month_cb = ttk.Combobox(
             self.filter_frame, values=[name for name, _num in self.months],
-            width=10, state="disabled", font=("Arial", 11)
+            width=10, state="disabled", font=("Arial", 12)
         )
         self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.title_label = tk.Label(
-            self.top_frame, text="", bg="lightblue", bd=4, relief="ridge",
-            font=("Arial", 16, "bold", "underline"), fg="dodgerblue"
+            self.top_frame, text="", bg="lightblue", fg="blue",
+            font=("Arial", 20, "bold", "underline")
         )
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No.")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.set_row_height(style, 40)
 
         self.build_ui()
         self.refresh_table()
@@ -86,14 +88,14 @@ class FinanceLogsWindow(BaseWindow):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
         self.top_frame.pack(fill="x", pady=(5, 0))
         # Title
-        self.title_label.pack(anchor="center", ipady=5, ipadx=10)
+        self.title_label.pack(anchor="center")
         # Filter Frame
         self.filter_frame.pack(fill="x")
         tk.Label(
             self.filter_frame, text="Select Year:", bg="lightblue",
             font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(5, 0))
-        self.year_cb.pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(3, 0), anchor="s")
+        self.year_cb.pack(side="left", padx=(0, 3), anchor="s")
         if self.years:
             self.year_cb.set(self.years[0])
         else:
@@ -106,49 +108,50 @@ class FinanceLogsWindow(BaseWindow):
         filter_outer = tk.Frame(
             self.filter_frame, bg="lightblue", bd=2, relief="groove"
         )
-        filter_outer.pack(side="left", padx=2, ipady=2, ipadx=2)
+        filter_outer.pack(side="left", padx=2)
         tk.Label(
             filter_outer, text="Filter By:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).pack(side="left", padx=(5, 0))
+            font=("Arial", 12, "bold")
+        ).pack(side="left", padx=(2, 0))
         tk.Checkbutton(
             filter_outer, variable=self.filter_user_var, bg="lightblue",
             text="User", command=self.toggle_filters,
-            font=("Arial", 10, "bold")
+            font=("Arial", 11, "bold")
         ).pack(side="left")
         tk.Checkbutton(
             filter_outer, variable=self.filter_month_var, bg="lightblue",
             text="Month", command=self.toggle_filters,
-            font=("Arial", 10, "bold")
+            font=("Arial", 11, "bold")
         ).pack(side="left")
         # User Filter
         tk.Label(
             self.filter_frame, text="Select User:", bg="lightblue",
             font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(5, 0))
-        self.user_cb.pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(3, 0))
+        self.user_cb.pack(side="left", padx=(0, 3))
         # Month Filter
         tk.Label(
             self.filter_frame, text="Select Month:", bg="lightblue",
             font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(5, 0))
-        self.month_cb.pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(3, 0))
+        self.month_cb.pack(side="left", padx=(0, 3))
         tk.Button(
-            self.filter_frame, text="Refresh", bd=2, relief="groove",
-            command=self.refresh_table, bg="dodgerblue", fg="white"
-        ).pack(side="left")
+            self.filter_frame, text="Refresh", bg="blue", fg="white", bd=4,
+            relief="groove", font=("Arial", 10, "bold"),
+            command=self.refresh_table
+        ).pack(side="left", anchor="s")
         btn_frame = tk.Frame(self.filter_frame, bg="lightblue")
         btn_frame.pack(side="right")
         action_btn = {
-            "Export PDF": self.on_export_pdf,
-            "Export Excel": self.on_export_excel,
-            "Print Logs": self.on_print
+            "PDF": self.on_export_pdf,
+            "Excel": self.on_export_excel,
+            "Print": self.on_print
         }
         for text, command in action_btn.items():
             tk.Button(
-                btn_frame, text=text, command=command, bd=2, relief="groove",
-                bg="dodgerblue", fg="white",
-            ).pack(side="left")
+                btn_frame, text=text, command=command, bd=4, relief="groove",
+                bg="dodgerblue", fg="white", font=("Arial", 9, "bold")
+            ).pack(side="left", anchor="s")
         self.user_cb.bind("<<ComboboxSelected>>", lambda e: self.refresh_table())
         self.month_cb.bind("<<ComboboxSelected>>", lambda e: self.refresh_table())
         self.table_frame.pack(fill="both", expand=True)
@@ -206,7 +209,7 @@ class FinanceLogsWindow(BaseWindow):
         formatter = DescriptionFormatter(50, 10)
         for i, row in enumerate(result, start=1):
             tag = "evenrow" if i % 2 == 0 else "oddrow"
-            action = formatter.format(row["action"])
+            action = formatter.wrap(row["action"])
             self.tree.insert("", "end", values=(
                 i,
                 row["log_date"].strftime("%d/%m/%Y"),
@@ -215,7 +218,7 @@ class FinanceLogsWindow(BaseWindow):
                 row["receipt_no"],
                 action
             ), tags=(tag,))
-        self.auto_resize()
+        self.sorter.autosize_columns(5)
 
     def _collect_current_rows(self):
         rows = []
@@ -272,18 +275,6 @@ class FinanceLogsWindow(BaseWindow):
         exporter = self._make_exporter()
         exporter.export_excel()
 
-    def auto_resize(self):
-        """Resize columns to fit content."""
-        font = tkFont.Font()
-        for col in self.columns:
-            # Start with the column header width
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                max_width = max(max_width, font.measure(text))
-            # Add Padding for readability
-            self.tree.column(col, width=max_width)
-
 
 class OrderLogsWindow(BaseWindow):
     def __init__(self, parent, conn, user):
@@ -318,8 +309,6 @@ class OrderLogsWindow(BaseWindow):
         ]
         style = ttk.Style(self.top)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", roeheight=20, font=("Arial", 10))
         self.main_frame = tk.Frame(
             self.top, bg="lightblue", bd=4, relief="solid"
         )
@@ -327,24 +316,28 @@ class OrderLogsWindow(BaseWindow):
         self.filter_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.year_cb = ttk.Combobox(
             self.filter_frame, textvariable=self.selected_year, width=5,
-            state="readonly", values=self.years, font=("Arial", 11)
+            state="readonly", values=self.years, font=("Arial", 12)
         )
         self.user_cb = ttk.Combobox(
             self.filter_frame, textvariable=self.selected_user, width=8,
-            state="disabled", values=self.users, font=("Arial", 11)
+            state="disabled", values=self.users, font=("Arial", 12)
         )
         self.month_cb = ttk.Combobox(
             self.filter_frame, values=[name for name, _num in self.months],
-            width=10, state="disabled", font=("Arial", 11)
+            width=10, state="disabled", font=("Arial", 12)
         )
         self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.title_label = tk.Label(
-            self.top_frame, text="", bg="lightblue", bd=4, relief="ridge",
-            font=("Arial", 16, "bold", "underline"), fg="dodgerblue"
+            self.top_frame, text="", bg="lightblue", fg="blue",
+            font=("Arial", 20, "bold", "underline")
         )
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.set_row_height(style, 40)
 
         self.build_ui()
         self.refresh_table()
@@ -353,13 +346,13 @@ class OrderLogsWindow(BaseWindow):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
         self.top_frame.pack(fill="x", pady=(5, 0))
         # Title
-        self.title_label.pack(anchor="center", ipadx=10, ipady=5)
+        self.title_label.pack(anchor="center")
         # Year Selector
         tk.Label(
             self.filter_frame, text="Select Year:", bg="lightblue",
             font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(5, 0))
-        self.year_cb.pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(2, 0))
+        self.year_cb.pack(side="left", padx=(0, 3))
         if self.years:
             self.year_cb.set(self.years[0])
         else:
@@ -370,13 +363,14 @@ class OrderLogsWindow(BaseWindow):
             "<<ComboboxSelected>>", lambda e: self.refresh_table()
         )
         # Filter Frame
-        filter_outer = tk.Frame(self.filter_frame, bg="lightblue", bd=2,
-                                relief="groove")
-        filter_outer.pack(side="left", padx=10)
+        filter_outer = tk.Frame(
+            self.filter_frame, bg="lightblue", bd=2, relief="groove"
+        )
+        filter_outer.pack(side="left", padx=5)
         tk.Label(
             filter_outer, text="Filter By:", bg="lightblue",
             font=("Arial", 12, "bold")
-        ).pack(side="left", padx=(5, 0))
+        ).pack(side="left", padx=(2, 0))
         tk.Checkbutton(
             filter_outer, variable=self.filter_user_var, bg="lightblue",
             text="User", command=self.toggle_filters,
@@ -388,33 +382,33 @@ class OrderLogsWindow(BaseWindow):
             font=("Arial", 11, "bold")
         ).pack(side="left")
         # Filter Frame
-        self.filter_frame.pack(fill="x", padx=5)
+        self.filter_frame.pack(fill="x")
         # User Filter
         tk.Label(
             self.filter_frame, text="Select User:", bg="lightblue",
             font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(5, 0))
-        self.user_cb.pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(2, 0))
+        self.user_cb.pack(side="left", padx=(0, 3))
         # Month Filter
         tk.Label(
             self.filter_frame, text="Select Month:", bg="lightblue",
             font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(5, 0))
-        self.month_cb.pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(3, 0))
+        self.month_cb.pack(side="left", padx=(0, 3))
         tk.Button(
             self.filter_frame, text="Refresh", bd=4, relief="raised",
             command=self.refresh_table, bg="dodgerblue", fg="white"
         ).pack(side="left")
         btn_frame = tk.Frame(self.filter_frame, bg="lightblue")
-        btn_frame.pack(side="right", padx=10)
+        btn_frame.pack(side="right", padx=5)
         action_btn = {
             "Export PDF": self.on_export_pdf,
             "Print Logs": self.on_print
         }
         for text, command in action_btn.items():
             tk.Button(
-                btn_frame, text=text, command=command, bd=2, relief="raised",
-                bg="dodgerblue", fg="white",
+                btn_frame, text=text, command=command, bd=4, relief="groove",
+                bg="dodgerblue", fg="white", font=("Arial", 10, "bold")
             ).pack(side="left")
         self.user_cb.bind("<<ComboboxSelected>>", lambda e: self.refresh_table())
         self.month_cb.bind("<<ComboboxSelected>>", lambda e: self.refresh_table())
@@ -424,7 +418,7 @@ class OrderLogsWindow(BaseWindow):
         )
         for col in self.columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", width=50)
+            self.tree.column(col, anchor="center", width=30)
         self.tree.configure(yscrollcommand=y_scroll.set)
         y_scroll.pack(side="right", fill="y")
         self.tree.pack(fill="both", expand=True)
@@ -470,17 +464,19 @@ class OrderLogsWindow(BaseWindow):
         for row in self.tree.get_children():
             self.tree.delete(row)
 
+        formater = DescriptionFormatter(70, 10)
         for i, row in enumerate(result, start=1):
             tag = "evenrow" if i % 2 == 0 else "oddrow"
+            action = formater.wrap(row["action"])
             self.tree.insert("", "end", values=(
                 i,
                 row["order_id"],
                 row["log_date"].strftime("%d/%m/%Y"),
                 row["user"],
-                row["action"],
+                action,
                 f"{row['total_amount']:,.2f}"
             ), tags=(tag,))
-        self.auto_resize()
+        self.sorter.autosize_columns()
 
     def _collect_current_rows(self):
         rows = []
@@ -525,17 +521,6 @@ class OrderLogsWindow(BaseWindow):
         exporter = self._make_exporter()
         exporter.print()
 
-    def auto_resize(self):
-        """Resize columns to fit content."""
-        font = tkFont.Font()
-        for col in self.columns:
-            # Start with the column header width
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                max_width = max(max_width, font.measure(text))
-            # Add Padding for readability
-            self.tree.column(col, width=max_width)
 
 class MonthlyReversalLogs(BaseWindow):
     def __init__(self, parent, conn, user):
@@ -560,36 +545,39 @@ class MonthlyReversalLogs(BaseWindow):
             ("November", 11), ("December", 12),
         ]
         self.columns = [
-            "No", "Date", "Receipt", "Product Code", "Product Name", "Price",
-            "Quantity", "Refund", "Tagged By", "Authorized By", "Posted",
+            "No", "Date", "Receipt", "Item Code", "Product Name", "Price",
+            "Qty", "Refund", "Tagged By", "Authorized By", "Posted",
         ]
         style = ttk.Style(self.window)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", rowheight=20, font=("Arial", 10))
         self.main_frame = tk.Frame(
             self.window, bg="lightblue", bd=4, relief="solid"
         )
         # Top Frame
         self.top_frame = tk.Frame(self.main_frame, bg="lightblue")
+        self.filter_frame = tk.Frame(self.top_frame, bg="lightblue")
+        self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.year_cb = ttk.Combobox(
-            self.top_frame, values=self.years, state="readonly", width=5,
-            font=("Arial", 11)
+            self.filter_frame, values=self.years, state="readonly", width=7,
+            font=("Arial", 12)
         )
         self.year_cb.current(0)
         self.month_cb = ttk.Combobox(
-            self.top_frame, values=[name for name, _num in self.months],
-            width=10, state="readonly", font=("Arial", 11)
+            self.filter_frame, values=[name for name, _num in self.months],
+            width=10, state="readonly", font=("Arial", 12)
         )
         # Table Frame
-        self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.title = tk.Label(
-            self.top_frame, text="Reversals For", bg="lightblue", bd=4,
-            font=("Arial", 14, "bold", "underline"), relief="raised"
+            self.top_frame, text="Reversals For", bg="lightblue", fg="blue",
+            font=("Arial", 20, "bold", "underline")
         )
         self.tree = ttk.Treeview(
-            self.table_frame, columns=self.columns, show="headings", height=20
+            self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
 
         self.build_ui()
@@ -599,26 +587,34 @@ class MonthlyReversalLogs(BaseWindow):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         self.top_frame.pack(fill="x", padx=5)
         self.table_frame.pack(fill="both", expand=True)
-        self.title.pack(side="left", padx=20, ipadx=10, ipady=2)
+        btn_frame = tk.Frame(self.top_frame, bg="lightblue")
+        btn_frame.pack(side="right", padx=(20, 0), anchor="s")
+        self.filter_frame.pack(side="right", anchor="s", padx=(10, 20))
+        self.title.pack(side="left", padx=(0, 10), anchor="s")
         tk.Label(
-            self.top_frame, text="Select Year:", bg="lightblue",
-            font=("Arial", 12, "bold")
-        ).pack(side="left", padx=(10, 5))
-        self.year_cb.pack(side="left", padx=(0, 10))
+            self.filter_frame, text="Select Year:", bg="lightblue",
+            fg="blue", font=("Arial", 13, "bold")
+        ).pack(side="left", padx=(10, 0), anchor="s")
+        self.year_cb.pack(side="left", padx=(0, 10), anchor="s")
         self.year_cb.bind("<<ComboboxSelected>>", lambda e: self.load_data())
         tk.Label(
-            self.top_frame, text="Select Month:", bg="lightblue",
-            font=("Arial", 12, "bold")
-        ).pack(side="left", padx=(10, 5))
-        self.month_cb.pack(side="left", padx=(0, 10))
+            self.filter_frame, text="Select Month:", bg="lightblue",
+            fg="blue", font=("Arial", 13, "bold")
+        ).pack(side="left", padx=(10, 0), anchor="s")
+        self.month_cb.pack(side="left", padx=(0, 10), anchor="s")
         self.month_cb.bind("<<ComboboxSelected>>", lambda e: self.load_data())
-        tk.Button(
-            self.top_frame, text="Export PDF", bg="dodgerblue", fg="red",
-            bd=4, relief="groove", command=self.export
-        ).pack(side="right", padx=5)
+        action_btn = {
+            "Export PDF": self.on_export_pdf,
+            "Print Logs": self.on_print
+        }
+        for text, command in action_btn.items():
+            tk.Button(
+                btn_frame, text=text, command=command, bd=4, relief="groove",
+                bg="dodgerblue", fg="white", font=("Arial", 11, "bold")
+            ).pack(side="left", anchor="s")
         for col in self.columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", width=30)
+            self.tree.column(col, anchor="center", width=20)
         vsb = ttk.Scrollbar(
             self.table_frame, orient="vertical", command=self.tree.yview
         )
@@ -635,14 +631,14 @@ class MonthlyReversalLogs(BaseWindow):
             self.tree.delete(item)
         year = int(self.year_cb.get())
         month = None
-        title = f"Reversals In"
+        title = f"Reversals Logs"
         if self.month_cb.get():
             month = dict(self.months).get(self.month_cb.get())
             month_name = self.month_cb.get()
-            title += f" {month_name}"
+            title += f" For {month_name}"
         if not year:
             return
-        title += f" {year}."
+        title += f" In {year}."
         # Insert into table
         success, rows = fetch_reversals_by_month(self.conn, year, month)
         if not success:
@@ -667,20 +663,8 @@ class MonthlyReversalLogs(BaseWindow):
                 row["authorized"] if row["authorized"] is not None else "",
                 row["posted"] if row["posted"] is not None else "",
             ), tags=(tag,))
-        self.auto_resize()
+        self.sorter.autosize_columns()
         self.title.configure(text=title)
-
-    def auto_resize(self):
-        """Resize columns to fit content."""
-        font = tkFont.Font()
-        for col in self.columns:
-            # Start with the column header width
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                max_width = max(max_width, font.measure(text))
-            # Add Padding for readability
-            self.tree.column(col, width=max_width)
 
     def _collect_rows(self):
         rows = []
@@ -691,10 +675,10 @@ class MonthlyReversalLogs(BaseWindow):
                     "No": vals[0],
                     "Date": vals[1],
                     "Receipt": vals[2],
-                    "Product Code": vals[3],
+                    "Item Code": vals[3],
                     "Product Name": vals[4],
                     "Price": vals[5],
-                    "Quantity": vals[6],
+                    "Qty": vals[6],
                     "Refund": vals[7],
                     "Tagged By": vals[8],
                     "Authorized By": vals[9],
@@ -706,15 +690,22 @@ class MonthlyReversalLogs(BaseWindow):
     def _make_exporter(self):
         title = f"Reversals For {self.month_cb.get()} {self.year_cb.get()}."
         columns = [
-            "No", "Date", "Receipt", "Product Code", "Product Name", "Price",
-            "Quantity", "Refund", "Tagged By", "Authorized By", "Posted",
+            "No", "Date", "Receipt", "Item Code", "Product Name", "Price",
+            "Qty", "Refund", "Tagged By", "Authorized By", "Posted",
         ]
         rows = self._collect_rows()
         return ReportExporter(self.window, title, columns, rows)
-    def export(self):
+
+    def on_export_pdf(self):
         """Export data to PDF."""
         exporter = self._make_exporter()
         exporter.export_pdf()
+
+    def on_print(self):
+        """Print Logs Data."""
+        exporter = self._make_exporter()
+        exporter.print()
+
 
 class SalesLogsWindow(BaseWindow):
     def __init__(self, parent, conn, user):
@@ -750,8 +741,6 @@ class SalesLogsWindow(BaseWindow):
         ]
         style = ttk.Style(self.top)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", roeheight=20, font=("Arial", 11))
         self.main_frame = tk.Frame(
             self.top, bg="lightblue", bd=4, relief="solid"
         )
@@ -759,24 +748,28 @@ class SalesLogsWindow(BaseWindow):
         self.filter_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.year_cb = ttk.Combobox(
             self.filter_frame, textvariable=self.selected_year, width=5,
-            state="readonly", values=self.years, font=("Arial", 11)
+            state="readonly", values=self.years, font=("Arial", 12)
         )
         self.user_cb = ttk.Combobox(
             self.filter_frame, textvariable=self.selected_user, width=8,
-            state="disabled", values=self.users, font=("Arial", 11)
+            state="disabled", values=self.users, font=("Arial", 12)
         )
         self.month_cb = ttk.Combobox(
             self.filter_frame, values=[name for name, _num in self.months],
-            width=10, state="disabled", font=("Arial", 11)
+            width=10, state="disabled", font=("Arial", 12)
         )
         self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.title_label = tk.Label(
-            self.top_frame, text="", bg="lightblue", bd=4, relief="ridge",
-            font=("Arial", 16, "bold", "underline"), fg="dodgerblue"
+            self.top_frame, text="", bg="lightblue", fg="dodgerblue",
+            font=("Arial", 20, "bold", "underline")
         )
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No.")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
         self.build_ui()
         self.refresh_table()
@@ -785,13 +778,15 @@ class SalesLogsWindow(BaseWindow):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
         self.top_frame.pack(fill="x", pady=(5, 0))
         # Title
-        self.title_label.pack(anchor="center", ipadx=10)
+        self.title_label.pack(anchor="center")
+        # Filter Frame
+        self.filter_frame.pack(fill="x")
         # Year Selector
         tk.Label(
             self.filter_frame, text="Select Year:", bg="lightblue",
             font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(5, 0))
-        self.year_cb.pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(2, 0), anchor="s")
+        self.year_cb.pack(side="left", padx=(0, 3), anchor="s")
         if self.years:
             self.year_cb.set(self.years[0])
         else:
@@ -802,13 +797,14 @@ class SalesLogsWindow(BaseWindow):
             "<<ComboboxSelected>>", lambda e: self.refresh_table()
         )
         # Filter Frame
-        filter_outer = tk.Frame(self.filter_frame, bg="lightblue", bd=2,
-                                relief="groove")
-        filter_outer.pack(side="left", padx=5)
+        filter_outer = tk.Frame(
+            self.filter_frame, bg="lightblue", bd=2, relief="groove"
+        )
+        filter_outer.pack(side="left", padx=3, anchor="s")
         tk.Label(
             filter_outer, text="Filter By:", bg="lightblue",
-            font=("Arial", 12, "bold")
-        ).pack(side="left", padx=(5, 0))
+            font=("Arial", 13, "bold")
+        ).pack(side="left", padx=(2, 0))
         tk.Checkbutton(
             filter_outer, variable=self.filter_user_var, bg="lightblue",
             text="User", command=self.toggle_filters,
@@ -819,34 +815,32 @@ class SalesLogsWindow(BaseWindow):
             text="Month", command=self.toggle_filters,
             font=("Arial", 11, "bold")
         ).pack(side="left")
-        # Filter Frame
-        self.filter_frame.pack(fill="x", padx=5)
         # User Filter
         tk.Label(
             self.filter_frame, text="Select User:", bg="lightblue",
             font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(5, 0))
-        self.user_cb.pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(3, 0), anchor="s")
+        self.user_cb.pack(side="left", padx=(0, 3), anchor="s")
         # Month Filter
         tk.Label(
             self.filter_frame, text="Select Month:", bg="lightblue",
             font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(5, 0))
-        self.month_cb.pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(3, 0), anchor="s")
+        self.month_cb.pack(side="left", padx=(0, 3), anchor="s")
         tk.Button(
-            self.filter_frame, text="Refresh", bd=2, relief="groove",
-            command=self.refresh_table, bg="dodgerblue", fg="white"
-        ).pack(side="left")
+            self.filter_frame, text="Refresh", bd=4, relief="groove",
+            command=self.refresh_table, font=("Arial", 10, "bold")
+        ).pack(side="left", anchor="s")
         btn_frame = tk.Frame(self.filter_frame, bg="lightblue")
-        btn_frame.pack(side="right", padx=10)
+        btn_frame.pack(side="right", padx=3, anchor="s")
         action_btn = {
             "Export PDF": self.on_export_pdf,
             "Print Logs": self.on_print
         }
         for text, command in action_btn.items():
             tk.Button(
-                btn_frame, text=text, command=command, bd=2, relief="groove",
-                bg="dodgerblue", fg="white",
+                btn_frame, text=text, command=command, bd=4, relief="groove",
+                bg="blue", fg="white", font=("Arial", 10, "bold")
             ).pack(side="left")
         self.user_cb.bind("<<ComboboxSelected>>", lambda e: self.refresh_table())
         self.month_cb.bind("<<ComboboxSelected>>", lambda e: self.refresh_table())
@@ -912,7 +906,7 @@ class SalesLogsWindow(BaseWindow):
                 row["description"],
                 row["user"]
             ), tags=(tag,))
-        self.auto_resize()
+        self.sorter.autosize_columns(5)
 
     def _collect_current_rows(self):
         rows = []
@@ -963,23 +957,11 @@ class SalesLogsWindow(BaseWindow):
         exporter = self._make_exporter()
         exporter.print()
 
-    def auto_resize(self):
-        """Resize columns to fit content."""
-        font = tkFont.Font()
-        for col in self.columns:
-            # Start with the column header width
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                max_width = max(max_width, font.measure(text))
-            # Add Padding for readability
-            self.tree.column(col, width=max_width)
-
 
 class ProductLogsWindow(BaseWindow):
     def __init__(self, parent, conn, user):
         self.top = tk.Toplevel(parent)
-        self.top.title("Stock Products Logs")
+        self.top.title("Stock Items Logs")
         self.top.configure(bg="lightblue")
         self.center_window(self.top, 1200, 700, parent)
         self.top.transient(parent)
@@ -1003,50 +985,52 @@ class ProductLogsWindow(BaseWindow):
         ]
         self.columns = [
             "No", "User", "Date", "Item Code", "Product Name", "Operation",
-            "Quantity", "Amount"
+            "Qty", "Amount"
         ]
         style = ttk.Style(self.top)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", font=("Arial", 10))
-        self.main_frame = tk.Frame(self.top, bg="lightblue", bd=4, relief="solid")
-        self.top_frame = tk.Frame(
-            self.main_frame, bg="lightblue", bd=4, relief="ridge"
+        self.main_frame = tk.Frame(
+            self.top, bg="lightblue", bd=4, relief="solid"
         )
+        self.top_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.filter_frame = tk.Frame(self.top_frame, bg="lightblue")
         self.year_cb = ttk.Combobox(
-            self.filter_frame, textvariable=self.selected_year, width=5,
-            state="readonly", values=self.years, font=("Arial", 11)
+            self.filter_frame, textvariable=self.selected_year, width=6,
+            state="readonly", values=self.years, font=("Arial", 12)
         )
         self.month_cb = ttk.Combobox(
             self.filter_frame, values=[name for name, _num in self.months],
-            width=10, state="readonly", font=("Arial", 11),
+            width=10, state="readonly", font=("Arial", 12),
         )
         self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.title_label = tk.Label(
-            self.top_frame, text="", bg="lightblue", bd=4, relief="flat",
-            font=("Arial", 16, "bold", "underline"), fg="dodgerblue"
+            self.top_frame, text="", bg="lightblue", fg="blue",
+            font=("Arial", 20, "bold", "underline")
         )
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
         self.build_ui()
         self.refresh_table()
 
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
-        self.top_frame.pack(fill="x")
+        self.top_frame.pack(fill="x", pady=(5, 0))
         # Title
-        self.title_label.pack(anchor="center", fill="x")
+        self.title_label.pack(anchor="center")
         # Filter Frame
         self.filter_frame.pack(fill="x", padx=5)
         # Year Selector
         tk.Label(
             self.filter_frame, text="Select Year:", bg="lightblue",
             font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(5, 0))
-        self.year_cb.pack(side="left", padx=(0, 10))
+        ).pack(side="left", padx=(10, 0), anchor="s")
+        self.year_cb.pack(side="left", padx=(0, 10), anchor="s")
         if self.years:
             self.year_cb.set(self.years[0])
         else:
@@ -1061,23 +1045,23 @@ class ProductLogsWindow(BaseWindow):
         tk.Label(
             self.filter_frame, text="Select Month:", bg="lightblue",
             font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(5, 0))
-        self.month_cb.pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(5, 0), anchor="s")
+        self.month_cb.pack(side="left", padx=(0, 10), anchor="s")
         tk.Button(
-            self.filter_frame, text="Refresh", bd=4, relief="raised",
-            command=self.refresh_table, bg="dodgerblue", fg="white"
-        ).pack(side="left")
+            self.filter_frame, text="Refresh", bd=4, relief="groove",
+            command=self.refresh_table, font=("Arial", 10, "bold")
+        ).pack(side="left", padx=10, anchor="s")
         btn_frame = tk.Frame(self.filter_frame, bg="lightblue")
-        btn_frame.pack(side="right", padx=10)
+        btn_frame.pack(side="right", padx=10, anchor="s")
         action_btn = {
             "Export PDF": self.on_export_pdf,
             "Print Logs": self.on_print
         }
         for text, command in action_btn.items():
             tk.Button(
-                btn_frame, text=text, command=command, bd=2, relief="raised",
-                bg="dodgerblue", fg="white",
-            ).pack(side="left")
+                btn_frame, text=text, command=command, bd=4, relief="groove",
+                bg="dodgerblue", fg="white", font=("Arial", 10, "bold")
+            ).pack(side="left", anchor="s")
         self.month_cb.bind("<<ComboboxSelected>>", lambda e: self.refresh_table())
         self.table_frame.pack(fill="both", expand=True)
         y_scroll = ttk.Scrollbar(
@@ -1100,11 +1084,11 @@ class ProductLogsWindow(BaseWindow):
             return
         year = int(year_str)
         month = None
-        title = "Stock Items Logs In"
+        title = "Stock Items Logs"
         if self.month_cb.get():
             month = dict(self.months).get(self.month_cb.get())
-            title += f" {self.month_cb.get()}"
-        title += f" {year}."
+            title += f" For {self.month_cb.get()}"
+        title += f" In {year}."
         self.title_label.configure(text=title)
         self.title = title
 
@@ -1115,21 +1099,20 @@ class ProductLogsWindow(BaseWindow):
         # Clear current rows
         for row in self.tree.get_children():
             self.tree.delete(row)
-
         for i, log in enumerate(logs, start=1):
             tag = "evenrow" if i % 2 == 0 else "oddrow"
             name = re.sub(r"\s+", " ", str(log["product_name"])).strip()
             self.tree.insert("", "end", values=(
                 i,
                 log["user"],
-                log["log_date"],
+                log["log_date"].strftime("%d/%m/%Y"),
                 log["product_code"],
                 name,
                 log["description"],
                 log["quantity"],
                 f"{log['total']:,.2f}"
             ), tags=(tag,))
-        self.auto_resize()
+        self.sorter.autosize_columns()
 
     def _collect_current_rows(self):
         rows = []
@@ -1142,7 +1125,7 @@ class ProductLogsWindow(BaseWindow):
                 "Item Code": vals[3],
                 "Product Name": vals[4],
                 "Operation": vals[5],
-                "Quantity": vals[6],
+                "Qty": vals[6],
                 "Amount": vals[7]
             })
         return rows
@@ -1151,7 +1134,7 @@ class ProductLogsWindow(BaseWindow):
         title = self.title
         columns = [
             "No", "User", "Date", "Item Code", "Product Name", "Operation",
-            "Quantity", "Amount"
+            "Qty", "Amount"
         ]
         rows = self._collect_current_rows()
         return ReportExporter(self.top, title, columns, rows)
@@ -1180,15 +1163,3 @@ class ProductLogsWindow(BaseWindow):
             return
         exporter = self._make_exporter()
         exporter.print()
-
-    def auto_resize(self):
-        """Resize columns to fit content."""
-        font = tkFont.Font()
-        for col in self.columns:
-            # Start with the column header width
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                max_width = max(max_width, font.measure(text))
-            # Add Padding for readability
-            self.tree.column(col, width=max_width)

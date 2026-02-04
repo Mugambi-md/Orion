@@ -111,9 +111,11 @@ class TreeviewSorter:
                 index += 1
 
     def autosize_columns(self, padding=None):
-        """Auto resize columns based on header and cell content."""
+        """
+        Auto resize columns based on header and first line of cell content.
+        """
         font = tkFont.Font()
-        spacing = padding if padding else 2
+        spacing = padding if padding else 3
         for col in self.columns:
             # Fixed numbering column to support upto 3 digits
             if col == self.number_column:
@@ -124,9 +126,11 @@ class TreeviewSorter:
             max_width = font.measure(col)
             for item in self.tree.get_children():
                 cell_value = self.tree.set(item, col)
-                width = font.measure(str(cell_value))
-                if width > max_width:
-                    max_width = width
+                if cell_value:
+                    first_line = str(cell_value).split("\n", 1)[0]
+                    width = font.measure(first_line)
+                    if width > max_width:
+                        max_width = width
 
             self.tree.column(col, width=max_width + spacing)
 

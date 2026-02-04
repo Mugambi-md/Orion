@@ -1,8 +1,9 @@
+import re
 import tkinter as tk
-import tkinter.font as tkFont
 from tkinter import ttk, messagebox
 from window_functionality import to_uppercase
 from windows_utils import CurrencyFormatter
+from table_utils import TreeviewSorter
 from working_sales import (
     fetch_sales_product, SalesManager, get_net_sales, CashierSessionService
 )
@@ -10,6 +11,7 @@ from receipt_gui_and_print import ReceiptPrinter
 from lookup_gui import ProductSearchWindow
 from sales_popup import Last24HoursSalesWindow
 from base_window import BaseWindow
+
 
 class MakeSaleWindow(BaseWindow):
     def __init__(self, parent, conn, user):
@@ -30,14 +32,12 @@ class MakeSaleWindow(BaseWindow):
         ]
         style = ttk.Style(self.sale_win)
         style.theme_use("clam")
-        style.configure("Treeview", font=("Arial", 10))
-        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
         self.total_cost_var = tk.StringVar(value="0.00")
         self.sales_manager = SalesManager(self.conn)
         self.valid_session = CashierSessionService(conn)
         success, totals = get_net_sales(conn, user)
         if success:
-            day_sales = float(totals["total_debit"])
+            day_sales = float(totals["net_sales"])
         else:
             messagebox.showerror(
                 "Error", "Failed To Load Total Daily Sales.",
@@ -55,8 +55,8 @@ class MakeSaleWindow(BaseWindow):
         )
         sales = f"{day_sales:,.2f}"
         self.net_label = tk.Label(
-            self.add_frame, text=sales, bg="blue", fg="white", bd=2,
-            relief="ridge", font=("Arial", 11, "bold")
+            self.add_frame, text=sales, bg="blue", fg="white", width=10,
+            bd=2, relief="ridge", font=("Arial", 11, "bold")
         )
         self.right_frame = tk.Frame(self.main_frame, bg="white")
         self.sale_list = ttk.Treeview(
@@ -80,10 +80,12 @@ class MakeSaleWindow(BaseWindow):
         )
         (self.product_code, self.product_name, self.available_quantity,
          self.wholesale_price, self.retail_price) = None, None, None, None, None
-
+        self.sorter = TreeviewSorter(self.sale_list, self.columns, "No")
+        self.sorter.apply_style(style)
 
         self.create_widgets()
         self.check_allowed()
+        self.sorter.autosize_columns(10)
 
     def create_widgets(self):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
@@ -124,21 +126,24 @@ class MakeSaleWindow(BaseWindow):
         ).pack(side="left", ipadx=2, pady=10)
         tk.Button(
             self.left_frame, text="Look Up Products", bg="green", fg="white",
-            bd=4, relief="groove", command=self.lookup_product
+            bd=4, relief="groove", font=("Arial", 10, "bold"),
+            command=self.lookup_product
         ).pack(pady=5)
 
         btn_frame = tk.Frame(self.right_frame, bg="lightblue")
         btn_frame.pack(side="top", fill="x")
         tk.Button(
             btn_frame, text="Remove Item", bg="red", fg="white", bd=4,
-            relief="ridge", command=self.remove_selected
+            relief="ridge", font=("Arial", 10, "bold"),
+            command=self.remove_selected
         ).pack(side="right", padx=5)
         tk.Label(
-            btn_frame, text="Sale List", bg="lightblue", bd=4,
-            relief="ridge", font=("Arial", 14, "bold", "underline")
-        ).pack(anchor="center", ipadx=10)
-        vsb = ttk.Scrollbar(self.right_frame, orient="vertical",
-                            command=self.sale_list.yview)
+            btn_frame, text="Sale List", bg="lightblue", fg="blue",
+            font=("Arial", 18, "bold", "underline")
+        ).pack(anchor="center")
+        vsb = ttk.Scrollbar(
+            self.right_frame, orient="vertical", command=self.sale_list.yview
+        )
         self.sale_list.configure(yscrollcommand=vsb.set)
         vsb.pack(side="right", fill="y")
         # Sales List Table
@@ -149,7 +154,6 @@ class MakeSaleWindow(BaseWindow):
         self.sale_list.tag_configure(
             "total", font=("Arial", 12, "bold", "underline")
         )
-        self.autosize_columns()
 
     def refresh_label(self):
         """Refreshes total sales label."""
@@ -223,10 +227,11 @@ class MakeSaleWindow(BaseWindow):
             new_qty = old_qty + qty
             price = self.wholesale_price if new_qty >= 10 else self.retail_price
             total = new_qty * price
+            name = re.sub(r"\s+", " ", str(self.product_name)).strip()
             update_item = (
                 old_item[0],
                 self.product_code,
-                self.product_name,
+                name,
                 new_qty,
                 f"{price:,.2f}",
                 f"{total:,.2f}"
@@ -237,9 +242,10 @@ class MakeSaleWindow(BaseWindow):
             total = qty * price
             no = len(self.sale_items) + 1
             # Add to internal list and Treeview
+            name = re.sub(r"\s+", " ", str(self.product_name)).strip()
             self.sale_items.append(
-                (no, self.product_code, self.product_name, qty,
-                 f"{price:,.2f}", f"{total:,.2f}")
+                (no, self.product_code, name, qty, f"{price:,.2f}",
+                 f"{total:,.2f}")
             )
         self.refresh_sale_list()
         # Update total cost
@@ -300,7 +306,7 @@ class MakeSaleWindow(BaseWindow):
             self.sale_list.insert("", "end", values=(
                 "", "", "", "Total Cost", "", f"{total_cost:,.2f}"
             ), tags=("total",))
-        self.autosize_columns()
+        self.sorter.autosize_columns(5)
 
     def show_payment_popup(self):
         success, msg = self.valid_session.can_sell(self.user)
@@ -322,36 +328,36 @@ class MakeSaleWindow(BaseWindow):
         popup.grab_set()
         tk.Label(
             popup, text=" Payments ", fg="green", bd=4, relief="flat",
-            font=("Arial", 13, "bold", "underline")
+            font=("Arial", 14, "bold", "underline")
         ).pack(pady=(0, 5), ipadx=5)
         partial_var = tk.BooleanVar()
         tk.Checkbutton(
             popup, text="Partial Payment", variable=partial_var,
-            font=("Arial", 11, "bold"), command=lambda: toggle_partial()
+            font=("Arial", 12, "bold"), command=lambda: toggle_partial()
         ).pack(pady=(5, 0))
-        tk.Label(popup, text="Cash:", font=("Arial", 11, "bold")).pack()
+        tk.Label(popup, text="Cash:", font=("Arial", 12, "bold")).pack()
         cash_var = tk.StringVar()
         mpesa_var = tk.StringVar()
         cash_entry = tk.Entry(
             popup, textvariable=cash_var, bd=4, relief="raised", width=10,
-            font=("Arial", 11)
+            font=("Arial", 12)
         )
         cash_entry.pack(pady=(0, 5))
         cash_entry.focus_set()
-        tk.Label(popup, text="M-PESA:", font=("Arial", 11, "bold")).pack()
+        tk.Label(popup, text="M-PESA:", font=("Arial", 12, "bold")).pack()
         mpesa_entry = tk.Entry(
             popup, textvariable=mpesa_var, bd=4, relief="raised", width=10,
-            font=("Arial", 11)
+            font=("Arial", 12)
         )
         mpesa_entry.pack(pady=(0, 5))
         CurrencyFormatter.add_currency_trace(cash_var, cash_entry)
         CurrencyFormatter.add_currency_trace(mpesa_var, mpesa_entry)
         complete_btn = tk.Button(
-            popup, text="Post Transaction", bd=2, relief="groove", bg="blue",
+            popup, text="Post Transaction", bd=4, relief="groove", bg="blue",
             fg="white", state="disabled", command=lambda: finalize_payment(),
             font=("Arial", 11, "bold")
         )
-        complete_btn.pack(pady=5)
+        complete_btn.pack(pady=(5, 0))
         def toggle_partial():
             if not partial_var.get():
                 mpesa_entry.delete(0, tk.END)
@@ -436,17 +442,6 @@ class MakeSaleWindow(BaseWindow):
                 messagebox.showerror("Error", str(e), parent=popup)
         cash_entry.bind("<KeyRelease>", update_button_state)
         mpesa_entry.bind("<KeyRelease>", update_button_state)
-
-    def autosize_columns(self):
-        font = tkFont.Font()
-        for col in self.columns:
-            max_width = font.measure(col)
-            for item in self.sale_list.get_children():
-                cell_value = str(self.sale_list.set(item, col))
-                cell_width = font.measure(cell_value)
-                if cell_width > max_width:
-                    max_width = cell_width
-            self.sale_list.column(col, width=max_width + 5)
 
     def lookup_product(self):
         ProductSearchWindow(self.sale_win, self.conn)

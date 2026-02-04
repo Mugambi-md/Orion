@@ -1,10 +1,10 @@
 import tkinter as tk
-import tkinter.font as tkFont
 from base_window import BaseWindow
 from tkinter import ttk, messagebox
 from datetime import datetime
 from authentication import VerifyPrivilegePopup
 from accounting_export import ReportExporter
+from table_utils import TreeviewSorter
 from windows_utils import CurrencyFormatter, SentenceCapitalizer
 from working_on_accounting import (
     count_accounts_by_type, check_account_name_exists, insert_account,
@@ -29,20 +29,23 @@ class InsertAccountPopup(BaseWindow):
         self.user = user
         self.account_type_var = tk.StringVar()
         self.code_var = tk.StringVar()
+        style = ttk.Style(self.popup)
+        style.theme_use("clam")
         self.main_frame = tk.Frame(
             self.popup, bg="blue", bd=4, relief="solid"
         )
         self.name_entry = tk.Entry(
-            self.main_frame, width=15, bd=2, relief="raised",
-            font=("Arial", 11)
+            self.main_frame, width=15, bd=4, relief="raised",
+            font=("Arial", 12)
         )
         self.label = tk.Label(
-            self.main_frame, text="Account Name Available", bg="blue",
-            fg="dodgerblue", font=("Arial", 9, "italic"),
+            self.main_frame, text="", bg="blue", fg="dodgerblue",
+            font=("Arial", 10, "italic", "underline")
         )
+        self.frame = tk.Frame(self.main_frame, bg="blue")
         self.type_combo = ttk.Combobox(
-            self.main_frame, textvariable=self.account_type_var, width=10,
-            state="readonly", font=("Arial", 11),
+            self.frame, textvariable=self.account_type_var, width=10,
+            state="readonly", font=("Arial", 12),
         )
         self.type_combo["values"] = [
             "Asset",
@@ -52,76 +55,69 @@ class InsertAccountPopup(BaseWindow):
             "Expense",
         ]
         self.code_entry = tk.Entry(
-            self.main_frame, textvariable=self.code_var, state="readonly",
-            width=5, bd=4, relief="raised", font=("Arial", 11),
+            self.frame, textvariable=self.code_var, state="readonly",
+            width=10, bd=4, relief="raised", font=("Arial", 12),
         )
         self.desc_entry = tk.Text(
-            self.main_frame, width=30, height=3, bd=4, relief="raised",
-            font=("Arial", 11), wrap="word",
+            self.main_frame, height=3, bd=4, relief="ridge", wrap="word",
+            font=("Arial", 12)
         )
 
         self.create_widgets()
 
     def create_widgets(self):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
+        t_label = "Create Journal Account"
+        tk.Label(
+            self.main_frame, text=t_label, bg="blue", fg="white", bd=4,
+            relief="ridge", font=("Arial", 16, "bold", "underline")
+        ).pack(side="top", anchor="center", fill="x", ipady=5)
         tk.Label(
             self.main_frame, text="Account Name:", bg="blue", fg="white",
-            font=("Arial", 11, "bold"),
-        ).pack(pady=(5, 0))  # Account Name
+            font=("Arial", 12, "bold"),
+        ).pack()  # Account Name
         self.name_entry.pack(pady=(0, 2))
         self.name_entry.focus_set()
         self.name_entry.bind("<KeyRelease>", self.on_name_change)
-        self.name_entry.bind("<Return>", lambda e: self.type_combo.focus_set())
+        self.name_entry.bind(
+            "<Return>", lambda e: self.type_combo.focus_set()
+        )
         self.label.pack()
+        self.frame.pack(fill="x", padx=5)
         tk.Label(
-            self.main_frame,
-            text="Account Type:",
-            bg="blue",
-            fg="white",
-            font=("Arial", 11, "bold"),
-        ).pack(
-            pady=(5, 0)
-        )  # Account Type
-        self.type_combo.pack(pady=(0, 5))
+            self.frame, text="Account Type:", bg="blue", fg="white",
+            font=("Arial", 12, "bold"),
+        ).grid(row=0, column=0, pady=(5, 0), padx=10)  # Account Type
+        self.type_combo.grid(row=1, column=0, pady=(0, 5), padx=10)
         self.type_combo.bind("<<ComboboxSelected>>", self.generate_code)
         # Generated Code
         tk.Label(
-            self.main_frame,
-            text="Generated Account Code:",
-            bg="blue",
-            fg="white",
-            font=("Arial", 11, "bold"),
-        ).pack(pady=(5, 0))
-        self.code_entry.pack(pady=(0, 5))
+            self.frame, text="Account Code:", bg="blue", fg="white",
+            font=("Arial", 12, "bold"),
+        ).grid(row=0, column=1, pady=(5, 0), padx=10)
+        self.code_entry.grid(row=1, column=1, pady=(0, 5), padx=10)
         tk.Label(
-            self.main_frame,
-            text="Description:",
-            bg="blue",
-            fg="white",
+            self.main_frame, text="Description:", bg="blue", fg="white",
             font=("Arial", 11, "bold"),
-        ).pack(
-            pady=(5, 0)
-        )  # Description
-        self.desc_entry.pack(pady=(0, 5))
+        ).pack(pady=(5, 0))  # Description
+        self.desc_entry.pack(pady=(0, 5), fill="x", padx=2)
         # Submit Button
         tk.Button(
-            self.main_frame,
-            text="Add Account",
-            command=self.submit_account,
-            bg="dodgerblue",
-            fg="white",
-            width=15,
-            bd=2,
-            relief="groove",
-        ).pack(pady=10)
+            self.main_frame, text="Add Account", bg="dodgerblue",
+            fg="white", bd=4, relief="groove", font=("Arial", 10, "bold"),
+            command=self.submit_account
+        ).pack(pady=5)
 
     def on_name_change(self, event=None):
         current_text = self.name_entry.get()
         cursor_pos = self.name_entry.index(tk.INSERT)
-        if current_text.endswith(" "):  # Preserve trailing space if the user is typing
+        # Preserve trailing space if the user is typing
+        if current_text.endswith(" "):
             return  # Let the user finish typing
         # Auto-capitalize each word
-        capitalized = " ".join(word.capitalize() for word in current_text.split())
+        capitalized = " ".join(
+            word.capitalize() for word in current_text.split()
+        )
         if current_text != capitalized:
             self.name_entry.delete(0, tk.END)
             self.name_entry.insert(0, capitalized)
@@ -131,10 +127,14 @@ class InsertAccountPopup(BaseWindow):
             existing_names = check_account_name_exists(self.conn, current_text)
             if current_text in existing_names:
                 self.name_entry.config(fg="red")
-                self.label.config(text="Account Name Already Taken", fg="red")
+                self.label.config(
+                    text="❌ Account Name Already Taken", fg="red"
+                )
             else:
                 self.name_entry.config(fg="black")
-                self.label.configure(text="Account Name Available", fg="dodgerblue")
+                self.label.configure(
+                    text="\u2713 Account Name Available", fg="green"
+                )
 
     def generate_code(self, event=None):
         acc_type = self.account_type_var.get()
@@ -158,16 +158,6 @@ class InsertAccountPopup(BaseWindow):
             )
 
     def submit_account(self):
-        # Verify user privilege
-        priv = "Admin Create Journal"
-        verify_dialog = VerifyPrivilegePopup(self.popup, self.conn, self.user, priv)
-        if verify_dialog.result != "granted":
-            messagebox.showwarning(
-                "Access Denied",
-                f"You Don't Have Privilege on Requested Module.",
-                parent=self.popup,
-            )
-            return
         name = self.name_entry.get().strip()
         acc_type = self.account_type_var.get()
         code = self.code_var.get()
@@ -178,6 +168,19 @@ class InsertAccountPopup(BaseWindow):
                 parent=self.popup
             )
             return
+        # Verify user privilege
+        priv = "Admin Create Journal"
+        verify_dialog = VerifyPrivilegePopup(
+            self.popup, self.conn, self.user, priv
+        )
+        if verify_dialog.result != "granted":
+            messagebox.showwarning(
+                "Access Denied",
+                f"You Don't Have Privilege on Requested Module.",
+                parent=self.popup,
+            )
+            return
+
         try:
             success, msg = insert_account(
                 self.conn, name, acc_type, code, desc, self.user
@@ -196,7 +199,7 @@ class InsertAccountPopup(BaseWindow):
 class JournalEntryPopup(BaseWindow):
     def __init__(self, parent, conn, user):
         self.popup = tk.Toplevel(parent)
-        self.popup.title("Journal Entry")
+        self.popup.title("Payments")
         self.center_window(self.popup, 500, 400, parent)
         self.popup.configure(bg="lightblue")
         self.popup.transient(parent)
@@ -208,196 +211,174 @@ class JournalEntryPopup(BaseWindow):
         self.accounts = get_account_name_and_code(conn)
         self.account_names = [acc["account_name"] for acc in self.accounts]
         self.account_codes = [acc["code"] for acc in self.accounts]
+        CREDIT_KEYWORDS = ("cash", "bank", "mpesa")
+        self.credit_acc = [
+            acc for acc in self.accounts
+            if any(k in acc["account_name"].lower() for k in CREDIT_KEYWORDS)
+        ]
+        self.credit_acc_names = [
+            acc["account_name"] for acc in self.credit_acc
+        ]
+        self.credit_acc_codes = [acc["code"] for acc in self.credit_acc]
         self.debit_name_var = tk.StringVar()
         self.debit_code_var = tk.StringVar()
-        self.debit_amount_var = tk.StringVar()
+        self.amount_var = tk.StringVar()
         self.credit_name_var = tk.StringVar()
         self.credit_code_var = tk.StringVar()
-        self.credit_amount_var = tk.StringVar()
         self.ref_var = tk.StringVar()
         style = ttk.Style(self.popup)
-        style.theme_use("alt")
-        self.main_frame = tk.Frame(self.popup, bg="lightblue", bd=4, relief="solid")
-        self.debit_frame = tk.LabelFrame(
-            self.main_frame, text="Debit Account", bg="lightblue", bd=4, relief="ridge"
+        style.theme_use("clam")
+        self.main_frame = tk.Frame(
+            self.popup, bg="lightblue", bd=4, relief="solid"
+        )
+        self.data_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=4, relief="ridge"
+        )
+        self.payment_frame = tk.Frame(
+            self.data_frame, bg="lightblue", bd=4, relief="flat"
+        )
+        self.bottom_frame = tk.Frame(
+            self.data_frame, bg="lightblue", bd=4, relief="flat"
         )
         self.debit_name_combo = ttk.Combobox(
-            self.debit_frame,
-            textvariable=self.debit_name_var,
-            width=15,
-            values=self.account_names,
-            state="readonly",
-            font=("Arial", 11),
+            self.payment_frame, textvariable=self.debit_name_var, width=15,
+            values=self.account_names, state="readonly", font=("Arial", 11)
         )
         self.debit_code_combo = ttk.Combobox(
-            self.debit_frame,
-            textvariable=self.debit_code_var,
-            width=5,
-            values=self.account_codes,
-            state="readonly",
-            font=("Arial", 11),
-        )
-        self.debit_amount_entry = tk.Entry(
-            self.debit_frame,
-            textvariable=self.debit_amount_var,
-            width=8,
-            bd=2,
-            relief="raised",
-            font=("Arial", 11),
-        )
-        self.credit_frame = tk.LabelFrame(
-            self.main_frame, text="Credit Account", bg="lightblue", bd=4, relief="ridge"
+            self.payment_frame, textvariable=self.debit_code_var, width=5,
+            values=self.account_codes, state="readonly", font=("Arial", 11),
         )
         self.credit_name_combo = ttk.Combobox(
-            self.credit_frame,
-            textvariable=self.credit_name_var,
-            width=15,
-            state="readonly",
-            values=self.account_names,
+            self.payment_frame, textvariable=self.credit_name_var, width=10,
+            state="readonly", values=self.credit_acc_names,
             font=("Arial", 11),
         )
         self.credit_code_combo = ttk.Combobox(
-            self.credit_frame,
-            textvariable=self.credit_code_var,
-            width=5,
-            values=self.account_codes,
-            state="readonly",
+            self.payment_frame, textvariable=self.credit_code_var, width=5,
+            state="readonly", values=self.credit_acc_codes,
             font=("Arial", 11),
-        )
-        self.credit_amount_entry = tk.Entry(
-            self.credit_frame,
-            textvariable=self.credit_amount_var,
-            width=8,
-            bd=2,
-            relief="raised",
-            font=("Arial", 11),
-        )
-        self.bottom_frame = tk.Frame(
-            self.main_frame, bg="lightblue", bd=4, relief="flat"
         )
         self.desc_entry = tk.Text(
-            self.bottom_frame, width=40, height=4, bd=2, relief="raised"
+            self.bottom_frame, width=30, height=3, bd=4, relief="ridge",
+            font=("Arial", 12), wrap="word"
+        )
+        self.amount_entry = tk.Entry(
+            self.bottom_frame, textvariable=self.amount_var, width=10,
+            bd=4, relief="raised", font=("Arial", 12),
         )
 
         self.build_gui()
 
     def build_gui(self):
         self.main_frame.pack(padx=10, pady=(0, 10), fill="both", expand=True)
-        # Allow row 2 (Bottom frame) to expand
-        self.main_frame.rowconfigure(0, weight=0)
-        self.main_frame.rowconfigure(1, weight=0)
-        self.main_frame.rowconfigure(2, weight=1)
-        self.main_frame.rowconfigure(0, weight=1)
-        # Debit Frame
-        self.debit_frame.grid(row=0, column=0, sticky="w")
         tk.Label(
-            self.debit_frame,
-            text="Account Name:",
-            bg="lightblue",
-            font=("Arial", 11, "bold"),
-        ).grid(row=0, column=0, sticky="w", padx=(5, 0), pady=5)
-        self.debit_name_combo.grid(row=0, column=1, padx=(0, 5), pady=5)
-        self.debit_name_combo.bind(
-            "<<ComboboxSelected>>",
-            lambda e: self.sync_account_fields("debit", "name")
+            self.main_frame, text="Accounts Payment", bg="lightblue",
+            fg="blue", font=("Arial", 18, "bold", "underline")
+        ).pack(side="top", anchor="center", fill="x", pady=(5, 0))
+        self.data_frame.pack(fill="both", expand=True)
+        self.payment_frame.pack(fill="x", expand=True)
+        # Bottom Frame
+        self.bottom_frame.pack(fill="x", expand=True)
+        self.bottom_frame.columnconfigure(0, weight=0)
+        self.bottom_frame.columnconfigure(1, weight=1)
+        self.bottom_frame.columnconfigure(2, weight=0)
+        self.bottom_frame.rowconfigure(1, weight=1)
+        # Credit Part
+        tk.Label(
+            self.payment_frame, text="Make Payment From", bg="lightblue",
+            fg="blue", font=("Arial", 13, "bold", "underline"),
+        ).grid(row=0, column=0, columnspan=4, pady=(5, 0))
+        tk.Label(
+            self.payment_frame, text="Account Name:", bg="lightblue",
+            font=("Arial", 12, "bold"),
+        ).grid(row=1, column=0, sticky="e", padx=(2, 0), pady=3)
+        self.credit_name_combo.grid(
+            row=1, column=1, padx=(0, 2), pady=3, sticky="w"
         )
-        tk.Label(
-            self.debit_frame,
-            text="Account Code:",
-            bg="lightblue",
-            font=("Arial", 11, "bold"),
-        ).grid(row=0, column=2, sticky="e", padx=(5, 0), pady=5)
-        self.debit_code_combo.grid(row=0, column=3, padx=(0, 5), pady=5)
-        self.debit_code_combo.bind(
-            "<<ComboboxSelected>>",
-            lambda e: self.sync_account_fields("debit", "code")
-        )
-        tk.Label(
-            self.debit_frame, text="Amount:", font=("Arial", 11, "bold"),
-            bg="lightblue"
-        ).grid(row=1, column=2, sticky="e", pady=5, padx=(5, 0))
-        self.debit_amount_entry.grid(row=1, column=3, pady=5, padx=(0, 5))
-        # Credit Frame
-        self.credit_frame.grid(row=1, column=0, sticky="w")
-        tk.Label(
-            self.credit_frame,
-            text="Account Name:",
-            bg="lightblue",
-            font=("Arial", 11, "bold"),
-        ).grid(row=0, column=0, sticky="e", padx=(5, 0), pady=5)
-        self.credit_name_combo.grid(row=0, column=1, padx=(0, 5), pady=5)
         self.credit_name_combo.bind(
             "<<ComboboxSelected>>",
             lambda e: self.sync_account_fields("credit", "name")
         )
         tk.Label(
-            self.credit_frame,
-            text="Account Code:",
-            bg="lightblue",
-            font=("Arial", 11, "bold"),
-        ).grid(row=0, column=2, sticky="e", padx=(5, 0), pady=5)
-        self.credit_code_combo.grid(row=0, column=3, padx=(0, 5), pady=5)
+            self.payment_frame, text="Account Code:", bg="lightblue",
+            font=("Arial", 12, "bold"),
+        ).grid(row=1, column=2, sticky="e", padx=(2, 0), pady=3)
+        self.credit_code_combo.grid(row=1, column=3, padx=(0, 2), pady=3)
+        # Debit Part
+        tk.Label(
+            self.payment_frame, text="Make Payment To", bg="lightblue",
+            fg="blue", font=("Arial", 13, "bold", "underline"),
+        ).grid(row=2, column=0, columnspan=4, pady=(5, 0))
+        tk.Label(
+            self.payment_frame, text="Account Name:", bg="lightblue",
+            font=("Arial", 12, "bold"),
+        ).grid(row=3, column=0, sticky="w", padx=(2, 0), pady=3)
+        self.debit_name_combo.grid(row=3, column=1, padx=(0, 2), pady=3)
+        self.debit_name_combo.bind(
+            "<<ComboboxSelected>>",
+            lambda e: self.sync_account_fields("debit", "name")
+        )
+        tk.Label(
+            self.payment_frame, text="Account Code:", bg="lightblue",
+            font=("Arial", 12, "bold"),
+        ).grid(row=3, column=2, sticky="e", padx=(2, 0), pady=3)
+        self.debit_code_combo.grid(row=3, column=3, padx=(0, 2), pady=3)
+        self.debit_code_combo.bind(
+            "<<ComboboxSelected>>",
+            lambda e: self.sync_account_fields("debit", "code")
+        )
         self.credit_code_combo.bind(
             "<<ComboboxSelected>>",
             lambda e: self.sync_account_fields("credit", "code")
         )
         tk.Label(
-            self.credit_frame,
-            text="Amount:",
-            bg="lightblue",
-            font=("Arial", 11, "bold"),
-        ).grid(row=1, column=2, sticky="e", pady=5, padx=(5, 0))
-        self.credit_amount_entry.grid(row=1, column=3, padx=(0, 5), pady=5)
-        # Bottom Frame
-        self.bottom_frame.grid(row=2, column=0, pady=5, sticky="nsew")
-        self.bottom_frame.columnconfigure(0, weight=0)
-        self.bottom_frame.columnconfigure(1, weight=1)
-        self.bottom_frame.columnconfigure(2, weight=0)
-        self.bottom_frame.rowconfigure(1, weight=1)
+            self.bottom_frame, text="Amount:", font=("Arial", 12, "bold"),
+            bg="lightblue"
+        ).grid(row=0, column=0, sticky="e", pady=3)
+        self.amount_entry.grid(row=0, column=1, pady=3, sticky="w")
         tk.Label(
-            self.bottom_frame,
-            text="Reference No:",
-            bg="lightblue",
-            font=("Arial", 11, "bold"),
-        ).grid(row=0, column=0, pady=5, padx=(5, 0), sticky="w")
-        tk.Entry(
-            self.bottom_frame,
-            textvariable=self.ref_var,
-            width=15,
-            bd=2,
-            relief="raised",
-            font=("Arial", 11),
-        ).grid(row=0, column=1, pady=5, padx=(0, 5), sticky="w")
+            self.bottom_frame, text="Reference No:", bg="lightblue",
+            font=("Arial", 12, "bold"),
+        ).grid(row=0, column=2, pady=3, sticky="e", padx=(5, 0))
+        ref_entry = tk.Entry(
+            self.bottom_frame, textvariable=self.ref_var, width=15, bd=4,
+            relief="raised", font=("Arial", 12),
+        )
+        ref_entry.grid(row=0, column=3, pady=3, padx=(0, 5), sticky="w")
+        self.amount_entry.bind(
+            "<Return>",
+            lambda e: ref_entry.focus_set() if self.account_selected()
+            else self.credit_name_combo.focus_set()
+        )
+        ref_entry.bind("<Return>", self.focus_description)
         tk.Label(
-            self.bottom_frame,
-            text="Description:",
-            bg="lightblue",
-            font=("Arial", 11, "bold"),
-        ).grid(row=1, column=0, columnspan=2, pady=(5, 0), sticky="w")
-        self.desc_entry.grid(row=2, column=0, columnspan=2, pady=(0, 5))
+            self.bottom_frame, text="Description:", bg="lightblue",
+            font=("Arial", 12, "bold"),
+        ).grid(row=1, column=0, columnspan=4, pady=(3, 0), sticky="w")
+        self.desc_entry.grid(
+            row=2, column=1, columnspan=3, pady=(0, 5), sticky="nw"
+        )
+        self.desc_entry.bind("<Return>", self.submit_from_desc)
+        self.desc_entry.bind("<Shift-Return>", lambda e: None)
         SentenceCapitalizer.bind(self.desc_entry)
         tk.Button(
-            self.bottom_frame,
-            text="Post",
-            bg="dodgerblue",
-            fg="white",
-            width=10,
-            bd=2,
-            relief="groove",
+            self.bottom_frame, text="Post Payment", bd=4, relief="groove",
+            bg="dodgerblue", fg="white", font=("Arial", 11, "bold"),
             command=self.submit_journal,
-        ).grid(row=3, column=0, columnspan=2, pady=10)
+        ).grid(row=3, column=0, columnspan=4, pady=(5, 0))
         CurrencyFormatter.add_currency_trace(
-            self.debit_amount_var, self.debit_amount_entry
-        )
-        CurrencyFormatter.add_currency_trace(
-            self.credit_amount_var, self.credit_amount_entry
+            self.amount_var, self.amount_entry
         )
 
     def sync_account_fields(self, side, changed_field):
         name_var = self.debit_name_var if side == "debit" else self.credit_name_var
         code_var = self.debit_code_var if side == "debit" else self.credit_code_var
         value = name_var.get() if changed_field == "name" else code_var.get()
-        account = get_account_by_name_or_code(self.conn, value)
+        source = self.accounts if side == "debit" else self.credit_acc
+        account = next(
+            (acc for acc in source
+             if acc["account_name"] == value or acc["code"] == value), None
+        )
         if account:
             name_var.set(account["account_name"])
             code_var.set(account["code"])
@@ -406,27 +387,36 @@ class JournalEntryPopup(BaseWindow):
                 "Not Found", f"No Matching Account For {value}.",
                 parent=self.popup
             )
+        if side == "debit":
+            if self.account_selected():
+                self.amount_entry.focus_set()
+            else:
+                self.credit_name_combo.focus_set()
+
+    def focus_description(self, event=None):
+        if not self.account_selected():
+            self.credit_name_combo.focus_set()
+            return "break"
+        self.desc_entry.focus_set()
+        self.desc_entry.mark_set("insert", "1.0")
+        return "break"
+
+    def submit_from_desc(self, event=None):
+        if not self.account_selected():
+            self.credit_name_combo.focus_set()
+            return "break"
+        self.submit_journal()
+        return "break"
 
     def submit_journal(self):
-        # Verify user privilege
-        priv = "Write Journal"
-        verify = VerifyPrivilegePopup(self.popup, self.conn, self.user, priv)
-        if verify.result != "granted":
-            messagebox.showwarning(
-                "Access Denied",
-                f"You Don't Have Permission To {priv}.",
-                parent=self.popup,
-            )
-            return
         debit_code = self.debit_code_var.get()
         credit_code = self.credit_code_var.get()
-        debit_amt = self.debit_amount_var.get().replace(",", "").strip()
-        credit_amt = self.credit_amount_var.get().replace(",", "").strip()
+        debit_amt = self.amount_var.get().replace(",", "").strip()
         desc = self.desc_entry.get("1.0", tk.END).strip()
         ref_no = self.ref_var.get().strip()
         try:
             debit_val = float(debit_amt) if debit_amt else 0.00
-            credit_val = float(credit_amt) if credit_amt else 0.00
+            credit_val = float(debit_amt) if debit_amt else 0.00
             if debit_val == 0 or credit_val == 0:
                 messagebox.showwarning(
                     "Input Error", "Enter Valid Amount.", parent=self.popup
@@ -436,6 +426,18 @@ class JournalEntryPopup(BaseWindow):
                 messagebox.showwarning(
                     "Input Error",
                     "Select Debit and Credit Accounts.",
+                    parent=self.popup,
+                )
+                return
+            # Verify user privilege
+            priv = "Make Payment"
+            verify = VerifyPrivilegePopup(
+                self.popup, self.conn, self.user, priv
+            )
+            if verify.result != "granted":
+                messagebox.showwarning(
+                    "Access Denied",
+                    f"You Don't Have Permission To {priv}.",
                     parent=self.popup,
                 )
                 return
@@ -456,7 +458,13 @@ class JournalEntryPopup(BaseWindow):
             success, msg = insert_journal_entry(self.conn, ref_no, lines, self.user)
             if success:
                 messagebox.showinfo("Success", msg, parent=self.popup)
-                self.popup.destroy()
+                self.credit_name_var.set("")
+                self.credit_code_var.set("")
+                self.debit_name_var.set("")
+                self.debit_code_var.set("")
+                self.amount_var.set("")
+                self.ref_var.set("")
+                self.desc_entry.delete("1.0", tk.END)
             else:
                 messagebox.showerror("Error", msg, parent=self.popup)
         except ValueError:
@@ -464,13 +472,19 @@ class JournalEntryPopup(BaseWindow):
                 "Invalid", "Amount Must Be Numeric.", parent=self.popup
             )
 
+    def account_selected(self):
+        return (
+            bool(self.credit_name_var.get()) and
+            bool(self.debit_name_var.get())
+        )
+
 
 class OpeningBalancePopup(BaseWindow):
     def __init__(self, parent, conn, user):
         self.popup = tk.Toplevel(parent)
-        self.popup.title("Creating Opening Balances")
+        self.popup.title("Accounts Balances")
         self.popup.configure(bg="lightblue")
-        self.center_window(self.popup, 500, 350, parent)
+        self.center_window(self.popup, 500, 450, parent)
         self.popup.transient(parent)
         self.popup.grab_set()
 
@@ -480,117 +494,109 @@ class OpeningBalancePopup(BaseWindow):
         self.account_names = [acc["account_name"] for acc in self.accounts]
         self.account_code = [acc["code"] for acc in self.accounts]
         self.line_items = []  # Stores added opening entries
+        self.display_rows = [] # Stores treeview rows
         self.account_name_var = tk.StringVar()
         self.account_code_var = tk.StringVar()
         self.debit_var = tk.StringVar()
         self.credit_var = tk.StringVar()
-        self.columns = ("Account Name", "Code", "Debit", "Credit")
-        style = ttk.Style()
-        style.theme_use("alt")
-        style.configure("Treeview.Heading", font=("Arial", 11, "bold"))
-        style.configure("Treeview", font=("Arial", 10))
-        self.main_frame = tk.Frame(self.popup, bg="lightblue", bd=4, relief="solid")
+        self.columns = ("No.", "Account Name", "Code", "Debit", "Credit")
+        style = ttk.Style(self.popup)
+        style.theme_use("clam")
+        self.main_frame = tk.Frame(
+            self.popup, bg="lightblue", bd=4, relief="solid"
+        )
         self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.tree = ttk.Treeview(
-            self.table_frame, columns=self.columns, show="headings", height=8
+            self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No.")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
         self.build_gui()
+        self.sorter.autosize_columns()
 
     def build_gui(self):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        tk.Label(
+            self.main_frame, text="Account Opening Balance", bg="lightblue",
+            fg="blue", font=("Arial", 16, "bold", "underline")
+        ).pack(side="top", anchor="center")
         form_frame = tk.Frame(self.main_frame, bg="lightblue")
         form_frame.pack(pady=(5, 0), fill="x")
         tk.Label(
-            form_frame, text="Account Name:", bg="lightblue", font=("Arial", 11, "bold")
+            form_frame, text="Account Name:", bg="lightblue",
+            font=("Arial", 11, "bold")
         ).grid(row=0, column=0, padx=(5, 0), sticky="e")
         name_combo = ttk.Combobox(
-            form_frame,
-            textvariable=self.account_name_var,
-            width=15,
-            values=self.account_names,
-            state="readonly",
-            font=("Arial", 11),
+            form_frame, textvariable=self.account_name_var, width=15,
+            values=self.account_names, state="readonly", font=("Arial", 11),
         )
         name_combo.grid(row=0, column=1, padx=(0, 5))
-        name_combo.bind("<<ComboboxSelected>>", lambda e: self.sync_account("name"))
+        name_combo.bind(
+            "<<ComboboxSelected>>", lambda e: self.sync_account("name")
+        )
         name_combo.focus_set()
         tk.Label(
-            form_frame, text="Account Code:", bg="lightblue", font=("Arial", 11, "bold")
+            form_frame, text="Account Code:", bg="lightblue",
+            font=("Arial", 11, "bold")
         ).grid(row=0, column=2, padx=(5, 0), sticky="e")
         code_combo = ttk.Combobox(
-            form_frame,
-            textvariable=self.account_code_var,
-            width=5,
-            values=self.account_code,
-            state="readonly",
-            font=("Arial", 11),
+            form_frame, textvariable=self.account_code_var, width=5,
+            values=self.account_code, state="readonly", font=("Arial", 11)
         )
         code_combo.grid(row=0, column=3, padx=(0, 5))
-        code_combo.bind("<<ComboboxSelected>>", lambda e: self.sync_account("code"))
+        code_combo.bind(
+            "<<ComboboxSelected>>", lambda e: self.sync_account("code")
+        )
         tk.Label(
-            form_frame, text="Debit:", bg="lightblue", font=("Arial", 11, "bold")
+            form_frame, text="Debit:", bg="lightblue",
+            font=("Arial", 11, "bold")
         ).grid(row=1, column=0, sticky="e")
         debit_entry = tk.Entry(
-            form_frame,
-            textvariable=self.debit_var,
-            width=8,
-            bd=2,
-            relief="raised",
-            font=("Arial", 11),
+            form_frame, textvariable=self.debit_var, width=8, bd=4,
+            relief="raised", font=("Arial", 11),
         )
         debit_entry.grid(row=1, column=1, sticky="w")
         tk.Label(
-            form_frame, text="Credit:", bg="lightblue", font=("Arial", 11, "bold")
+            form_frame, text="Credit:", bg="lightblue",
+            font=("Arial", 11, "bold")
         ).grid(row=1, column=2, sticky="e")
         credit_entry = tk.Entry(
-            form_frame,
-            textvariable=self.credit_var,
-            width=8,
-            bd=2,
-            relief="raised",
-            font=("Arial", 11),
+            form_frame, textvariable=self.credit_var, width=8, bd=4,
+            relief="raised", font=("Arial", 11),
         )
         credit_entry.grid(row=1, column=3, sticky="w")
         # Buttons
         btn_frame = tk.Frame(self.main_frame, bg="lightblue")
-        btn_frame.pack(pady=5)
+        btn_frame.pack(pady=(5, 0))
         tk.Button(
-            btn_frame,
-            bd=2,
-            relief="groove",
-            text="Add Line",
+            btn_frame, text="Add Line", bg="dodgerblue", fg="white", bd=4,
+            relief="groove", font=("Arial", 10, "bold"),
             command=self.add_line,
-            bg="dodgerblue",
-            fg="white",
         ).pack(side="left")
         tk.Button(
-            btn_frame,
-            bd=2,
-            relief="groove",
-            text="Remove Line",
+            btn_frame, text="Remove Line", bg="tomato", fg="white", bd=4,
+            relief="groove", font=("Arial", 10, "bold"),
             command=self.remove_selected,
-            bg="tomato",
-            fg="white",
         ).pack(side="left")
         # Treeview
-        self.table_frame.pack(fill="both", expand=True, pady=(0, 10))
+        self.table_frame.pack(fill="both", expand=True)
         for col in self.columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor="center", width=30)
         self.tree.pack(expand=True, fill="both")
         # Submit Button
         tk.Button(
-            self.main_frame,
-            bg="green",
-            fg="white",
-            bd=4,
-            relief="groove",
-            text="Post Opening Balances",
-            command=self.post_opening_balances,
-        ).pack(pady=5)
+            self.main_frame, text="Post Balances", bg="green", fg="white",
+            bd=4, relief="groove", font=("Arial", 11, "bold"),
+            command=self.post_opening_balances
+        ).pack(pady=(5, 0))
         CurrencyFormatter.add_currency_trace(self.debit_var, debit_entry)
         CurrencyFormatter.add_currency_trace(self.credit_var, credit_entry)
+        self.tree.tag_configure("evenrow", background="#fffde7")
+        self.tree.tag_configure("oddrow", background="#e0f7e9")
 
     def sync_account(self, changed):
         value = (
@@ -602,6 +608,12 @@ class OpeningBalancePopup(BaseWindow):
         if acc:
             self.account_name_var.set(acc["account_name"])
             self.account_code_var.set(acc["code"])
+
+    def find_row_index(self, name, code):
+        for i, row in enumerate(self.display_rows):
+            if row["account_code"] == code or row["account_name"] == name:
+                return i
+        return None
 
     def add_line(self):
         name = self.account_name_var.get()
@@ -625,20 +637,31 @@ class OpeningBalancePopup(BaseWindow):
                     parent=self.popup,
                 )
                 return
-            self.line_items.append(
-                {
+            item_index = self.find_row_index(name, code)
+            if item_index is not None:
+                # Update display rows
+                self.display_rows[item_index]["debit"] += debit_val
+                self.display_rows[item_index]["credit"] += credit_val
+                # Update posting row
+                self.line_items[item_index]["debit"] += debit_val
+                self.line_items[item_index]["credit"] += credit_val
+            else:
+                # New display row
+                self.display_rows.append({
+                    "account_name": name,
+                    "account_code": code,
+                    "debit": debit_val,
+                    "credit": credit_val,
+                })
+                # New posting row
+                self.line_items.append({
                     "account_code": code,
                     "description": f"Opening balance for {name}",
                     "debit": debit_val,
                     "credit": credit_val,
-                }
-            )
-            self.tree.insert(
-                "",
-                "end",
-                values=(name, code, f"{debit_val:,.2f}", f"{credit_val:,.2f}"),
-            )
-            self.autosize_columns()
+                })
+
+            self.load_table()
             # Clear entries
             self.account_name_var.set("")
             self.account_code_var.set("")
@@ -656,8 +679,24 @@ class OpeningBalancePopup(BaseWindow):
             return
         for sel in selected:
             index = self.tree.index(sel)
-            self.tree.delete(sel)
+            del self.display_rows[index]
             del self.line_items[index]
+        self.load_table()
+
+    def load_table(self):
+        for row in self.tree.get_children():
+            self.tree.delete(row)
+
+        for i, row in enumerate(self.display_rows, start=1):
+            tag = "evenrow" if i % 2 == 0 else "oddrow"
+            self.tree.insert("", "end", values=(
+                i,
+                row["account_name"],
+                row["account_code"],
+                f"{row['debit']:,.2f}",
+                f"{row['credit']:,.2f}"
+            ), tags=(tag,))
+        self.sorter.autosize_columns()
 
     def post_opening_balances(self):
         if not self.line_items:
@@ -684,45 +723,38 @@ class OpeningBalancePopup(BaseWindow):
         else:
             messagebox.showerror("Error", msg, parent=self.popup)
 
-    def autosize_columns(self):
-        font = tkFont.Font()
-        for col in self.tree["columns"]:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                cell_text = str(self.tree.set(item, col))
-                cell_width = font.measure(cell_text)
-                if cell_width > max_width:
-                    max_width = cell_width
-            self.tree.column(col, width=max_width)
-
 
 class ReverseJournalPopup(BaseWindow):
     def __init__(self, master, conn, user):
         self.window = tk.Toplevel(master)
-        self.window.title("Reverse Journal Entry")
-        self.center_window(self.window, 1100, 700, master)
+        self.window.title("Reverse Journal")
+        self.center_window(self.window, 1150, 700, master)
         self.window.configure(bg="lightblue")
         self.window.transient(master)
         self.window.grab_set()
 
         self.conn = conn
         self.user = user
-        style = ttk.Style()
+        style = ttk.Style(self.window)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", font=("Arial", 10))
         self.code = None
         self.main_frame = tk.Frame(
             self.window, bg="lightblue", bd=4, relief="solid"
         )
-        self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
+        self.table_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=2, relief="ridge"
+        )
         self.columns = (
-            "No", "Date", "Journal ID", "Account Code", "Account Name",
-            "Description", "Debit", "Credit",
+            "No", "Date", "ID", "Account Name", "Acc Code", "Description",
+            "Debit", "Credit",
         )
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
         self.build_ui()
         self.populate_table()
@@ -730,20 +762,24 @@ class ReverseJournalPopup(BaseWindow):
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
         top_frame = tk.Frame(self.main_frame, bg="lightblue")
-        top_frame.pack(fill="x", pady=(5, 0), padx=5)
+        top_frame.pack(side="top", fill="x")
         tk.Label(
-            top_frame, text="Select Entry to Reverse.", bg="lightblue", bd=4,
-            font=("Arial", 14, "italic", "underline"), fg="dodgerblue",
-            relief="ridge"
-        ).pack(side="left", padx=20, ipadx=5)
+            top_frame, text="Reverse/Delete Journal Entry", bg="lightblue",
+            fg="blue", font=("Arial", 20, "bold", "underline")
+        ).pack(side="left")
+        tk.Label(
+            top_frame, text="Select Entry to Reverse.", bg="lightblue",
+            font=("Arial", 12, "italic", "underline"), fg="blue", width=50
+        ).pack(side="left", anchor="s")
         tk.Button(
-            top_frame, text="Reverse Entry", bg="green", fg="white", bd=2,
-            relief="groove", command=self.reverse_selected,
-            font=("Arial", 10)
+            top_frame, text="Reverse Entry", bg="green", fg="white", bd=4,
+            relief="groove", font=("Arial", 10, "bold"), height=1,
+            command=self.reverse_selected
         ).pack(side="right")
         tk.Button(
-            top_frame, text="Delete Entry", bg="green", fg="white", bd=2,
-            relief="groove", command=self.delete_selected, font=("Arial", 10)
+            top_frame, text="Delete Entry", bg="green", fg="white", bd=4,
+            relief="groove", font=("Arial", 10, "bold"), height=1,
+            command=self.delete_selected
         ).pack(side="right")
         self.table_frame.pack(fill="both", expand=True)
         for col in self.columns:
@@ -755,10 +791,6 @@ class ReverseJournalPopup(BaseWindow):
         self.tree.configure(yscrollcommand=y_scroll.set)
         self.tree.pack(side="left", fill="both", expand=True)
         y_scroll.pack(side="right", fill="y")
-        self.tree.bind(
-            "<MouseWheel>",
-            lambda e: self.tree.yview_scroll(int(-1 * (e.delta / 120)), "units"),
-        )
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
 
@@ -775,24 +807,13 @@ class ReverseJournalPopup(BaseWindow):
                 i,
                 row["entry_date"].strftime("%d/%m/%Y"),
                 row["journal_id"],
-                row["account_code"],
                 row["account_name"],
+                row["account_code"],
                 row["description"],
                 f"{row['debit']:,.2f}",
                 f"{row['credit']:,.2f}",
             ), tags=(tag,))
-        self.autosize_columns()
-
-    def autosize_columns(self):
-        font = tkFont.Font()
-        for col in self.columns:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                cell_text = str(self.tree.set(item, col))
-                cell_width = font.measure(cell_text)
-                if cell_width > max_width:
-                    max_width = cell_width
-            self.tree.column(col, width=max_width + 5)
+        self.sorter.autosize_columns()
 
     def _handle_selected_entry(self, action_name, priv_name, action_func):
         selected = self.tree.focus()
@@ -855,13 +876,12 @@ class ReverseJournalPopup(BaseWindow):
         )
 
 
-
 class ViewJournalWindow(BaseWindow):
     def __init__(self, master, conn, user):
         self.window = tk.Toplevel(master)
         self.window.title("Journal Viewer")
         self.window.configure(bg="lightblue")
-        self.center_window(self.window, 1000, 650, master)
+        self.center_window(self.window, 1000, 700, master)
         self.window.transient(master)
         self.window.grab_set()
 
@@ -872,21 +892,17 @@ class ViewJournalWindow(BaseWindow):
         self.accounts_codes = [acc["code"] for acc in self.accounts]
         style = ttk.Style(self.window)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", font=("Arial", 10))
         self.main_frame = tk.Frame(
             self.window, bg="lightblue", bd=4, relief="solid"
         )
-        self.top_frame = tk.Frame(
-            self.main_frame, bg="lightblue", bd=2, relief="ridge"
-        )
+        self.top_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.name_cb = ttk.Combobox(
-            self.top_frame, width=20, values=self.accounts_names,
-            state="readonly", font=("Arial", 11)
+            self.top_frame, width=18, values=self.accounts_names,
+            state="readonly", font=("Arial", 12)
         )
         self.code_cb = ttk.Combobox(
-            self.top_frame, width=5, values=self.accounts_codes,
-            state="readonly", font=("Arial", 11)
+            self.top_frame, width=7, values=self.accounts_codes,
+            state="readonly", font=("Arial", 12)
         )
         self.title_var = tk.StringVar()
         self.table_frame = tk.Frame(
@@ -898,23 +914,35 @@ class ViewJournalWindow(BaseWindow):
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No.")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
         self.build_ui()
 
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        tk.Label(
+            self.main_frame, text="View Finance Journals", bg="lightblue",
+            fg="blue", font=("Arial", 20, "bold", "underline")
+        ).pack(side="top", anchor="center")
         self.top_frame.pack(fill="x")
         tk.Label(
-            self.top_frame, text="Select Account Name:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).pack(side="left", padx=(5, 0))
-        self.name_cb.pack(side="left", padx=(0, 5))
+            self.top_frame, text="Select Account To Show;", bg="lightblue",
+            fg="blue", font=("Arial", 14, "italic", "underline")
+        ).pack(side="left", padx=(0, 5))
+        tk.Label(
+            self.top_frame, text="Account Name:", bg="lightblue",
+            font=("Arial", 12, "bold")
+        ).pack(side="left", padx=(5, 0), anchor="s")
+        self.name_cb.pack(side="left", padx=(0, 5), anchor="s")
         self.name_cb.current(0)
         tk.Label(
-            self.top_frame, text="Select Account Code:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).pack(side="left", padx=(5, 0))
-        self.code_cb.pack(side="left", padx=(0, 5))
+            self.top_frame, text="Code:", bg="lightblue",
+            font=("Arial", 12, "bold")
+        ).pack(side="left", padx=(5, 0), anchor="s")
+        self.code_cb.pack(side="left", padx=(0, 5), anchor="s")
         self.name_cb.bind(
             "<<ComboboxSelected>>", lambda e: self.sync_account_fields("name")
         )
@@ -922,7 +950,7 @@ class ViewJournalWindow(BaseWindow):
             "<<ComboboxSelected>>", lambda e: self.sync_account_fields("code")
         )
         btn_frame = tk.Frame(self.top_frame, bg="lightblue")
-        btn_frame.pack(side="right", padx=5)
+        btn_frame.pack(side="right", padx=5, anchor="s")
         buttons = {
             "Print": self.on_print,
             "Export PDF": self.on_export_pdf,
@@ -930,14 +958,14 @@ class ViewJournalWindow(BaseWindow):
         }
         for text, command in buttons.items():
             tk.Button(
-                btn_frame, text=text, bd=2, relief="groove", bg="blue", fg="white",
-                command=command, font=("Arial", 10, "bold")
+                btn_frame, text=text, bd=4, relief="groove", bg="blue",
+                fg="white", command=command, font=("Arial", 10, "bold")
             ).pack(side="left")
         tk.Label(
             self.table_frame, textvariable=self.title_var, bg="lightblue",
-            fg="blue", bd=2, relief="raised",
+            fg="blue", bd=4, relief="ridge",
             font=("Arial", 16, "bold", "underline")
-        ).pack(side="top", anchor="center", ipadx=10)
+        ).pack(side="top", anchor="center", fill="x")
         self.table_frame.pack(fill="both", expand=True)
         for col in self.columns:
             self.tree.heading(col, text=col)
@@ -948,13 +976,9 @@ class ViewJournalWindow(BaseWindow):
         self.tree.configure(yscrollcommand=vsb.set)
         vsb.pack(side="right", fill="y")
         self.tree.pack(fill="both", expand=True)
-        # MouseWheel binding
-        self.tree.bind("<MouseWheel>", lambda e: self.tree.yview_scroll(
-            int(-1 * (e.delta / 120)), "units"
-        ))
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
-        self.tree.tag_configure("balance", font=("Arial", 11, "bold"))
+        self.tree.tag_configure("totalrow", font=("Arial", 11, "bold"))
         self.tree.tag_configure(
             "total", font=("Arial", 12, "bold", "underline"),
             background="#c5cae9"
@@ -985,7 +1009,7 @@ class ViewJournalWindow(BaseWindow):
         total_debit = 0
         total_credit = 0
 
-        self.title_var.set(f"{account_name} : {account_code}")
+        self.title_var.set(f"{account_name}({account_code})")
         for idx, line in enumerate(lines, start=1):
             tag = "evenrow" if idx % 2 == 0 else "oddrow"
             self.tree.insert("", "end", values=(
@@ -999,35 +1023,24 @@ class ViewJournalWindow(BaseWindow):
             total_debit += line["debit"]
             total_credit += line["credit"]
         # Insert balance carried down if necessary
-        today = date.today().strftime("%d/%m/%Y")
+        today = datetime.now().date().strftime("%d/%m/%Y")
         balancing = max(total_debit, total_credit)
         if total_debit > total_credit:
             desc = f"Balance C/d as at {today}"
             balance = total_debit - total_credit
             self.tree.insert("", "end", values=(
                 "", "", "", desc, 0.00, f"{balance:,}"
-            ), tags=("balance",))
+            ), tags=("totalrow",))
         elif total_credit > total_debit:
             desc = f"Balance C/d as at {today}"
             balance = total_credit - total_debit
             self.tree.insert("", "end", values=(
                 "", "", "", desc, f"{balance:,}", 0.00
-            ), tags=("balance",))
+            ), tags=("totalrow",))
         self.tree.insert("", "end", values=(
             "", "", "", "Total", f"{balancing:,}", f"{balancing:,}"
         ), tags=("total",))
-        self.auto_resize_columns()
-
-    def auto_resize_columns(self):
-        font = tkFont.Font()
-        for col in self.tree["columns"]:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                cell_text = str(self.tree.set(item, col))
-                cell_width = font.measure(cell_text)
-                if cell_width > max_width:
-                    max_width = cell_width
-            self.tree.column(col, width=max_width + 2)
+        self.sorter.autosize_columns()
 
     def _collect_current_rows(self):
         rows = []
@@ -1093,7 +1106,7 @@ class TrialBalanceWindow(BaseWindow):
         self.window = tk.Toplevel(parent)
         self.window.title("Trial Balance")
         self.window.configure(bg="lightblue")
-        self.center_window(self.window, 1100, 650, parent)
+        self.center_window(self.window, 1100, 700, parent)
         self.window.transient(parent)
         self.window.grab_set()
 
@@ -1101,13 +1114,11 @@ class TrialBalanceWindow(BaseWindow):
         self.user = user
         # Define columns
         self.columns = (
-            "No", "Account Code", "Account Name", "Account Type", "Debit",
-            "Credit", "Balance"
+            "No", "Acc Code", "Account Name", "Acc Type", "Debit", "Credit",
+            "Balance"
         )
         style = ttk.Style(self.window)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", font=("Arial", 11))
         self.main_frame = tk.Frame(
             self.window, bg="lightblue", bd=4, relief="solid"
         )
@@ -1117,6 +1128,10 @@ class TrialBalanceWindow(BaseWindow):
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
         self.build_ui()
         self.populate_table()
@@ -1128,12 +1143,12 @@ class TrialBalanceWindow(BaseWindow):
             self.main_frame, bg="lightblue", bd=4, relief="ridge"
         )
         top_frame.pack(fill="x")
-        year = date.today().year
+        year = datetime.now().date().year
         title_text = f"Trial Balance For Year Ended December {year}."
         tk.Label(
-            top_frame, text=title_text, bg="lightblue", fg="blue",
-            font=("Arial", 18, "bold", "underline"), bd=2, relief="flat"
-        ).pack(side="left", padx=20)
+            top_frame, text=title_text, bg="lightblue", fg="blue", bd=4,
+            relief="ridge", font=("Arial", 20, "bold", "underline"), width=40
+        ).pack(side="left", anchor="s")
         # action buttons
         btn_frame = tk.Frame(top_frame, bg="lightblue")
         btn_frame.pack(side="right")
@@ -1144,8 +1159,8 @@ class TrialBalanceWindow(BaseWindow):
         }
         for text, command in buttons.items():
             tk.Button(
-                btn_frame, text=text, bd=2, relief="groove", bg="blue",
-                fg="white", command=command, font=("Arial", 10, "bold")
+                btn_frame, text=text, bd=4, relief="groove", bg="blue",
+                fg="white", command=command, font=("Arial", 11, "bold")
             ).pack(side="left")
 
         self.table_frame.pack(fill="both", expand=True)
@@ -1158,12 +1173,6 @@ class TrialBalanceWindow(BaseWindow):
         self.tree.configure(yscrollcommand=y_scroll.set)
         self.tree.pack(side="left", fill="both", expand=True)
         y_scroll.pack(side="right", fill="y")
-        # Mouse Wheel scrolling
-        self.tree.bind(
-            "<MouseWheel>", lambda e: self.tree.yview_scroll(
-                int(-1 * (e.delta / 120)), "units"
-            ),
-        )
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
         self.tree.tag_configure(
@@ -1203,18 +1212,7 @@ class TrialBalanceWindow(BaseWindow):
                 "", "", "", "Total", f"{total_debit:,}", f"{total_credit:,}",
                 f"{total_balance}"
             ), tags=("total",))
-        self.autosize_columns()
-
-    def autosize_columns(self):
-        font = tkFont.Font()
-        for col in self.columns:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                cell_text = str(self.tree.set(item, col))
-                cell_width = font.measure(cell_text)
-                if cell_width > max_width:
-                    max_width = cell_width
-            self.tree.column(col, width=max_width + 5)
+        self.sorter.autosize_columns()
 
     def _collect_current_rows(self):
         rows = []
@@ -1223,9 +1221,9 @@ class TrialBalanceWindow(BaseWindow):
             rows.append(
                 {
                     "No": vals[0],
-                    "Account Code": vals[1],
+                    "Acc Code": vals[1],
                     "Account Name": vals[2],
-                    "Account Type": vals[3],
+                    "Acc Type": vals[3],
                     "Debit": vals[4],
                     "Credit": vals[5],
                     "Balance": vals[6],
@@ -1234,11 +1232,11 @@ class TrialBalanceWindow(BaseWindow):
         return rows
 
     def _make_exporter(self):
-        year = date.today().year
+        year = datetime.now().date().year
         title = f"Trial Balance For Year Ended December {year}."
         columns = [
-            "No", "Account Code", "Account Name", "Account Type", "Debit",
-            "Credit", "Balance",
+            "No", "Acc Code", "Account Name", "Acc Type", "Debit", "Credit",
+            "Balance",
         ]
         rows = self._collect_current_rows()
         return ReportExporter(self.window, title, columns, rows)
@@ -1281,7 +1279,7 @@ class IncomeStatementWindow(BaseWindow):
         self.window = tk.Toplevel(parent)
         self.window.title("Income Statement")
         self.window.configure(bg="lightblue")
-        self.center_window(self.window, 900, 550, parent)
+        self.center_window(self.window, 900, 700, parent)
         self.window.transient(parent)
         self.window.grab_set()
 
@@ -1291,17 +1289,19 @@ class IncomeStatementWindow(BaseWindow):
         )
         style = ttk.Style(self.window)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
-        style.configure("Treeview", font=("Arial", 11))
         self.main_frame = tk.Frame(
             self.window, bg="lightblue", bd=4, relief="solid"
         )
         self.table_frame = tk.Frame(
-            self.main_frame, bg="lightblue", bd=2, relief="ridge"
+            self.main_frame, bg="lightblue", bd=4, relief="ridge"
         )
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
         self.build_ui()
         self.populate_table()
@@ -1313,15 +1313,15 @@ class IncomeStatementWindow(BaseWindow):
             self.main_frame, bg="lightblue", bd=2, relief="ridge"
         )
         top_frame.pack(fill="x")
-        year = date.today().year
+        year = datetime.now().date().year
         title_text = f"Income Statement For Year Ended {year}."
         tk.Label(
-            top_frame, text=title_text, bg="lightblue", fg="blue", bd=2,
-            relief="ridge", font=("Arial", 18, "bold", "underline"),
-        ).pack(side="left", ipadx=10)
+            top_frame, text=title_text, bg="lightblue", fg="blue", bd=4,
+            relief="flat", font=("Arial", 20, "bold", "underline")
+        ).pack(side="left", ipadx=10, anchor="s")
         # Buttons Frame
         btn_frame = tk.Frame(top_frame, bg="lightblue")
-        btn_frame.pack(side="right", padx=5)
+        btn_frame.pack(side="right", anchor="s")
         buttons = {
             "Print": self.on_print,
             "Export PDF": self.on_export_pdf,
@@ -1330,7 +1330,7 @@ class IncomeStatementWindow(BaseWindow):
         for text, command in buttons.items():
             tk.Button(
                 btn_frame, text=text, bd=4, relief="groove", bg="blue",
-                fg="white", command=command, font=("Arial", 10, "bold")
+                fg="white", command=command, font=("Arial", 11, "bold")
             ).pack(side="left")
         # Table Area
         self.table_frame.pack(fill="both", expand=True)
@@ -1343,10 +1343,6 @@ class IncomeStatementWindow(BaseWindow):
         self.tree.configure(yscrollcommand=y_scroll.set)
         self.tree.pack(side="left", fill="both", expand=True)
         y_scroll.pack(side="right", fill="y")
-        # Mouse wheel support
-        self.tree.bind("<MouseWheel>", lambda e: self.tree.yview_scroll(
-            int(-1 * (e.delta / 120)), "units"
-        ))
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
         self.tree.tag_configure(
@@ -1382,18 +1378,7 @@ class IncomeStatementWindow(BaseWindow):
             self.tree.insert("", "end", values=(
                 "", "", status, "", f"{total:,.2f}"
             ), tags=("total",))
-        self.autosize_columns()
-
-    def autosize_columns(self):
-        font = tkFont.Font()
-        for col in self.columns:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                cell_text = str(self.tree.set(item, col))
-                cell_width = font.measure(cell_text)
-                if cell_width > max_width:
-                    max_width = cell_width
-            self.tree.column(col, width=max_width + 5)
+        self.sorter.autosize_columns(10)
 
     def _collect_rows(self):
         rows = []
@@ -1411,7 +1396,7 @@ class IncomeStatementWindow(BaseWindow):
         return rows
 
     def _make_exporter(self):
-        year = date.today().year
+        year = datetime.now().date().year
         title = f"Income Statement For Year Ended {year}."
         columns = [
             "No", "Category", "Account Name", "Code", "Amount"
@@ -1448,8 +1433,6 @@ class CashFlowStatementWindow(BaseWindow):
         )
         style = ttk.Style(self.window)
         style.theme_use("clam")
-        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))
-        style.configure("Treeview", font=("Arial", 11))
         self.main_frame = tk.Frame(
             self.window, bg="lightblue", bd=4, relief="solid"
         )
@@ -1457,6 +1440,10 @@ class CashFlowStatementWindow(BaseWindow):
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
         self.build_ui()
         self.populate_table()
@@ -1469,12 +1456,12 @@ class CashFlowStatementWindow(BaseWindow):
         current_year = datetime.now().year
         title_text = f"Cash Flow Statement For Year {current_year}."
         tk.Label(
-            top_frame, text=title_text, bg="lightblue", fg="blue", bd=2,
-            relief="ridge", font=("Arial", 18, "bold", "underline"),
-        ).pack(side="left", ipadx=10)
+            top_frame, text=title_text, bg="lightblue", fg="blue", bd=4,
+            relief="flat", font=("Arial", 20, "bold", "underline"),
+        ).pack(side="left", anchor="s", ipadx=10)
         # Buttons Frame
         btn_frame = tk.Frame(top_frame, bg="lightblue")
-        btn_frame.pack(side="right", padx=5)
+        btn_frame.pack(side="right", anchor="s")
         buttons = {
             "Print": self.on_print,
             "Export PDF": self.on_export_pdf,
@@ -1483,8 +1470,8 @@ class CashFlowStatementWindow(BaseWindow):
         for text, command in buttons.items():
             tk.Button(
                 btn_frame, text=text, bd=4, relief="groove", bg="blue",
-                fg="white", command=command, font=("Arial", 10, "bold")
-            ).pack(side="left")
+                fg="white", command=command, font=("Arial", 11, "bold")
+            ).pack(side="left", anchor="s")
         # Table Area
         self.table_frame.pack(fill="both", expand=True)
         for col in self.columns:
@@ -1496,10 +1483,6 @@ class CashFlowStatementWindow(BaseWindow):
         self.tree.configure(yscrollcommand=y_scroll.set)
         self.tree.pack(side="left", fill="both", expand=True)
         y_scroll.pack(side="left", fill="y")
-        # Mouse Wheel scroll
-        self.tree.bind("<MouseWheel>", lambda e: self.tree.yview_scroll(
-            int(-1 * (e.delta / 120)), "units"
-        ))
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
 
@@ -1541,18 +1524,24 @@ class CashFlowStatementWindow(BaseWindow):
                 f"{total_amount:,.2f}",
             ), tags=(tag,))
             no += 1
-        self.autosize_columns()
-
-    def autosize_columns(self):
-        font = tkFont.Font()
-        for col in self.columns:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                cell_text = str(self.tree.set(item, col))
-                cell_width = font.measure(cell_text)
-                if cell_width > max_width:
-                    max_width = cell_width
-            self.tree.column(col, width=max_width + 5)
+        if total_amount >= 0:
+            status = "Profit"
+            total_figure = f"{total_amount:,.2f}"
+            self.tree.tag_configure(
+                "total", font=("Arial", 12, "bold", "underline"),
+                background="blue", foreground="white"
+            )
+        else:
+            status = "Loss"
+            total_figure =f"({abs(total_amount):,.2f})"
+            self.tree.tag_configure(
+                "total", font=("Arial", 12, "bold", "underline"),
+                background="red", foreground="black"
+            )
+        self.tree.insert("", "end", values=(
+            "", "", "Net Income", status, "", total_figure
+        ), tags=("total",))
+        self.sorter.autosize_columns(10)
 
     def _collect_rows(self):
         rows = []
@@ -1571,8 +1560,11 @@ class CashFlowStatementWindow(BaseWindow):
         return rows
 
     def _make_exporter(self):
-        title = f"Cash Flow Statement For Year {datetime.now().year}."
-        columns = ["No", "Category", "Account Code", "Account Name", "Amount", "Total"]
+        title = f"Cash Flow Statement For Year {datetime.now().date().year}."
+        columns = [
+            "No", "Category", "Account Code", "Account Name", "Amount",
+            "Total"
+        ]
         rows = self._collect_rows()
         return ReportExporter(self.window, title, columns, rows)
 
@@ -1600,19 +1592,22 @@ class BalanceSheetWindow(BaseWindow):
 
         self.conn = conn
         style = ttk.Style(self.window)
-        style.theme_use("classic")
-        style.configure("Treeview.Heading", font=("Arial", 13, "bold"))
-        style.configure("Treeview", font=("Arial", 11))
+        style.theme_use("clam")
         self.columns = (
             "No", "Account Code", "Account Name", "Debit", "Credit"
         )
         self.main_frame = tk.Frame(
             self.window, bg="lightblue", bd=4, relief="solid"
         )
-        self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
+        self.table_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=4, relief="ridge"
+        )
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.bind_mousewheel()
 
         self.build_ui()
         self.populate_table()
@@ -1620,20 +1615,17 @@ class BalanceSheetWindow(BaseWindow):
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         # Title Frame
-        title_frame = tk.Frame(
-            self.main_frame, bg="lightblue", bd=2, relief="ridge"
-        )
-        title_frame.pack(fill="x", padx=5)
+        title_frame = tk.Frame(self.main_frame, bg="lightblue")
+        title_frame.pack(fill="x", ipadx=5)
         year = datetime.now().year
         title_text = f"Balance Sheet For Year Ended {year}"
-        title_label = tk.Label(
-            title_frame, text=title_text, bg="lightblue", bd=2,
-            relief="ridge", font=("Arial", 18, "bold", "underline"),
-        )
-        title_label.pack(side="left", ipadx=10)
+        tk.Label(
+            title_frame, text=title_text, bg="lightblue", fg="blue", bd=2,
+            relief="ridge", font=("Arial", 20, "bold", "underline"),
+        ).pack(side="left", ipadx=10)
         # Buttons Frame
         btn_frame = tk.Frame(title_frame, bg="lightblue")
-        btn_frame.pack(side="right", padx=5)
+        btn_frame.pack(side="right", anchor="s")
         buttons = {
             "Print": self.on_print,
             "Export PDF": self.on_export_pdf,
@@ -1642,9 +1634,8 @@ class BalanceSheetWindow(BaseWindow):
         for text, command in buttons.items():
             tk.Button(
                 btn_frame, text=text, bd=4, relief="groove", bg="blue",
-                fg="white", command=command, font=("Arial", 10, "bold")
+                fg="white", command=command, font=("Arial", 11, "bold")
             ).pack(side="left")
-
         # Table Frame
         self.table_frame.pack(fill="both", expand=True)
         for col in self.columns:
@@ -1656,26 +1647,20 @@ class BalanceSheetWindow(BaseWindow):
         self.tree.configure(yscrollcommand=scrollbar.set)
         self.tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-        # Mousewheel Scroll
-        self.tree.bind("<MouseWheel>", lambda e: self.tree.yview_scroll(
-            int(-1 * (e.delta / 120)), "units"
-        ))
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
         # Apply tag style
         self.tree.tag_configure(
-            "category_header", font=("Arial", 12, "bold", "underline"),
-            background="#FFFFFF"
+            "total", font=("Arial", 12, "bold", "underline"),
+            background="#FFFFFF", foreground="blue"
         ) # Pure White Background
         self.tree.tag_configure(
-            "total_row", font=("Arial", 11, "bold"), background="#FAFAFA"
+            "totalrow", font=("Arial", 12, "bold"), background="#FAFAFA",
+            foreground="green"
         ) # Very light Gray
         self.tree.tag_configure(
-            "balance", font=("Arial", 12, "bold"), background="#FCE4EC"
-        ) # Light Pink Background
-        self.tree.tag_configure(
-            "grand_total_row", font=("Arial", 12, "bold", "underline"),
-            background="#c5cae9"
+            "grandtotalrow", font=("Arial", 12, "bold", "underline"),
+            background="blue", foreground="white"
         )
 
     def populate_table(self):
@@ -1692,7 +1677,7 @@ class BalanceSheetWindow(BaseWindow):
             # Heading row for category
             self.tree.insert("", "end", values=(
                 "", category.capitalize(), "", "", ""
-            ), tags=("category_header",))
+            ), tags=("total",))
             # Rows for each account
             for row in cat_data["items"]:
                 if category == "assets":
@@ -1730,7 +1715,7 @@ class BalanceSheetWindow(BaseWindow):
                 f"Total {category.capitalize()}",
                 total_debit,
                 total_credit,
-            ), tags=("total_row",))
+            ), tags=("totalrow",))
         # Grand total row (Assets vs Liabilities + Equity)
         grand_total_debit = total_assets
         grand_total_credit = (total_liabilities + total_equity)
@@ -1738,12 +1723,12 @@ class BalanceSheetWindow(BaseWindow):
             balancing_figure = (grand_total_debit - grand_total_credit)
             self.tree.insert("", "end", values=(
                 "", "", "Balance C/d", "", f"{balancing_figure:,.2f}"
-            ), tags=("balance",))
+            ), tags=("totalrow",))
         elif grand_total_credit > grand_total_debit:
             balancing_figure = (grand_total_credit-grand_total_debit)
             self.tree.insert("", "end", values=(
                 "", "", "Balance C/d", f"{balancing_figure:,.2f}", ""
-            ), tags=("balance",))
+            ), tags=("totalrow",))
         else:
             # For Spacing
             self.tree.insert("", "end", values=("", "", "", "", ""))
@@ -1754,20 +1739,9 @@ class BalanceSheetWindow(BaseWindow):
             "TOTAL",
             f"{total:,.2f}",
             f"{total:,.2f}"
-        ), tags=("grand_total_row",))
+        ), tags=("grandtotalrow",))
 
-        self.autosize_columns()
-
-    def autosize_columns(self):
-        font = tkFont.Font()
-        for col in self.columns:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                cell_text = str(self.tree.set(item, col))
-                cell_width = font.measure(cell_text)
-                if cell_width > max_width:
-                    max_width = cell_width
-            self.tree.column(col, width=max_width + 5)
+        self.sorter.autosize_columns(5)
 
     def _collect_rows(self):
         rows = []
@@ -1821,17 +1795,21 @@ class CloseYearPopup(BaseWindow):
         self.selected_year = None
         self.mode = "close"  # Default mode
         self.combo_var = tk.StringVar()
+        style = ttk.Style(self.window)
+        style.theme_use("clam")
         self.main_frame = tk.Frame(
             self.window, bg="lightblue", bd=4, relief="solid"
         )
         self.top_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.btn_close_year = tk.Button(
-            self.top_frame, text="Close Year", bg="green", fg="white", bd=2,
-            relief="groove", command=self.show_close_year,
+            self.top_frame, text="Close Year", bg="green", fg="white", bd=4,
+            relief="groove", font=("Arial", 11, "bold"),
+            command=self.show_close_year
         )
         self.btn_reverse_year = tk.Button(
             self.top_frame, text="Reverse Closed Year", bg="red", fg="white",
-            bd=2, relief="groove", command=self.show_reverse_year,
+            bd=4, relief="groove", font=("Arial", 11, "bold"),
+            command=self.show_reverse_year
         )
         # Middle content frame
         self.middle_frame = tk.Frame(
@@ -1839,21 +1817,21 @@ class CloseYearPopup(BaseWindow):
         )
         # Dynamic title label (inside content area)
         self.mode_title_label = tk.Label(
-            self.middle_frame, text="", bg="lightblue", bd=2, relief="ridge",
+            self.middle_frame, text="", bg="lightblue", fg="blue",
             font=("Arial", 14, "bold", "underline")
         )
         # Dynamic label + combobox
         self.select_label = tk.Label(
-            self.middle_frame, text="", bg="lightblue",
+            self.middle_frame, text="", bg="lightblue", fg="blue",
             font=("Arial", 12, "bold")
         )
         self.combobox = ttk.Combobox(
             self.middle_frame, state="readonly", textvariable=self.combo_var,
-            width=27, font=("Arial", 11)
+            width=30, font=("Arial", 12)
         )
         # Bottom action button
         self.action_btn = tk.Button(
-            self.middle_frame, text="", bg="blue", fg="white", bd=2,
+            self.middle_frame, text="", bg="blue", fg="white", bd=4,
             relief="groove", font=("Arial", 11, "bold"),
             command=self.perform_action,
         )
@@ -1862,16 +1840,20 @@ class CloseYearPopup(BaseWindow):
 
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
+        tk.Label(
+            self.main_frame, text="Close Financial Year.", bg="lightblue",
+            fg="blue", font=("Arial", 16, "bold", "underline")
+        ).pack(side="top", anchor="center", pady=(5, 0))
         # Pack top frame + buttons
-        self.top_frame.pack(fill="x", padx=5, ipady=5)
-        self.btn_close_year.pack(side="left", padx=10)
-        self.btn_reverse_year.pack(side="left", padx=10)
+        self.top_frame.pack(fill="x", pady=(5, 0))
+        self.btn_close_year.pack(side="left")
+        self.btn_reverse_year.pack(side="left")
         # Middle Section
         self.middle_frame.pack(fill="both", expand=True)
-        self.mode_title_label.pack(anchor="center", pady=3, ipadx=5)
-        self.select_label.pack(anchor="w", pady=5)
-        self.combobox.pack(anchor="w", fill="x", padx=10)
-        self.action_btn.pack(pady=15)
+        self.mode_title_label.pack(anchor="center", pady=(3, 0), ipadx=5)
+        self.select_label.pack(anchor="w", pady=(5, 0))
+        self.combobox.pack(anchor="w", fill="x", pady=(0, 5))
+        self.action_btn.pack(pady=10)
         # Default to close year
         self.show_close_year()
 
@@ -1988,13 +1970,3 @@ class CloseYearPopup(BaseWindow):
                         "Failed", f"Failed to Reverse Closed Year:\n{msg}.",
                         parent=self.window
                     )
-
-
-
-# if __name__ == "__main__":
-#     from connect_to_db import connect_db
-#
-#     conn = connect_db()
-#     root = tk.Tk()
-#     CloseYearPopup(root, conn, "Sniffy")
-#     root.mainloop()

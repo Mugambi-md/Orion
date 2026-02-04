@@ -308,19 +308,20 @@ def get_user_info(conn, identifier):
     """Fetch user code and name using either username or user_code.
     Returns: Tuple: (user_code, name) or None."""
     try:
-        with conn.cursor() as cursor:
-            cursor.execute("""SELECT l.user_code, e.name
-                    FROM logins l
-                    JOIN employees e ON l.username=e.username
-                    WHERE l.username=%s OR l.user_code=%s
-                    """, (identifier, identifier))
+        with conn.cursor(dictionary=True) as cursor:
+            cursor.execute("""
+                SELECT l.user_code, e.name
+                FROM logins l
+                JOIN employees e ON l.username=e.username
+                WHERE l.username=%s OR l.user_code=%s
+            """, (identifier, identifier))
             result = cursor.fetchone()
             if result:
-                return result[0], result[1]
+                return True, result
             else:
-                return None
+                return False, f"No Record Found Of {identifier}."
     except Exception as e:
-        raise e
+        return False, f"Error Fetching Employee Data: {str(e)}."
 
 def get_all_privileges(conn):
     """Retrieve all privileges from access table with their IDs.
@@ -505,7 +506,7 @@ def fetch_user_details_and_privileges(conn, identifier):
 
             # Fetch privileges
             cursor.execute("""
-                SELECT a.no, a.privilege
+                SELECT a.no, a.privilege, a.clearance
                 FROM login_access la
                 JOIN access a ON la.access_id = a.no
                 WHERE la.user_code = %s
@@ -761,7 +762,7 @@ def insert_cashier_sale(conn, username, description, debit):
                 INSERT INTO cashier_control
                 (username, date, time, description, debit, credit, status)
                 VALUES (%s, %s, %s, %s, %s, %s, 'open')
-            """, (username, today, current_time, description, debit, 0.00))
+            """, (username, today, current_time, description, 0.00, debit))
         conn.commit()
         return True, "Cashier control recorded."
     except Exception as e:
