@@ -76,11 +76,18 @@ class SystemLogsWindow(BaseWindow):
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        multi_col = "Operation"
         self.sorter = TreeviewSorter(self.tree, self.columns, "No")
         self.sorter.apply_style(style)
         self.sorter.attach_sorting()
         self.sorter.bind_mousewheel()
-        self.sorter.set_row_height(style, 40)
+        self.tree.bind(
+            "<Enter>",
+            lambda e: self.sorter.enable_multiline_height(style, multi_col)
+        )
+        self.tree.bind(
+            "<Leave>", lambda e: self.sorter.disable_multiline_height(style)
+        )
 
         self.build_ui()
         self.refresh_table()
@@ -112,8 +119,8 @@ class SystemLogsWindow(BaseWindow):
         tk.Label(
             self.filter_frame, text="Select Year:", bg="lightblue",
             font=("Arial", 12, "bold")
-        ).pack(side="left", padx=(2, 0))
-        self.year_cb.pack(side="left", padx=(0, 3))
+        ).pack(side="left", padx=(2, 0), anchor="s")
+        self.year_cb.pack(side="left", padx=(0, 2), anchor="s")
         if self.years:
             self.year_cb.set(self.years[0])
         else:
@@ -127,7 +134,7 @@ class SystemLogsWindow(BaseWindow):
         filter_outer = tk.Frame(
             self.filter_frame, bg="lightblue", bd=2, relief="groove"
         )
-        filter_outer.pack(side="left", padx=2)
+        filter_outer.pack(side="left", padx=2, anchor="s")
         tk.Label(
             filter_outer, text="Filter By:", bg="lightblue",
             font=("Arial", 12, "bold")
@@ -151,25 +158,26 @@ class SystemLogsWindow(BaseWindow):
         tk.Label(
             self.filter_frame, text="Section:", bg="lightblue",
             font=("Arial", 12, "bold")
-        ).pack(side="left", padx=(2, 0))
-        self.section_cb.pack(side="left", padx=(0, 3))
+        ).pack(side="left", padx=(2, 0), anchor="s")
+        self.section_cb.pack(side="left", padx=(0, 3), anchor="s")
         tk.Label(
             self.filter_frame, text="User:", bg="lightblue",
             font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(3, 0))
-        self.user_cb.pack(side="left", padx=(0, 3))
+        ).pack(side="left", padx=(3, 0), anchor="s")
+        self.user_cb.pack(side="left", padx=(0, 3), anchor="s")
         # Month Filter
         tk.Label(
             self.filter_frame, text="Month:", bg="lightblue",
             font=("Arial", 12, "bold"),
-        ).pack(side="left", padx=(3, 0))
-        self.month_cb.pack(side="left", padx=(0, 3))
+        ).pack(side="left", padx=(3, 0), anchor="s")
+        self.month_cb.pack(side="left", padx=(0, 3), anchor="s")
         tk.Button(
             self.filter_frame, text="Refresh", bd=4, relief="ridge",
             font=("Arial", 10, "bold"), command=self.refresh_table
-        ).pack(side="left")
+        ).pack(side="left", anchor="s")
         btn_frame = tk.Frame(self.filter_frame, bg="lightblue")
-        btn_frame.pack(side="right", padx=3)
+        btn_frame.pack(side="right", padx=3, anchor="s")
+
         action_btn = {
             "Export PDF": self.on_export_pdf,
             "Print Logs": self.on_print
@@ -178,7 +186,7 @@ class SystemLogsWindow(BaseWindow):
             tk.Button(
                 btn_frame, text=text, command=command, bd=4, relief="groove",
                 bg="dodgerblue", fg="white", font=("Arial", 10, "bold")
-            ).pack(side="left")
+            ).pack(side="left", anchor="s")
         self.user_cb.bind(
             "<<ComboboxSelected>>", lambda e: self.refresh_table()
         )

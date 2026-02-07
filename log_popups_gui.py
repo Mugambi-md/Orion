@@ -79,7 +79,14 @@ class FinanceLogsWindow(BaseWindow):
         self.sorter = TreeviewSorter(self.tree, self.columns, "No.")
         self.sorter.apply_style(style)
         self.sorter.attach_sorting()
-        self.sorter.set_row_height(style, 40)
+        multi_col = "Action"
+        self.tree.bind(
+            "<Enter>",
+            lambda e: self.sorter.enable_multiline_height(style, multi_col)
+        )
+        self.tree.bind(
+            "<Leave>", lambda e: self.sorter.disable_multiline_height(style)
+        )
 
         self.build_ui()
         self.refresh_table()
@@ -334,10 +341,17 @@ class OrderLogsWindow(BaseWindow):
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        multi_col = "Operation"
         self.sorter = TreeviewSorter(self.tree, self.columns, "No")
         self.sorter.apply_style(style)
         self.sorter.attach_sorting()
-        self.sorter.set_row_height(style, 40)
+        self.tree.bind(
+            "<Enter>",
+            lambda e: self.sorter.enable_multiline_height(style, multi_col)
+        )
+        self.tree.bind(
+            "<Leave>", lambda e: self.sorter.disable_multiline_height(style)
+        )
 
         self.build_ui()
         self.refresh_table()

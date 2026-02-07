@@ -31,7 +31,9 @@ class LoginWindow(BaseWindow):
             width=20
         )
         self.login_btn = tk.Button(
-            self.window, text="Login", width=15, command=self.handle_login
+            self.window, text="Login", width=10, bg="blue", fg="white", bd=4,
+            relief="groove", font=("Arial", 10, "bold"),
+            command=self.handle_login
         )
 
         self.build_ui()
@@ -43,19 +45,19 @@ class LoginWindow(BaseWindow):
         label_text = "Enter Valid Username and Password."
         tk.Label(
             label_frame, text=label_text, fg="blue", bg="lightgray",
-            font=("Arial", 11, "italic", "underline")
-        ).pack(anchor="center")
+            font=("Arial", 12, "italic", "underline")
+        ).pack(anchor="center", pady=(3, 0))
         tk.Label(
             self.window, text="Username:", bg="lightgray",
-            font=("Arial", 11, "bold")
-        ).grid(row=1, column=0, padx=(5, 2), pady=5, sticky="e")
-        self.username_entry.grid(row=1, column=1, padx=(2, 5), pady=5)
+            font=("Arial", 12, "bold")
+        ).grid(row=1, column=0, padx=(5, 0), pady=5, sticky="e")
+        self.username_entry.grid(row=1, column=1, padx=(0, 5), pady=5)
         self.username_entry.focus_set()
         tk.Label(
             self.window, text="Password:", bg="lightgray",
-            font=("Arial", 11, "bold")
-        ).grid(row=2, column=0, padx=(5, 2), pady=5, sticky="e")
-        self.pass_entry.grid(row=2, column=1, pady=5, padx=(2, 5))
+            font=("Arial", 12, "bold")
+        ).grid(row=2, column=0, padx=(5, 0), pady=5, sticky="e")
+        self.pass_entry.grid(row=2, column=1, pady=5, padx=(0, 5))
         self.username_entry.bind(
             "<Return>", lambda e: self.pass_entry.focus_set()
         )
@@ -130,7 +132,7 @@ class UpdatePasswordWindow(BaseWindow):
         self.window = tk.Toplevel(master)
         self.window.title("Update Password")
         self.window.configure(bg="lightgray")
-        self.center_window(self.window, 300, 180, master)
+        self.center_window(self.window, 310, 180, master)
         self.window.transient(master)
         self.window.grab_set()
 
@@ -147,20 +149,21 @@ class UpdatePasswordWindow(BaseWindow):
         """Build UI for Password Update form."""
         labels = ["Current Password:", "New Password:", "Confirm Password:"]
         tk.Label(
-            self.window, text="Update Password", bg="lightgray",
-            fg="dodgerblue", font=("Arial", 12, "italic", "underline")
-        ).pack(anchor="center", padx=5)
-        input_frame = tk.Frame(self.window, bg="lightgray", bd=2,
-                               relief="groove")
+            self.window, text="Update Password", bg="lightgray", fg="blue",
+            font=("Arial", 12, "italic", "underline")
+        ).pack(anchor="center", pady=(3, 0))
+        input_frame = tk.Frame(
+            self.window, bg="lightgray", bd=2, relief="groove"
+        )
         input_frame.pack()
         for i, text in enumerate(labels):
             tk.Label(
-                input_frame, text=text, font=("Arial", 10, "bold"),
+                input_frame, text=text, font=("Arial", 12, "bold"),
                 bg="lightgray"
             ).grid(row=i, column=0, padx=(3, 0), pady=5, sticky="e")
             entry = tk.Entry(
-                input_frame, show="*", bd=3, relief="raised", width=19,
-                font=("Arial", 11)
+                input_frame, show="*", bd=4, relief="raised", width=19,
+                font=("Arial", 12)
             )
             entry.grid(row=i, column=1, padx=(0, 3), pady=5)
             self.entries[text] = entry
@@ -174,9 +177,10 @@ class UpdatePasswordWindow(BaseWindow):
         confirm_entry.bind("<Return>", lambda e: self.update_action())
 
         tk.Button(
-            input_frame, text="Update Password", bg="dodgerblue", width=15,
+            input_frame, text="Update Password", bg="dodgerblue", fg="white",
+            width=15, bd=4, relief="groove", font=("Arial", 10, "bold"),
             command=self.update_action
-        ).grid(row=3, column=0, columnspan=2, pady=10)
+        ).grid(row=3, column=0, columnspan=2, pady=(5, 0))
 
     @staticmethod
     def is_strong_password(password):
@@ -248,14 +252,16 @@ class AdminLoginWindow(BaseWindow):
         self.conn = conn
         self.update_pass = update_pass_callback
         self.username_entry = tk.Entry(
-            self.window, bd=4, relief="raised", font=("Arial", 11), width=20
+            self.window, bd=4, relief="raised", font=("Arial", 12), width=20
         )
         self.pass_entry = tk.Entry(
-            self.window, bd=4, relief="raised", font=("Arial", 11), show="*",
+            self.window, bd=4, relief="raised", font=("Arial", 12), show="*",
             width=20
         )
         self.login_btn = tk.Button(
-            self.window, text="Login", width=15, command=self.handle_login
+            self.window, text="Login", bg="dodgerblue", fg="white", width=10,
+            bd=4, relief="groove", font=("Arial", 10, "bold"),
+            command=self.handle_login
         )
 
         self.build_ui()
@@ -266,24 +272,24 @@ class AdminLoginWindow(BaseWindow):
         label_frame.grid(row=0, column=0, columnspan=2)
         tk.Label(
             label_frame, text="Enter Valid Admin Logins.", bg="lightgray",
-            font=("Arial", 11, "italic", "underline"), fg="blue"
-        ).pack(anchor="center")
+            font=("Arial", 13, "italic", "underline"), fg="blue"
+        ).pack(anchor="center", pady=(3, 0))
         tk.Label(
             self.window, text="Username:", bg="lightgray",
-            font=("Arial", 11, "bold")
-        ).grid(row=1, column=0, padx=(5, 2), pady=5, sticky="e")
-        self.username_entry.grid(row=1, column=1, padx=(2, 5), pady=5)
+            font=("Arial", 12, "bold")
+        ).grid(row=1, column=0, padx=(5, 0), pady=5, sticky="e")
+        self.username_entry.grid(row=1, column=1, padx=(0, 5), pady=5)
         self.username_entry.focus_set()
         tk.Label(
             self.window, text="Password:", bg="lightgray",
-            font=("Arial", 11, "bold")
-        ).grid(row=2, column=0, padx=(5, 2), pady=5, sticky="e")
-        self.pass_entry.grid(row=2, column=1, pady=5, padx=(2, 5))
+            font=("Arial", 12, "bold")
+        ).grid(row=2, column=0, padx=(5, 0), pady=5, sticky="e")
+        self.pass_entry.grid(row=2, column=1, pady=5, padx=(0, 5))
         self.username_entry.bind(
             "<Return>", lambda e: self.pass_entry.focus_set()
         )
         self.pass_entry.bind("<Return>", lambda e: self.login_btn.focus_set())
-        self.login_btn.grid(row=3, column=0, columnspan=2, pady=5)
+        self.login_btn.grid(row=3, column=0, columnspan=2, pady=(5, 0))
         self.login_btn.bind("<Return>", lambda e: self.handle_login())
 
     def handle_login(self):
@@ -306,11 +312,12 @@ class AdminLoginWindow(BaseWindow):
             )
             self.reset_fields()
             return
-        if role.lower() not in ["admin", "manager"]:
+        granted_roles = ["admin", "manager", "administrator"]
+        if role.lower() not in granted_roles:
             messagebox.showwarning(
                 "Restricted",
-                "Login Only Allowed To Admin and Managers Only.\n"
-                "Consult Admin and Your Supervisor.", parent=self.window
+                "Login Only For Admin and Managers Only.\n"
+                "Consult Admin or Your Supervisor.", parent=self.window
             )
             self.window.destroy()
             return

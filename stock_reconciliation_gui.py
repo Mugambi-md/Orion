@@ -44,17 +44,25 @@ class ReconciliationWindow(BaseWindow):
             font=("Arial", 12, "bold")
         )
         self.columns = [
-            "No", "Product Code", "Product Name", "Description", "Quantity",
+            "No", "Item Code", "Product Name", "Description", "Qty",
             "Unit Cost", "Retail Price", "W.Sale Price", "Restocked"
         ]
         self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.tree = ttk.Treeview(
-            self.table_frame, columns=self.columns, show="headings"
+            self.table_frame, columns=self.columns, show="headings",
+            selectmode="browse"
         )
         self.sorter = TreeviewSorter(self.tree, self.columns, "No")
         self.sorter.apply_style(style)
         self.sorter.attach_sorting()
-        self.sorter.set_row_height(style, 25)
+        multi_col = "Description"
+        self.tree.bind(
+            "<Enter>",
+            lambda e: self.sorter.enable_multiline_height(style, multi_col)
+        )
+        self.tree.bind(
+            "<Leave>", lambda e: self.sorter.disable_multiline_height(style)
+        )
 
         self.setup_widgets()
         self.populate_table()
@@ -62,9 +70,10 @@ class ReconciliationWindow(BaseWindow):
     def setup_widgets(self):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         # Title
+        title_text = "Available Products To Reconcile."
         tk.Label(
-            self.main_frame, text="Available Products To Reconcile", fg="blue",
-            bg="lightblue", font=("Arial", 18, "bold", "underline")
+            self.main_frame, text=title_text, fg="blue", bg="lightblue",
+            font=("Arial", 20, "bold", "underline")
         ).pack(anchor="center")
         # Buttons Frame
         action_frame = tk.Frame(self.main_frame, bg="lightblue")
@@ -76,7 +85,7 @@ class ReconciliationWindow(BaseWindow):
         }
         for text, action in export_btns.items():
             tk.Button(
-                action_frame, text=text, bd=2, relief="raised", fg="white",
+                action_frame, text=text, bd=2, relief="ridge", fg="white",
                 bg="blue", command=action, font=("Arial", 10, "bold")
             ).pack(side="right")
         button_actions = {
@@ -94,27 +103,27 @@ class ReconciliationWindow(BaseWindow):
         tk.Label(
             self.search_frame, text="Search by:", bg="lightblue",
             font=("Arial", 12, "bold")
-        ).pack(side="left", padx=(2, 0))
+        ).pack(side="left", padx=(2, 0), anchor="s")
         search_options = ttk.Combobox(
             self.search_frame, width=6, textvariable=self.search_by_var,
-            values=["Name", "Code"], state="readonly", font=("Arial", 11)
+            values=["Name", "Code"], state="readonly", font=("Arial", 12)
         )
         search_options.current(0)
-        search_options.pack(side="left", padx=(0, 5))
+        search_options.pack(side="left", padx=(0, 5), anchor="s")
         search_options.bind("<<ComboboxSelected>>", self.update_search_label)
-        self.search_label.pack(side="left", padx=(5, 0))
+        self.search_label.pack(side="left", padx=(5, 0), anchor="s")
         search_entry = tk.Entry(
-            self.search_frame, textvariable=self.search_var, width=15, bd=2,
-            relief="raised", font=("Arial", 11)
+            self.search_frame, textvariable=self.search_var, width=15, bd=4,
+            relief="raised", font=("Arial", 12)
         )
-        search_entry.pack(side="left", padx=(0, 5))
+        search_entry.pack(side="left", padx=(0, 5), anchor="s")
         search_entry.bind("<KeyRelease>", self.filter_table)
         tk.Label(
             self.search_frame, text="Select Product to Edit", bg="lightblue",
-            fg="blue", font=("Arial", 12, "italic", "underline"), width=30
-        ).pack(side="left", padx=5)  # italic Note
+            fg="blue", font=("Arial", 13, "italic", "underline"), width=30
+        ).pack(side="left", anchor="s")  # italic Note
         btn_frame = tk.Frame(self.search_frame, bg="lightblue")
-        btn_frame.pack(side="right")
+        btn_frame.pack(side="right", anchor="s")
         action_btn = {
             "Update Quantity": self.update_quantity,
             "Update Price": self.update_price,
@@ -126,7 +135,7 @@ class ReconciliationWindow(BaseWindow):
             tk.Button(
                 btn_frame, text=text, bd=2, relief="ridge", bg="green",
                 fg="white", command=action, font=("Arial", 10, "bold")
-            ).pack(side="right")
+            ).pack(side="right", anchor="s")
         # Table Frame
         self.table_frame.pack(fill=tk.BOTH, expand=True)
         # Scrollbar
@@ -146,10 +155,9 @@ class ReconciliationWindow(BaseWindow):
         for col in self.columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor="center", width=30)
-        self.tree.bind(
-            "<MouseWheel>",
-            lambda e: self.tree.yview_scroll(int(-1 * (e.delta / 120)), "units"),
-        )
+        # Define alternating row styles
+        self.tree.tag_configure("evenrow", background="#fffde7")
+        self.tree.tag_configure("oddrow", background="#e0f7e9")
 
     def update_search_label(self, event=None):
         selected = self.search_by_var.get()
@@ -166,13 +174,10 @@ class ReconciliationWindow(BaseWindow):
             self.current_products = self.data[:]
         else:
             self.current_products = products[:]
-        alt_colors = ("#ffffff", "#e6f2ff")  # White and light blueish
-        self.tree.tag_configure("evenrow", background=alt_colors[0])
-        self.tree.tag_configure("oddrow", background=alt_colors[1])
-        formatter = DescriptionFormatter(40, 5)
+        formatter = DescriptionFormatter(45, 5)
         for index, row in enumerate(self.current_products, start=1):
             tag = "evenrow" if index % 2 == 0 else "oddrow"
-            desc = formatter.format(row["description"])
+            desc = formatter.wrap(row["description"])
             name = re.sub(r"\s+", " ", str(row["product_name"])).strip()
             self.tree.insert("", "end", values=(
                 index,
@@ -254,10 +259,10 @@ class ReconciliationWindow(BaseWindow):
             rows.append(
                 {
                     "No": vals[0],
-                    "Product Code": vals[1],
+                    "Item Code": vals[1],
                     "Product Name": vals[2],
                     "Description": vals[3],
-                    "Quantity": vals[4],
+                    "Qty": vals[4],
                     "Unit Cost": vals[5],
                     "Retail Price": vals[6],
                     "W.Sale Price": vals[7],
@@ -269,7 +274,7 @@ class ReconciliationWindow(BaseWindow):
     def _make_exporter(self):
         title = "Available Products To Reconcile."
         columns = [
-            "No", "Product Code", "Product Name", "Description", "Quantity",
+            "No", "Item Code", "Product Name", "Description", "Qty",
             "Unit Cost", "Retail Price", "W.Sale Price", "Restocked"
         ]
         rows = self._collect_rows()
@@ -354,3 +359,9 @@ class ReconciliationWindow(BaseWindow):
             DeleteProductPopup(
                 self.window, self.conn, self.user, self.refresh, code
             )
+if __name__ == "__main__":
+    from connect_to_db import connect_db
+    conn=connect_db()
+    root=tk.Tk()
+    ReconciliationWindow(root, conn, "Sniffy")
+    root.mainloop()

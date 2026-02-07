@@ -30,8 +30,8 @@ class EmployeeManagementWindow(BaseWindow):
         else:
             self.all_data = data
         self.columns = [
-            "No", "Name", "User Code", "Username", "Department",
-            "Designation", "ID No", "Phone", "Email", "Status"
+            "No", "Name", "User Code", "Username", "Section", "Role",
+            "ID No", "Phone", "Email", "Status"
         ]
         style = ttk.Style(self.window)
         style.theme_use("clam")
@@ -44,15 +44,15 @@ class EmployeeManagementWindow(BaseWindow):
         self.top_frame = tk.Frame(self.right_frame, bg="lightgreen")
         self.btn_frame = tk.Frame(self.top_frame, bg="lightgreen")
         self.search_fields = [
-            "Name", "User Code", "Username", "Department", "Designation"
+            "Name", "User Code", "Username", "Section", "Role"
         ]
         self.search_option = tk.StringVar(value=self.search_fields[0])
         self.search_label = tk.Label(
-            self.btn_frame, text=f"Search {self.search_fields[0]}:",
-            font=("Arial", 11, "bold"), bg="lightgreen"
+            self.btn_frame, text=f"{self.search_fields[0]}:",
+            bg="lightgreen", font=("Arial", 12, "bold")
         )
         self.search_entry = tk.Entry(
-            self.btn_frame, bd=4, relief="raised", font=("Arial", 11),
+            self.btn_frame, bd=4, relief="raised", font=("Arial", 12),
             width=20
         )
         self.table_frame = tk.Frame(self.right_frame, bg="lightgreen")
@@ -74,44 +74,49 @@ class EmployeeManagementWindow(BaseWindow):
         top_frame.pack(side="top", fill="x")
         actions = [
             ("Departments", self.departments),
-            ("Create\nPrivilege", self.create_priv),
-            ("New\nEmployee", self.add_employee),
-            ("Assigned\nPrivilege", self.view_user_priv),
-            ("Assign\nPrivilege", self.give_priv),
-            ("Remove\nPrivilege", self.remove_privilege),
-            ("Deactivate/Activate\nEmployee", self.deactivate_employee),
-            ("Edit Employee\nInformation", self.edit_employee),
-            ("Reset User\nPassword", self.reset_pass)
+            ("New Access", self.create_priv),
+            ("New User", self.add_employee),
+            ("User Access", self.view_user_priv),
+            ("Give Access", self.give_priv),
+            ("Deny Access", self.remove_privilege),
+            ("Disable User", self.deactivate_employee),
+            ("Edit User", self.edit_employee),
+            ("Reset\nPassword", self.reset_pass)
         ]
         for text, command in actions:
             tk.Button(
                 top_frame, text=text, command=command, bd=4, relief="groove",
-                bg="blue", fg="white", font=("Arial", 11, "bold"), height=2
+                height=2, bg="blue", fg="white", font=("Arial", 11, "bold"),
             ).pack(side="left")
         # Right Frame
-        self.right_frame.pack(side="left", expand=True, fill="both")
+        self.right_frame.pack(side="left", fill="both", expand=True)
         self.top_frame.pack(fill="x") # Top Title Frame
         tk.Label(
             self.top_frame, text="Current Employees Information", fg="blue",
-            bg="lightgreen", font=("Arial", 18, "bold", "underline")
+            bg="lightgreen", font=("Arial", 20, "bold", "underline")
         ).pack(side="left")
         # Top Button Frame
-        self.btn_frame.pack(side="right", padx=5)
+        self.btn_frame.pack(side="right", padx=5, anchor="s")
         tk.Label(
-            self.btn_frame, text="Search By:", font=("Arial", 11, "bold"),
+            self.btn_frame, text="Search:", font=("Arial", 12, "bold"),
             bg="lightgreen"
-        ).pack(side="left", padx=(5, 0))
+        ).pack(side="left", padx=(3, 0), anchor="s")
         search_combo = ttk.Combobox(
             self.btn_frame, textvariable=self.search_option, width=10,
-            state="readonly", values=self.search_fields, font=("Arial", 11)
+            state="readonly", values=self.search_fields, font=("Arial", 12)
         )
-        search_combo.pack(side="left", padx=(0, 5))
+        search_combo.pack(side="left", padx=(0, 5), anchor="s")
         search_combo.bind(
             "<<ComboboxSelected>>", lambda e: self.update_search_label()
         )
-        self.search_label.pack(side="left", padx=(5, 0))
-        self.search_entry.pack(side="left", padx=(0, 10))
+        self.search_label.pack(side="left", padx=(5, 0), anchor="s")
+        self.search_entry.pack(side="left", padx=(0, 5), anchor="s")
         self.search_entry.bind("<KeyRelease>", self.filter_table)
+        tk.Button(
+            self.btn_frame, text="Refresh", bg="dodgerblue", fg="white",
+            bd=4, relief="ridge", font=("Arial", 10, "bold"),
+            command=self.refresh
+        ).pack(side="left", padx=5, anchor="s")
         btn_action =[
             ("Export Excel", self.export_excel),
             ("Export PDF", self.export_pdf),
@@ -120,8 +125,8 @@ class EmployeeManagementWindow(BaseWindow):
         for text, command in btn_action:
             tk.Button(
                 self.btn_frame, text=text, command=command, bg="lightblue",
-                bd=2, relief="groove", font=("Arial", 10, "bold")
-            ).pack(side="left")
+                bd=4, relief="groove", font=("Arial", 11, "bold")
+            ).pack(side="left", anchor="s")
         self.table_frame.pack(fill="both", expand=True)
         scrollbar = tk.Scrollbar(
             self.table_frame, orient="vertical", command=self.tree.yview
@@ -180,7 +185,7 @@ class EmployeeManagementWindow(BaseWindow):
                 row for row in self.all_data
                 if str(row["username"]).lower().startswith(keyword)
             ]
-        elif selected_field == "Department":
+        elif selected_field == "Section":
             data = [
                 row for row in self.all_data
                 if str(row["department"]).lower().startswith(keyword)
@@ -192,9 +197,17 @@ class EmployeeManagementWindow(BaseWindow):
             ]
         self.load_data(data)
 
+    def refresh(self):
+        """Refreshes Table."""
+        data, error = fetch_all_employee_details(self.conn)
+        if error:
+            messagebox.showerror("Error", error, parent=self.window)
+            return
+        self.load_data(data)
+
     def update_search_label(self):
         selected = self.search_option.get()
-        self.search_label.config(text=f"Search {selected}:")
+        self.search_label.config(text=f"{selected}:")
         self.search_entry.focus_set()
         self.filter_table()
 
@@ -273,8 +286,8 @@ class EmployeeManagementWindow(BaseWindow):
                 "Name": vals[1],
                 "User Code": vals[2],
                 "Username": vals[3],
-                "Department": vals[4],
-                "Designation": vals[5],
+                "Section": vals[4],
+                "Role": vals[5],
                 "ID No": vals[6],
                 "Phone": vals[7],
                 "Email": vals[8],
@@ -285,8 +298,8 @@ class EmployeeManagementWindow(BaseWindow):
     def _make_exporter(self):
         title = "Employee Data"
         columns = [
-            "No", "Name", "User Code", "Username", "Department",
-            "Designation", "ID No", "Phone", "Email", "Status"
+            "No", "Name", "User Code", "Username", "Section", "Role",
+            "ID No", "Phone", "Email", "Status"
         ]
         rows = self._collect_rows()
         return ReportExporter(self.window, title, columns, rows)

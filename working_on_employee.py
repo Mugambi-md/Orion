@@ -828,3 +828,81 @@ def fetch_unassigned_privileges(conn, username):
     except Exception as e:
         conn.rollback()
         return False, f"Error Fetching Unassigned Privileges: {str(e)}."
+
+class CheckAdmin:
+    ADMIN_DESIGNATION = "Administrator"
+    IT_DEPARTMENT = "IT"
+
+    def __init__(self, conn):
+        """Args; conn: Active database connection."""
+        self.conn = conn
+        self.create = EmployeeManager(conn, "System")
+
+    def admin_exists(self) -> bool:
+        """Check if at least one administrator exists."""
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT 1 FROM employees WHERE designation = %s LIMIT 1;",
+                    (self.ADMIN_DESIGNATION,)
+                )
+                return cursor.fetchone() is not None
+        except Exception as e:
+            raise RuntimeError(f"Failed to Check Admin Existence: {str(e)}")
+
+    def it_department_exists(self) -> bool:
+        """Check if IT department exists before creating Default employee."""
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT 1 FROM departments WHERE name = %s LIMIT 1;",
+                    (self.IT_DEPARTMENT,)
+                )
+                return cursor.fetchone() is not None
+        except Exception as e:
+            raise RuntimeError(f"Failed to check It department: {str(e)}.")
+
+    def create_it_department(self):
+        """Create IT department to Enter default Employee."""
+        # Create IT Department First
+        success, msg = insert_into_departments(
+            self.conn, self.IT_DEPARTMENT, "System"
+        )
+        return success, msg
+
+    def create_default_admin(self):
+        """Create default administrator account."""
+        # Create Default Employee
+        employee_data = {
+            "name": "Duncan Mugambi",
+            "username": "Mugambi",
+            "department": self.IT_DEPARTMENT,
+            "designation": self.ADMIN_DESIGNATION,
+            "national_id": 34160636,
+            "phone": "0757634649",
+            "email": "charlseduncans@gmail.com",
+            "salary": 0.00
+        }
+        return self.create.insert_employee(employee_data)
+
+    def ensure_admin_exists(self):
+        """
+        Ensure at least one administrator exists. if not it checks if IT
+        dept exist. If not, Create IT dept and Create defaults employee.
+        """
+        try:
+            if self.admin_exists():
+                return True, "Administrator Already Exists."
+            if not self.it_department_exists():
+                success, msg = self.create_it_department()
+                if not success:
+                    return False, f"Failed to Create IT Department: {msg}."
+
+            success, msg = self.create_default_admin()
+            if not success:
+                return False, f"Failed to Create Administrator: {msg}."
+
+            return True, "Default Administrator Created Successfully."
+
+        except Exception as e:
+            return False, f"Admin Setup Failed: {str(e)}."

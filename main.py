@@ -1,8 +1,10 @@
 import tkinter as tk
+from tkinter import messagebox
 from PIL import Image, ImageTk
 from windows_utils import DateFormatter
 from connect_to_db import connect_db
 from base_window import BaseWindow
+from working_on_employee import CheckAdmin
 from login_gui import LoginWindow, UpdatePasswordWindow, AdminLoginWindow
 
 
@@ -10,8 +12,10 @@ class MugambiPOSApp(BaseWindow):
     def __init__(self, master):
         self.master = master
         self.conn = connect_db()
+        # Run startup system checks
+        self.run_startup_checks()
         self.master.title("POS System")
-        self.center_window(self.master, 600, 400)
+        self.center_window(self.master, 500, 350)
         self.master.resizable(False, False)
         # Load background image
         self.original_bg = Image.open("ground.jpg")
@@ -105,9 +109,35 @@ class MugambiPOSApp(BaseWindow):
             self.master, self.conn, username, current_password, callback
         )
 
+    def run_startup_checks(self):
+        """Ensure system-critical defaults exists before app use."""
+        checker = CheckAdmin(self.conn)
+        success, msg = checker.ensure_admin_exists()
+
+        if not success:
+            messagebox.showerror(
+                "System Setup Error.", msg, parent=self.master
+            )
+            self.master.destroy()
+            return
+        # Silent if admin already exists
+        if msg == "Administrator Already Exists.":
+            return
+        # One-time info dialog if default admin was created
+        if msg == "Default Administrator Created Successfully.":
+            messagebox.showinfo(
+                "System Initialized",
+                "Default Administrator Account Has Been Created.\n\n"
+                "Username: Mugambi\nPassword: Default Password"
+                "Please log in to Change Password.",
+                parent=self.master
+            )
+
 
 
 if __name__ == "__main__":
     root = tk.Tk()
+    # Enable DPI scaling (call once before widgets)
+    BaseWindow.enable_dpi_scaling(root, scale=1.25)
     app = MugambiPOSApp(root)
     root.mainloop()

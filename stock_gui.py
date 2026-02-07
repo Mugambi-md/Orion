@@ -64,7 +64,6 @@ class StockWindow(BaseWindow):
 
         self.build_ui()
         self.update_table()
-        self.sorter.autosize_columns(5)
 
     def build_ui(self):
         """Build user interface."""
@@ -135,15 +134,6 @@ class StockWindow(BaseWindow):
         self.tree.configure(yscrollcommand=tree_scroll.set)
         self.tree.pack(side="left", fill="both", expand=True)
         tree_scroll.pack(side="right", fill="y")
-        self.tree.bind("<MouseWheel>", lambda e: self.tree.yview_scroll(
-            int(-1 * (e.delta / 120)), "units"
-        ))
-        self.tree.bind(
-            "<Button-4>", lambda e: self.tree.yview_scroll(-1, "units")
-        )
-        self.tree.bind(
-            "<Button-5>", lambda e: self.tree.yview_scroll(1, "units")
-        )
         # Define alternating row styles
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
@@ -171,7 +161,7 @@ class StockWindow(BaseWindow):
                 row["min_stock_level"],
                 row["date_replenished"].strftime("%d/%m/%Y")
             ), tags=(tag,))
-
+        self.sorter.autosize_columns(5)
 
     def perform_search(self):
         keyword = self.search_var.get().strip()

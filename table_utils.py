@@ -30,15 +30,6 @@ class TreeviewSorter:
         style.configure(self.heading_style, font=("Arial", 13, "bold"))
         self.tree.configure(style=self.style_name)
 
-    def set_row_height(self, style, height=None):
-        """Update row height dynamically (Optional)."""
-        style.configure(self.style_name)
-        style.configure(
-            self.style_name, rowheight=height if height else style.lookup(
-                "Treeview", "rowheight"
-            )
-        )
-
     def attach_sorting(self):
         """Attach sorting behavior to treeview headings."""
         for col in self.columns:
@@ -155,3 +146,27 @@ class TreeviewSorter:
         )
         self.tree.bind("<Button-4>", _on_linux_scroll_up)
         self.tree.bind("<Button-5>", _on_linux_scroll_down)
+
+    def enable_multiline_height(self, style, multiline_col, padding=2):
+        """Increase row height if specified column has multiline content."""
+        font = tkFont.Font(font=("Arial", 11))
+        line_height = font.metrics("linespace")
+
+        max_lines = 1
+        for item in self.tree.get_children():
+            value = self.tree.set(item, multiline_col)
+            if not value:
+                continue
+            text = str(value)
+            if "\n" in text:
+                lines = value.count("\n") + 1
+                max_lines = max(max_lines, lines)
+
+        if max_lines > 1:
+            height = (line_height * max_lines) + padding
+            style.configure(self.style_name, rowheight=height)
+
+    def disable_multiline_height(self, style):
+        """Restore default Treeview row height."""
+        default_height = style.lookup("Treeview", "rowheight")
+        style.configure(self.style_name, rowheight=default_height)

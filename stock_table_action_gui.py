@@ -13,7 +13,7 @@ class UpdatePriceWindow(BaseWindow):
         self.window = tk.Toplevel(master)
         self.window.title("Update Price")
         self.window.configure(bg="lightgray")
-        self.center_window(self.window, 350, 250, master)
+        self.center_window(self.window, 350, 270, master)
         self.window.transient(master)
         self.window.grab_set()
 
@@ -24,8 +24,8 @@ class UpdatePriceWindow(BaseWindow):
         # Extract Values
         self.product_code = item[1]
         self.product_name = item[2]
-        self.old_retail_price = item[5]
-        self.old_wholesale_price = item[6]
+        self.old_retail_price = item[6]
+        self.old_wholesale_price = item[7]
         self.retail_var = tk.StringVar()
         self.wholesale_var = tk.StringVar()
         # Label showing current prices
@@ -37,45 +37,55 @@ class UpdatePriceWindow(BaseWindow):
 
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
+        l_text = f"Update Price For {self.product_code}."
+        tk.Label(
+            self.main_frame, text=l_text, bg="lightgray", fg="blue",
+            font=("Arial", 16, "bold", "underline")
+        ).pack(anchor="center", pady=(5, 0))
         label_frame = tk.Frame(self.main_frame, bg="lightgray")
-        label_frame.pack(side="top", fill="x", pady=(5, 0), padx=5)
+        label_frame.pack(side="top", fill="x", padx=5)
+        name = self.product_name
+        r_price = self.old_retail_price
+        w_price = self.old_wholesale_price
         current_label = f"""
-            Current price for {self.product_name}:
-            Retail Price: {self.old_retail_price}
-            Wholesale Price: {self.old_wholesale_price}.
+        Price For {name}:
+        Retail Price: {r_price}
+        Wholesale Price: {w_price}
         """
         tk.Label(
             label_frame, text=current_label, bg="lightgray", fg="blue",
             font=("Arial", 13, "bold")
-        ).pack(padx=5, side="left")
+        ).pack(side="left", anchor="center")
         center_frame = tk.Frame(self.main_frame, bg="lightgray")
-        center_frame.pack(pady=5)
+        center_frame.pack(padx=10)
         tk.Label(
             center_frame, text="Retail Price:", bg="lightgray",
-            font=("Arial", 11, "bold")
-        ).grid(row=0, column=0, pady=(5, 0), sticky="e")
+            font=("Arial", 12, "bold")
+        ).grid(row=0, column=0, pady=(3, 0), padx=(0, 10), sticky="w")
         retail_entry = tk.Entry(
-            center_frame, textvariable=self.retail_var, font=("Arial", 11),
-            width=10, bd=2, relief="raised"
+            center_frame, textvariable=self.retail_var, font=("Arial", 12),
+            width=7, bd=4, relief="raised"
         )
-        retail_entry.grid(row=1, column=0, pady=(0, 5), padx=(5, 0))
+        retail_entry.grid(row=1, column=0, pady=(0, 3), padx=10)
         retail_entry.focus_set()
         retail_entry.bind(
             "<Return>", lambda e: wholesale_entry.focus_set()
         )
         tk.Label(
             center_frame, text="Wholesale Price:", bg="lightgray",
-            font=("Arial", 11, "bold")
-        ).grid(row=0, column=1, pady=(5, 0), sticky="e")
+            font=("Arial", 12, "bold")
+        ).grid(row=0, column=1, pady=(3, 0), padx=(10, 0), sticky="w")
         wholesale_entry = tk.Entry(
-            center_frame, textvariable=self.wholesale_var, width=10, bd=2,
-            font=("Arial", 11), relief="raised"
+            center_frame, textvariable=self.wholesale_var, width=7, bd=4,
+            relief="raised", font=("Arial", 12)
         )
-        wholesale_entry.grid(row=1, column=1, pady=(0, 5), padx=(0, 5))
+        wholesale_entry.grid(row=1, column=1, pady=(0, 3), padx=10)
         wholesale_entry.bind("<Return>", lambda e: self.update_price())
         tk.Button(
-            self.main_frame, text="Update Price", command=self.update_price
-        ).pack()
+            self.main_frame, text="Update Price", bg="blue", fg="white",
+            bd=4, relief="groove", font=("Arial", 10, "bold"),
+            command=self.update_price
+        ).pack(pady=5, anchor="center")
         self.add_currency_trace(self.retail_var, retail_entry)
         self.add_currency_trace(self.wholesale_var, wholesale_entry)
 

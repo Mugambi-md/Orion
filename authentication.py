@@ -1,4 +1,5 @@
 import re
+import textwrap
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import simpledialog
@@ -9,7 +10,7 @@ class VerifyPrivilegePopup(simpledialog.Dialog):
     def __init__(self, master, conn, username, required_privilege):
         self.conn = conn
         self.username = username
-        self.required_privilege = required_privilege
+        self.req_privilege = required_privilege # Required Privilege
         self.master = master
         self.result = None  # Will be 'granted' or 'denied'
         self.username_entry = None
@@ -69,6 +70,7 @@ class VerifyPrivilegePopup(simpledialog.Dialog):
         status, privileges, role, error = get_assigned_privileges(
             self.conn, self.username
         )
+        granted_roles = ["administrator", "manager", "supervisor", "admin"]
         if error:
             messagebox.showerror(
                 "Error",
@@ -82,9 +84,9 @@ class VerifyPrivilegePopup(simpledialog.Dialog):
                 "Access Denied", "User Not Found.", parent=self.master
             )
             self.result = "denied"
-        elif role and role.lower() in ["admin", "manager"]:
+        elif role and role.lower() in granted_roles:
             self.result = "granted"
-        elif self.required_privilege.lower() in [p.lower() for p in privileges]:
+        elif self.req_privilege.lower() in [p.lower() for p in privileges]:
             self.result = "granted"
         else:
             self.result = "denied"
@@ -109,13 +111,17 @@ class DescriptionFormatter:
         Args: max_len (int): Maximum length of the first line before wrapping.
             min_second (int): Minimum length required for second line."""
         self.max_len = max_len or self.DEFAULT_MAX_LEN
-        self.min_second = min_second or self.DEFAULT_MIN_SECOND
+        self.min_sec = min_second or self.DEFAULT_MIN_SECOND
+
+    def _normalize(self, text: str) -> str:
+        """Normalize whitespace."""
+        return re.sub(r"\s+", " ", text).strip()
 
     def format(self, text: str):
         """Truncate long lines into maximum length."""
         if not text:
             return ""
-        text = re.sub(r"\s+", " ", text).strip() # Normalize spaces
+        text = self._normalize(text)
         if len(text) <= self.max_len:
             return text
         # Split at nearest space before/after max_len
@@ -126,29 +132,26 @@ class DescriptionFormatter:
             break_at = self.max_len  # Fallback
         first_part = text[:break_at].rstrip()
         second_part = text[break_at:].lstrip()
-        if len(second_part) > self.min_second:
+        if len(second_part) > self.min_sec:
             return first_part + "..."
         else:
             return text
 
-    def wrap(self, text: str):
+    def wrap(self, text: str) -> str:
         """Wrap text into two lines instead of truncating."""
         if not text:
             return ""
-        text = re.sub(r"\s+", " ", text).strip()
 
-        if len(text) <= self.max_len:
+        text = self._normalize(text)
+
+        wrapped_lines = textwrap.wrap(
+            text,
+            width=self.max_len,
+            break_long_words=False,
+            break_on_hyphens=False
+        )
+        # Enforce minimum second-line length rule
+        if len(wrapped_lines) > 1 and len(wrapped_lines[1]) < self.min_sec:
             return text
-        # Find wrap position
-        break_at = text.rfind(" ", 0, self.max_len)
-        if break_at == -1:
-            break_at = text.find(" ", self.max_len)
-        if break_at == -1:
-            break_at = self.max_len
 
-        first_line = text[:break_at].rstrip()
-        second_line = text[break_at:].lower()
-
-        if len(second_line) >= self.min_second:
-            return f"{first_line}\n{second_line}"
-        return text
+        return "\n".join(wrapped_lines)

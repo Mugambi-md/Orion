@@ -1855,7 +1855,7 @@ class EditEmployeeWindow(BaseWindow):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         tk.Label(
             self.main_frame, text="Edit Employee Information", fg="blue",
-            bg="lightgreen", font=("Arial", 14, "bold", "underline")
+            bg="lightgreen", font=("Arial", 18, "bold", "underline")
         ).pack(side="top", anchor="center")
         # Search section
         self.search_frame.pack(fill="x", pady=(5, 0))
@@ -1976,6 +1976,7 @@ class EditEmployeeWindow(BaseWindow):
         self.header_var.set(f"Editing User Info For  {uname.capitalize()}.")
         # Enable post button
         self.post_btn.configure(state="normal")
+        self.entries["name"].focus_set()
 
     def post_update(self):
         if not self.current_record:
