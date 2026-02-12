@@ -219,7 +219,8 @@ def create_tables():
                 order_id INT NOT NULL,
                 total_amount DECIMAL(10, 2) NOT NULL,
                 user VARCHAR(50) NOT NULL,
-                action TEXT NOT NULL;
+                action TEXT NOT NULL
+                );
             """)
             conn.commit()
             print("Order Logs table created successfully.")

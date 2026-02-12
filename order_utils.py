@@ -1,11 +1,11 @@
 import re
 import tkinter as tk
 from tkinter import messagebox, ttk
-import tkinter.font as tkFont
 from base_window import BaseWindow
 from authentication import VerifyPrivilegePopup
 from report_exporter import DeliveryExporter
 from order_popups import AddItemWindow, EditQuantityWindow
+from table_utils import TreeviewSorter
 from working_on_orders import (
     fetch_orders_payments_by_order_id, receive_order_payment,
     fetch_order_balance_by_id, fetch_order_items_by_order_id,
@@ -18,7 +18,7 @@ class OrderPayment(BaseWindow):
         self.master = tk.Toplevel(parent)
         self.master.title("Order Payment")
         self.master.configure(bg="lightblue")
-        self.center_window(self.master, 350, 250, parent)
+        self.center_window(self.master, 370, 230, parent)
         self.master.transient(parent)
         self.master.grab_set()
 
@@ -54,64 +54,65 @@ class OrderPayment(BaseWindow):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 5), padx=5)
         top_frame = tk.Frame(self.main_frame, bg="lightblue")
         top_frame.pack(side="top", fill="x")
+        label_text = f"Paying Order {self.order_id}."
         tk.Label(
-            top_frame, text=f"Payment For Order No. {self.order_id}.",
-            bg="lightblue", font=("Arial", 15, "bold", "underline")
-        ).grid(row=0, column=0, columnspan=3, pady=(10, 0))
+            top_frame, text=label_text, bg="lightblue", fg="blue",
+            font=("Arial", 20, "bold", "underline")
+        ).grid(row=0, column=0, columnspan=3, pady=(5, 0), padx=10)
         tk.Label(
-            top_frame, text="Full Amount:", bg="lightblue", fg="dodgerblue",
-            font=("Arial", 11, "bold")
-        ).grid(row=1, column=0, padx=10, pady=(5, 0), sticky="w")
+            top_frame, text="Total Amount:", bg="lightblue", fg="green",
+            font=("Arial", 12, "bold")
+        ).grid(row=1, column=0, padx=5, pady=(5, 0), sticky="sw")
         tk.Label(
-            top_frame, text="Paid:", bg="lightblue", fg="dodgerblue",
-            font=("Arial", 11, "bold")
-        ).grid(row=1, column=1, padx=10, pady=(5, 0), sticky="w")
+            top_frame, text="Paid Amount:", bg="lightblue", fg="green",
+            font=("Arial", 12, "bold")
+        ).grid(row=1, column=1, padx=5, pady=(5, 0), sticky="sw")
         tk.Label(
-            top_frame, text="Balance:", bg="lightblue", fg="dodgerblue",
-            font=("Arial", 11, "bold")
-        ).grid(row=1, column=2, padx=10, pady=(5, 0), sticky="w")
+            top_frame, text="Balance:", bg="lightblue", fg="green",
+            font=("Arial", 12, "bold")
+        ).grid(row=1, column=2, padx=5, pady=(5, 0), sticky="sw")
         tk.Label(
-            top_frame, text=f"{amount:,.2f}", bg="lightblue", bd=2, fg="blue",
-            relief="raised",  font=("Arial", 11, "bold")
-        ).grid(row=2, column=0, padx=10, pady=(0, 10))
+            top_frame, text=f"{amount:,.2f}", bg="lightblue", fg="blue",
+            bd=4, relief="raised",  font=("Arial", 12, "bold")
+        ).grid(row=2, column=0, ipadx=5, pady=(0, 5), sticky="n")
         tk.Label(
-            top_frame, text=f"{paid:,.2f}", bg="lightblue", bd=2, fg="blue",
-            relief="raised", font=("Arial", 11, "bold")
-        ).grid(row=2, column=1, padx=10, pady=(0, 10))
+            top_frame, text=f"{paid:,.2f}", bg="lightblue", fg="blue", bd=4,
+            relief="raised", font=("Arial", 12, "bold")
+        ).grid(row=2, column=1, ipadx=5, pady=(0, 5), sticky="n")
         tk.Label(
-            top_frame, text=f"{self.balance:,.2f}", bg="lightblue", bd=2,
-            fg="blue", relief="raised", font=("Arial", 11, "bold")
-        ).grid(row=2, column=2, padx=10, pady=(0, 10))
+            top_frame, text=f"{self.balance:,.2f}", bg="lightblue",
+            fg="blue", bd=4, relief="raised", font=("Arial", 12, "bold")
+        ).grid(row=2, column=2, ipadx=5, pady=(0, 5), sticky="n")
         self.center_frame.pack(fill="both", expand=True)
         tk.Label(
-            self.center_frame, text="Cash Amount:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).grid(row=0, column=0, pady=(5, 0), padx=10, sticky="w")
-        tk.Label(
-            self.center_frame, text="Mpesa Amount:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).grid(row=0, column=1, pady=(5, 0), padx=10, sticky="w")
+            self.center_frame, text="Cash:", bg="lightblue",
+            font=("Arial", 12, "bold")
+        ).grid(row=0, column=0, pady=10, padx=(5, 0), sticky="e")
         cash = tk.Entry(
-            self.center_frame, textvariable=self.cash_var, width=10, bd=2,
-            relief="raised", font=("Arial", 11)
+            self.center_frame, textvariable=self.cash_var, width=10, bd=4,
+            relief="raised", font=("Arial", 12)
         )
+        cash.grid(row=0, column=1, padx=(0, 5), pady=10, sticky="w")
+        tk.Label(
+            self.center_frame, text="Mpesa:", bg="lightblue",
+            font=("Arial", 12, "bold")
+        ).grid(row=0, column=2, pady=10, padx=(5, 0), sticky="e")
         mpesa = tk.Entry(
-            self.center_frame, textvariable=self.mpesa_var, width=10, bd=2,
-            relief="raised", font=("Arial", 11)
+            self.center_frame, textvariable=self.mpesa_var, width=10, bd=4,
+            relief="raised", font=("Arial", 12)
         )
-        cash.grid(row=1, column=0, padx=10, pady=(0, 5), sticky="e")
+        mpesa.grid(row=0, column=3, padx=(0, 5), pady=10, sticky="w")
         cash.focus_set()
         cash.bind("<Return>", lambda e: mpesa.focus_set())
-        mpesa.grid(row=1, column=1, padx=10, pady=(0, 5), sticky="e")
         mpesa.bind("<Return>", lambda e: self.post_payment())
         # Auto-format both field as money while typing
         self.add_currency_trace(self.cash_var, cash)
         self.add_currency_trace(self.mpesa_var, mpesa)
-
         tk.Button(
-            self.center_frame, text="Post Payment", bg="dodgerblue", bd=4,
-            fg="white", relief="raised", command=self.post_payment
-        ).grid(row=2, column=0, columnspan=2, pady=10)
+            self.center_frame, text="Post Payment", bg="blue", fg="white",
+            bd=4, relief="raised", font=("Arial", 10, "bold"),
+            command=self.post_payment
+        ).grid(row=1, column=0, columnspan=4, pady=(10, 0))
 
     def add_currency_trace(self, var, entry):
         def callback(var_name, index, mode):
@@ -218,17 +219,18 @@ class OrderPayment(BaseWindow):
 
 
 class OrderItemsGui(BaseWindow):
-    def __init__(self, parent, conn, user, order_id):
+    def __init__(self, parent, conn, user, order_id, call_back=None):
         self.master = tk.Toplevel(parent)
-        self.master.title("Order Delivery Options")
+        self.master.title("Order Items & Delivery")
         self.master.configure(bg="lightblue")
-        self.center_window(self.master, 850, 600, parent)
+        self.center_window(self.master, 900, 700, parent)
         self.master.transient(parent)
         self.master.grab_set()
 
         self.conn = conn
         self.user = user
         self.order_id = order_id
+        self.callback = call_back
         result = fetch_order_balance_by_id(self.conn, order_id)
         # Error string returned
         if isinstance(result, dict) and "error" in result:
@@ -249,12 +251,11 @@ class OrderItemsGui(BaseWindow):
         (self.selected_code, self.selected_amount,
          self.name) = None, None, None
         style = ttk.Style(self.master)
-        style.configure("Treeview", rowheight=20, font=("Arial", 10))
-        style.configure(
-            "Treeview.Heading", font=("Arial", 11, "bold", "underline")
-        )
-        self.columns = ["No", "Product Code", "Product Name", "Quantity",
-                   "Unit Price", "Total Price"]
+        style.theme_use("clam")
+        self.columns = [
+            "No", "Product Code", "Product Name", "Quantity", "Unit Price",
+            "Total Price"
+        ]
         self.main_frame = tk.Frame(
             self.master, bg="lightblue", bd=4, relief="solid"
         )
@@ -264,11 +265,15 @@ class OrderItemsGui(BaseWindow):
         self.btn_frame = tk.Frame(self.table_frame, bg="lightblue")
         self.label = tk.Label(
             self.btn_frame, text="", bg="lightblue", fg="dodgerblue",
-            font=("Arial", 14, "italic", "underline")
+            font=("Arial", 14, "italic", "underline"), width=70
         )
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
         )
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
 
         self.build_ui()
@@ -278,9 +283,9 @@ class OrderItemsGui(BaseWindow):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
         self.top_frame.pack(side="top", fill="x")
         tk.Label(
-            self.top_frame, text="Ordered Items.", bg="lightblue",
-            font=("Arial", 16, "bold", "underline")
-        ).pack(side="left", padx=10)
+            self.top_frame, text=f"Order No. {self.order_id} Items", fg="blue",
+            bg="lightblue", font=("Arial", 20, "bold", "underline")
+        ).pack(side="left")
         btn_frame = tk.Frame(self.top_frame, bg="lightblue")
         btn_frame.pack(side="right")
         btns = {
@@ -291,22 +296,22 @@ class OrderItemsGui(BaseWindow):
         }
         for text, command in btns.items():
             tk.Button(
-                btn_frame, text=text, command=command, bd=2, relief="raised",
-                bg="blue", fg="white"
+                btn_frame, text=text, command=command, bd=4, relief="raised",
+                bg="blue", fg="white", font=("Arial", 10, "bold")
             ).pack(side="left")
         self.table_frame.pack(side="left", fill="both", expand=True)
-        self.btn_frame.pack(side="top", fill="x", padx=10)
+        self.btn_frame.pack(side="top", fill="x")
         action_btn = {
-            "Add Order Items": self.add_item,
-            "Edit Item Quantity": self.edit_qty,
+            "Add Item": self.add_item,
+            "Edit Item Qty": self.edit_qty,
             "Delete Item": self.delete_item
         }
         for text, command in action_btn.items():
             tk.Button(
-                self.btn_frame, text=text, command=command, bd=2, relief="raised",
-                bg="green", fg="white"
+                self.btn_frame, text=text, command=command, bg="green",
+                fg="white", bd=2, relief="raised", font=("Arial", 9, "bold")
             ).pack(side="left")
-        self.label.pack(side="left", padx=20)
+        self.label.pack(side="left", padx=20, anchor="s")
         for col in self.columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor="center", width=20)
@@ -315,16 +320,12 @@ class OrderItemsGui(BaseWindow):
             self.table_frame, orient="vertical", command=self.tree.yview
         )
         self.tree.configure(yscrollcommand=scrollbar.set)
-        self.tree.bind(
-            "<MouseWheel>", lambda e: self.tree.yview_scroll(-1 * (
-                    e.delta // 120
-            ), "units")
-        )
         self.tree.pack(side=tk.LEFT, fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-        self.tree.tag_configure("total", font=(
-            "Arial", 11, "bold", "underline"
-        ), background="lightgray")
+        self.tree.tag_configure(
+            "total", font=("Arial", 12, "bold", "underline"),
+            background="lightgray", foreground="blue"
+        )
 
     def load_data(self):
         if self.balance > 0:
@@ -342,8 +343,8 @@ class OrderItemsGui(BaseWindow):
                 item["product_code"],
                 name,
                 item["quantity"],
-                f"{item["unit_price"]:,.2f}",
-                f"{item["total_price"]:,.2f}"
+                f"{item['unit_price']:,.2f}",
+                f"{item['total_price']:,.2f}"
             ))
         total_sum = sum(item["total_price"] for item in items)
         self.total_amount = total_sum
@@ -351,7 +352,7 @@ class OrderItemsGui(BaseWindow):
             self.tree.insert("", "end", values=(
                 "", "","", "", "TOTAL", f"{total_sum:,.2f}"
             ), tags=("total",))
-        self.autosize_columns()
+        self.sorter.autosize_columns(5)
 
     def collect_treeview_data(self):
         data = []
@@ -362,6 +363,9 @@ class OrderItemsGui(BaseWindow):
     def refresh(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
+        self.selected_code = None
+        self.selected_amount = None
+        self.name = None
         self.load_data()
 
     def item_selected(self, event):
@@ -403,51 +407,72 @@ class OrderItemsGui(BaseWindow):
         )
 
     def mark_print_delivery(self):
+        if self.balance > 0:
+            bal = f"{self.balance:,.2f}"
+            messagebox.showerror(
+                "Not Fully Paid",
+                f"Order Balance is not Cleared.\nClear Balance of {bal}.",
+                parent=self.master
+            )
+            return
         order = self.order_id
         confirm = messagebox.askyesno(
-            "Confirm",
-            f"You want to Mark Order; {order} Delivered?", parent=self.master
+            "Confirm Delivery",
+            f"Mark Order No. {order} Delivered?", parent=self.master
         )
+        if not confirm:
+            return
         # Verify user privilege
-        priv = "Mark Order Delivered"
-        verify = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
+        priv = "Deliver Order"
+        verify = VerifyPrivilegePopup(
+            self.master, self.conn, self.user, priv
+        )
         if verify.result != "granted":
             messagebox.showwarning(
                 "Access Denied",
                 f"Access Denied to {priv}.", parent=self.master
             )
             return
-        if not confirm:
-            self.print_delivery_note()
-        else:
-            try:
-                success, message = mark_order_as_delivered(
-                    self.conn, self.order_id, self.total_amount, self.user
-                )
-                if success:
-                    self.print_delivery_note()
-                    messagebox.showinfo(
-                        "Success", message, parent=self.master
-                    )
-                    self.order_id = None
-                    self.master.destroy()
-                else:
-                    messagebox.showerror("Error", message, parent=self.master)
-            except Exception as e:
-                messagebox.showerror(
-                    "Error",
-                    f"Failed to update order: {e}", parent=self.master
-                )
+
+        success, message = mark_order_as_delivered(
+            self.conn, self.order_id, self.total_amount, self.user
+        )
+
+        if not success:
+            messagebox.showerror(
+                "Error", message, parent=self.master
+            )
+            return
+        # Generate PDF
+        try:
+            path = self.print_delivery_note()
+        except Exception as e:
+            messagebox.showerror(
+                "Printing Error",
+                f"Order Marked Deliver But Printing Failed:\n{str(e)}.",
+                parent=self.master
+            )
+            return
+        messagebox.showinfo(
+            "Success",
+            f"Order Marked Delivered and Delivery Note Saved to:\n{path}.",
+            parent=self.master
+        )
+        if self.callback:
+            self.callback()
+        self.master.destroy()
 
     def mark_delivered(self):
         if self.balance > 0:
+            bal = f"{self.balance:,.2f}"
             messagebox.showerror(
-                "Unpaid",
-                "Order is not Full Paid, Clear Balance!.", parent=self.master
+                "Not Fully Paid",
+                f"Order Balance is not Cleared.\nClear Balance of {bal}.",
+                parent=self.master
             )
             return
         # Verify user privilege
-        priv = "Mark Order Delivered"
+        priv = "Deliver Order"
         verify = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
         if verify.result != "granted":
             messagebox.showwarning(
@@ -463,15 +488,15 @@ class OrderItemsGui(BaseWindow):
                 "Success",
                 f"Order No.{self.order_id} Marked Delivered.", parent=self.master
             )
+            if self.callback:
+                self.callback()
         else:
             messagebox.showerror("Error", message, parent=self.master)
 
     def print_delivery_note(self):
         data = self.collect_treeview_data()
         exporter = DeliveryExporter(self.order_id, data, self.status)
-        path = exporter.export_to_pdf()
-        messagebox.showinfo("PDF Exported", f"Saved to: {path}")
-        self.master.destroy()
+        return exporter.export_to_pdf()
 
     def clear_balance(self):
         if self.balance <= 0:
@@ -506,13 +531,13 @@ class OrderItemsGui(BaseWindow):
         )
 
     def delete_item(self):
-        if not self.selected_code and not self.selected_amount:
+        if not self.selected_code or not self.selected_amount:
             messagebox.showwarning(
                 "No Selection", "Select Order Item First.", parent=self.master
             )
             return
         # Verify user privilege
-        priv = "Mark Order Delivered"
+        priv = "Edit Order"
         verify = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
         if verify.result != "granted":
             messagebox.showwarning(
@@ -547,21 +572,3 @@ class OrderItemsGui(BaseWindow):
                 "Cancelled", "Order Item Deletion Cancelled.",
                 parent=self.master
             )
-
-    def autosize_columns(self):
-        font = tkFont.Font()
-        for col in self.columns:
-            max_width = font.measure(col)
-            for item in self.tree.get_children():
-                cell_value = str(self.tree.set(item, col))
-                cell_width = font.measure(cell_value)
-                if cell_width > max_width:
-                    max_width = cell_width
-            self.tree.column(col, width=max_width + 5)
-
-# if __name__ == "__main__":
-#     from connect_to_db import connect_db
-#     conn=connect_db()
-#     root = tk.Tk()
-#     OrderItemsGui(root, conn,"Sniffy", 15)
-#     root.mainloop()

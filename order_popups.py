@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from base_window import BaseWindow
-from windows_utils import to_uppercase
+from windows_utils import to_uppercase, DateEntryFormatter
 from authentication import VerifyPrivilegePopup
 from working_on_orders import (
     fetch_order_product, add_order_item, update_order_item,
@@ -345,23 +345,29 @@ class EditOrderWindow(BaseWindow):
         self.master = tk.Toplevel(parent)
         self.master.title("Edit Order Information")
         self.master.configure(bg="lightblue")
-        self.center_window(self.master, 300, 200, parent)
+        self.center_window(self.master, 330, 210, parent)
         self.master.transient(parent)
         self.master.grab_set()
 
         self.conn = conn
         self.user = user
         self.order_data = order_data
-        self.main_frame = tk.Frame(self.master, bg="lightblue", bd=4, relief="solid")
+        self.main_frame = tk.Frame(
+            self.master, bg="lightblue", bd=4, relief="solid"
+        )
         self.entry_name = tk.Entry(
-            self.main_frame, font=("Arial", 11), bd=2, relief="raised", width=25
+            self.main_frame, bd=4, relief="raised", width=25,
+            font=("Arial", 12)
         )
         self.entry_contact = tk.Entry(
-            self.main_frame, font=("Arial", 11), bd=2, relief="raised", width=12
+            self.main_frame, bd=4, relief="raised", width=12,
+            font=("Arial", 12)
         )
         self.entry_deadline = tk.Entry(
-            self.main_frame, font=("Arial", 11), bd=2, relief="raised", width=10
+            self.main_frame, bd=4, relief="raised", width=10,
+            font=("Arial", 12)
         )
+        self.date_formatter = DateEntryFormatter(self.entry_deadline)
 
         self.build_ui()
 
@@ -374,15 +380,15 @@ class EditOrderWindow(BaseWindow):
         amount = float(self.order_data["total_amount"])
         self.main_frame.pack(fill="both", expand=True, padx=5, pady=(0, 5))
         tk.Label(
-            self.main_frame, text=f"Details For Order. {order_id}",
-            bg="lightblue", font=("Arial", 14, "bold", "underline"),
-        ).grid(row=0, column=0, columnspan=2, pady=(5, 0), sticky="w")
+            self.main_frame, text=f"Details For Order. {order_id}", fg="blue",
+            bg="lightblue", font=("Arial", 16, "bold", "underline"),
+        ).grid(row=0, column=0, columnspan=2, pady=(3, 0), sticky="ew")
         tk.Label(
             self.main_frame, text="Customer Name:", bg="lightblue",
-            font=("Arial", 11, "bold"),
-        ).grid(row=1, column=0, pady=(5, 0), padx=5, sticky="w")
+            font=("Arial", 12, "bold"),
+        ).grid(row=1, column=0, pady=(3, 0), sticky="sw")
         self.entry_name.grid(
-            row=2, column=0, columnspan=2, pady=(0, 5), padx=10
+            row=2, column=0, columnspan=2, pady=(0, 3), sticky="n"
         )
         self.entry_name.insert(0, customer_name)
         self.entry_name.bind("<KeyRelease>", self.capitalize_customer_name)
@@ -393,33 +399,34 @@ class EditOrderWindow(BaseWindow):
         self.entry_name.select_range(0, tk.END)
         # Contact
         tk.Label(
-            self.main_frame, text="Contact:", bg="lightblue", font=("Arial", 11, "bold")
-        ).grid(row=3, column=0, padx=5, pady=(5, 0), sticky="w")
-        self.entry_contact.grid(row=4, column=0, pady=(0, 5), padx=5)
+            self.main_frame, text="Contact:", bg="lightblue",
+            font=("Arial", 12, "bold")
+        ).grid(row=3, column=0, padx=(0, 3), pady=(3, 0), sticky="sw")
+        self.entry_contact.grid(
+            row=4, column=0, pady=(0, 3), sticky="n"
+        )
         self.entry_contact.insert(0, contact)
         self.entry_contact.bind(
             "<Return>", lambda e: self.focus_select(self.entry_deadline)
         )
         # Deadline
         tk.Label(
-            self.main_frame, text="Deadline:", bg="lightblue",
-            font=("Arial", 11, "bold"),
-        ).grid(row=3, column=1, pady=(5, 0), padx=5, sticky="w")
-        self.entry_deadline.grid(row=4, column=1, padx=5, pady=(0, 5))
+            self.main_frame, text="Deadline(ddmmyyyy):", bg="lightblue",
+            font=("Arial", 12, "bold"),
+        ).grid(row=3, column=1, pady=(3, 0), padx=(3, 0), sticky="sw")
+        self.entry_deadline.grid(
+            row=4, column=1, pady=(0, 3), sticky="n"
+        )
         self.entry_deadline.insert(0, deadline)
         self.entry_deadline.bind(
             "<Return>", lambda e: self.post_update(order_id, amount)
         )
         # Post Button
         tk.Button(
-            self.main_frame,
-            text="Post Update",
-            bg="dodgerblue",
-            fg="white",
-            bd=4,
-            relief="raised",
+            self.main_frame, text="Post Update", bg="blue", fg="white", bd=4,
+            relief="raised", font=("Arial", 10, "bold"),
             command=lambda: self.post_update(order_id, amount),
-        ).grid(row=5, column=0, columnspan=2, pady=10)
+        ).grid(row=5, column=0, columnspan=2, pady=(10, 0))
 
     def focus_select(self, widget):
         """Focus the next widget and select all text."""
@@ -437,7 +444,18 @@ class EditOrderWindow(BaseWindow):
         """Handle posting of order updates."""
         name = self.entry_name.get().strip()
         contact = self.entry_contact.get().strip()
-        deadline = self.entry_deadline.get().strip()
+        deadline_row = self.entry_deadline.get().strip()
+
+        try:
+            deadline = DateEntryFormatter.to_mysql(deadline_row)
+        except ValueError:
+            messagebox.showerror(
+                "Invalid Date",
+                "Date must be in DD/MM/YYYY Format.", parent=self.master
+            )
+            self.entry_deadline.focus_set()
+            self.entry_deadline.select_range(0, tk.END)
+            return 
 
         if not name or not contact or not deadline:
             messagebox.showwarning(
@@ -469,5 +487,3 @@ class EditOrderWindow(BaseWindow):
                 f"Order {order_id} Updated Successfully.", parent=self.master
             )
             self.master.destroy()
-
-

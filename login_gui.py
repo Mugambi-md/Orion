@@ -357,4 +357,3 @@ class AdminLoginWindow(BaseWindow):
         self.username_entry.delete(0, tk.END)
         self.pass_entry.delete(0, tk.END)
         self.username_entry.focus_set()
-

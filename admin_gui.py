@@ -200,15 +200,14 @@ class AdminWindow:
                 relief="groove", fg="white", width=12, font=("Arial", 11)
             ).pack(ipadx=5, fill="x")
         tk.Label(
-            foot_frame, text=f"User: {self.user}", bg="white", width=10,
+            foot_frame, text=f"User: {self.user}", bg="white", width=25,
             fg="blue", font=("Arial", 11, "italic")
-        ).pack(side="left")
+        ).pack(side="left", anchor="s")
         footer = tk.Label(
             foot_frame, text="POINT OF SALE SYSTEM v1.0", bg="white",
             fg="blue", font=("Arial", 12, "italic"), width=40
         )
         footer.pack(side="left", padx=10)
-
 
     def has_privilege(self, privilege: str) -> bool:
         """Check if the current user has the required privilege."""

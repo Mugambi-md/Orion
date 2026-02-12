@@ -120,7 +120,7 @@ class SystemDashboard:
         foot_frame = tk.Frame(self.window, bg="white", bd=2, relief="ridge")
         foot_frame.pack(side="bottom", fill="x")
         tk.Label(
-            foot_frame, text=f"User: {self.user}", bg="white", width=10,
+            foot_frame, text=f"User: {self.user}", bg="white", width=25,
             fg="blue", font=("Arial", 11, "italic")
         ).pack(side="left", padx=10)
         footer = tk.Label(
@@ -575,8 +575,6 @@ class SystemDashboard:
             SummaryPreviewWindow(self.conn, title, columns, fetch, param)
 
 
-
-
 if __name__ == "__main__":
     from connect_to_db import connect_db
     conn=connect_db()
@@ -584,6 +582,3 @@ if __name__ == "__main__":
     root.withdraw()
     app = SystemDashboard(conn, "Sniffy")
     root.mainloop()
-
-
-

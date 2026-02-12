@@ -41,8 +41,8 @@ class OrderedItemsWindow(BaseWindow):
         style = ttk.Style(self.master)
         style.theme_use("clam")
         self.columns = [
-            "No.", "Product Code", "Product Name", "Quantity", "Unit Price",
-            "Total Revenue"
+            "No.", "Item Code", "Item Name", "Qty", "Unit Price",
+            "Total Price"
         ]
         self.main_frame = tk.Frame(
             self.master, bg="lightblue", bd=4, relief="solid"
@@ -50,16 +50,16 @@ class OrderedItemsWindow(BaseWindow):
         self.top_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.year_cb = ttk.Combobox(
             self.top_frame, textvariable=self.selected_year, width=5,
-            state="readonly", values=self.years, font=("Arial", 11)
+            state="readonly", values=self.years, font=("Arial", 12)
         )
         self.month_cb = ttk.Combobox(
             self.top_frame, values=[name for name, _num in self.months],
             width=10, state="readonly", textvariable=self.selected_month,
-            font=("Arial", 11)
+            font=("Arial", 12)
         )
         self.label = tk.Label(
             self.main_frame, text="", bg="lightblue", fg="blue",
-            font=("Arial", 18, "bold", "underline")
+            font=("Arial", 20, "bold", "underline")
         )
         self.table_frame = tk.Frame(
             self.main_frame, bg="lightblue", bd=4, relief="ridge"
@@ -77,13 +77,13 @@ class OrderedItemsWindow(BaseWindow):
 
     def create_widgets(self):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
-        self.label.pack(anchor="center")
+        self.label.pack(anchor="center", pady=(5, 0))
         self.top_frame.pack(side="top", fill="x")
         tk.Label(
             self.top_frame, text="Select Year:", bg="lightblue",
             font=("Arial", 12, "bold")
-        ).pack(side="left", padx=(5, 0))
-        self.year_cb.pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(5, 0), anchor="s")
+        self.year_cb.pack(side="left", padx=(0, 5), anchor="s")
         if self.years:
             self.year_cb.set(self.years[0])
         else:
@@ -93,23 +93,23 @@ class OrderedItemsWindow(BaseWindow):
         tk.Label(
             self.top_frame, text="Select Month:", bg="lightblue",
             font=("Arial", 12, "bold")
-        ).pack(side="left", padx=(5, 0))
-        self.month_cb.pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(5, 0), anchor="s")
+        self.month_cb.pack(side="left", padx=(0, 5), anchor="s")
         self.year_cb.bind("<<ComboboxSelected>>", lambda e: self.load_data())
         self.month_cb.bind("<<ComboboxSelected>>", lambda e: self.load_data())
         btn_frame = tk.Frame(
             self.top_frame, bg="lightblue", bd=4, relief="ridge"
         )
-        btn_frame.pack(side="right")
+        btn_frame.pack(side="right", anchor="s")
         action_btn = {
             "Export PDF": self.on_export_pdf,
             "Print List": self.on_print
         }
         for text, command in action_btn.items():
             tk.Button(
-                btn_frame, text=text, command=command, bd=2, relief="groove",
+                btn_frame, text=text, command=command, bd=4, relief="groove",
                 bg="dodgerblue", fg="white", font=("Arial", 10, "bold")
-            ).pack(side="left")
+            ).pack(side="left", anchor="s")
         self.table_frame.pack(side="left", fill="both", expand=True,)
         for col in self.columns:
             self.tree.heading(col, text=col)
@@ -123,18 +123,18 @@ class OrderedItemsWindow(BaseWindow):
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
         self.tree.tag_configure(
-            "totalrow", background="#c5cae9",
+            "totalrow", background="#c5cae9", foreground="blue",
             font=("Arial", 12, "bold", "underline")
         )
 
     def load_data(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
-        label = "Most Ordered Items In"
+        label = "Most Ordered Items"
         year = int(self.selected_year.get())
         if self.selected_month.get():
             month = dict(self.months).get(self.selected_month.get())
-            label += f" {self.selected_month.get()}"
+            label += f" In {self.selected_month.get()}"
         else:
             month = None
         label += f" {year}."
@@ -164,9 +164,10 @@ class OrderedItemsWindow(BaseWindow):
             total_quantity += quantity
             total_unit_price += float(row["unit_price"])
             cum_total_price += float(row["total_revenue"])
-        self.tree.insert("", "end", values=(
-            "", "", "Total", total_quantity, f"{total_unit_price:,.2f}",
-            f"{cum_total_price:,.2f}"
+        if items:
+            self.tree.insert("", "end", values=(
+                "", "", "Total", total_quantity, f"{total_unit_price:,.2f}",
+                f"{cum_total_price:,.2f}"
             ), tags=("totalrow",))
         self.sorter.autosize_columns(10)
 
@@ -176,19 +177,19 @@ class OrderedItemsWindow(BaseWindow):
             vals = self.tree.item(item, "values")
             rows.append({
                 "No.": vals[0],
-                "Product Code": vals[1],
-                "Product Name": vals[2],
-                "Quantity": vals[3],
+                "Item Code": vals[1],
+                "Item Name": vals[2],
+                "Qty": vals[3],
                 "Unit Price": vals[4],
-                "Total Revenue": vals[5]
+                "Total Price": vals[5]
             })
         return rows
 
     def _make_exporter(self):
         title = self.title
         columns = [
-            "No.", "Product Code", "Product Name", "Quantity", "Unit Price",
-            "Total Revenue"
+            "No.", "Item Code", "Item Name", "Qty", "Unit Price",
+            "Total Price"
         ]
         rows = self._collect_current_rows()
         return ReportExporter(self.master, title, columns, rows)
@@ -211,7 +212,8 @@ class OrderedItemsWindow(BaseWindow):
     def on_print(self):
         if not self._check_privilege():
             messagebox.showwarning(
-                "Denied", "You Don't Permission To Print Order Items.",
+                "Denied",
+                "You Don't Permission To Print Ordered Items.",
                 parent=self.master
             )
             return
@@ -236,7 +238,7 @@ class PendingOrdersWindow(BaseWindow):
         style = ttk.Style(self.window)
         style.theme_use("clam")
         self.columns = [
-            "No.", "Order ID", "Customer Name", "Contact", "Date Ordered",
+            "No.", "ID", "Customer Name", "Contact", "Date Placed",
             "Deadline", "Amount", "Status"
         ]
         # Left Frame for buttons
@@ -263,20 +265,20 @@ class PendingOrdersWindow(BaseWindow):
         self.top_frame.pack(side="top", fill="x")
         self.table_frame.pack(side="left", fill="both", expand=True)
         btn_frame = tk.Frame(self.top_frame, bg="lightblue")
-        btn_frame.pack(side="right")
+        btn_frame.pack(side="right", anchor="s")
         tk.Label(
             self.top_frame, text="Current Undelivered Orders.", fg="blue",
-            bg="lightblue", font=("Arial", 18, "bold", "underline")
-        ).pack(side="left")
+            bg="lightblue", font=("Arial", 20, "bold", "underline"), width=45
+        ).pack(side="right", anchor="w")
         buttons = {
             "Deliver Order": self.deliver_order,
             "Delete Order": self.delete_order,
         }
         for text, command in buttons.items():
             tk.Button(
-                btn_frame, text=text, command=command, bd=2, relief="groove",
-                bg="blue", fg="white", font=("Arial", 10, "bold")
-            ).pack(side="left")
+                btn_frame, text=text, command=command, bd=4, relief="groove",
+                bg="blue", fg="white", font=("Arial", 11, "bold")
+            ).pack(side="left", anchor="s")
         for col in self.columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor="center", width=30)
@@ -290,11 +292,13 @@ class PendingOrdersWindow(BaseWindow):
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
         self.tree.tag_configure(
-            "totalrow", background="#c5cae9",
+            "totalrow", background="#c5cae9", foreground="blue",
             font=("Arial", 12, "bold", "underline")
         )
 
     def create_table(self):
+        for row in self.tree.get_children():
+            self.tree.delete(row)
         orders = fetch_pending_orders(self.conn)
         if isinstance(orders, str):
             messagebox.showerror("Error", orders, parent=self.window)
@@ -313,10 +317,11 @@ class PendingOrdersWindow(BaseWindow):
                 order["status"]
             ), tags=(tag,))
             total_amount += float(order["amount"])
-        self.tree.insert("", "end", values=(
-            "", "", "Total", "", "", "", f"{total_amount:,.2f}", ""
-        ), tags=("totalrow",))
-        self.sorter.autosize_columns()
+        if orders:
+            self.tree.insert("", "end", values=(
+                "", "", "Total", "", "", "", f"{total_amount:,.2f}", ""
+            ), tags=("totalrow",))
+        self.sorter.autosize_columns(5)
 
     def order_details(self, event=None):
         selected = self.tree.selection()
@@ -334,14 +339,17 @@ class PendingOrdersWindow(BaseWindow):
             return
         # Verify user privilege
         priv = "View Ordered Items"
-        verify = VerifyPrivilegePopup(self.window, self.conn, self.user, priv)
+        verify = VerifyPrivilegePopup(
+            self.window, self.conn, self.user, priv
+        )
         if verify.result != "granted":
             messagebox.showwarning(
                 "Access Denied",
                 f"Access Denied to {priv}.", parent=self.window
             )
             return
-        OrderItemsGui(self.window, self.conn, self.user, order_id)
+        refresh_t = self.create_table
+        OrderItemsGui(self.window, self.conn, self.user, order_id, refresh_t)
 
     def delete_order(self):
         order_id = self.selected_order_id
@@ -362,8 +370,7 @@ class PendingOrdersWindow(BaseWindow):
             return
         confirm = messagebox.askyesno(
             "Confirm Deletion",
-            f"Are you sure you want to DELETE Order: {order_id}?",
-            parent=self.window
+            f"DELETE Order No. {order_id}?", parent=self.window
         )
         if confirm:
             try:
@@ -376,12 +383,13 @@ class PendingOrdersWindow(BaseWindow):
             except Exception as e:
                 messagebox.showerror(
                     "Error",
-                    f"Failed to Delete order: {str(e)}.", parent=self.window
+                    f"Failed to Delete Order: {str(e)}.", parent=self.window
                 )
         else:
             messagebox.showinfo(
                 "Cancelled", "Order Deletion Cancelled.", parent=self.window
             )
+
 
 class UnpaidOrdersWindow(BaseWindow):
     def __init__(self, parent, conn, user):
@@ -399,15 +407,16 @@ class UnpaidOrdersWindow(BaseWindow):
         style = ttk.Style(self.master)
         style.theme_use("clam")
         self.columns = [
-            "No.", "Order ID", "Customer Name", "Contact", "Date Placed",
-            "Amount", "Status", "Balance"
+            "No.", "ID", "Customer Name", "Contact", "Date Placed", "Amount",
+            "Status", "Balance"
         ]
         self.main_frame = tk.Frame(
             self.master, bg="lightblue", bd=4, relief="solid"
         )
         self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.tree = ttk.Treeview(
-            self.table_frame, columns=self.columns, show="headings"
+            self.table_frame, columns=self.columns, show="headings",
+            selectmode="browse"
         )
         self.sorter = TreeviewSorter(self.tree, self.columns, "No.")
         self.sorter.apply_style(style)
@@ -424,16 +433,14 @@ class UnpaidOrdersWindow(BaseWindow):
         table_top_frame.pack(side="top", fill="x")
         tk.Label(
             table_top_frame, text="Current Unpaid Orders.", bg="lightblue",
-            fg="blue", font=("Arial", 18, "bold", "underline")
-        ).pack(side="left")  # Title
-        label_frame = tk.Frame(table_top_frame, bg="lightblue")
-        label_frame.pack(side="left", fill="x", padx=40)
+            fg="blue", font=("Arial", 20, "bold", "underline")
+        ).pack(side="left", anchor="s")  # Title
         tk.Label(
-            label_frame, text="Select Order To Pay", bg="lightblue",
-            font=("Arial", 13, "italic", "underline"), fg="dodgerblue"
-        ).pack(anchor="center")
+            table_top_frame, text="Select Order To Pay", bg="lightblue",
+            font=("Arial", 13, "italic", "underline"), fg="blue", width=35
+        ).pack(side="left", anchor="s")
         btn_frame = tk.Frame(table_top_frame, bg="lightblue")
-        btn_frame.pack(side="right", padx=10)
+        btn_frame.pack(side="right", padx=5, anchor="s")
         action_btn = {
             "Refresh": self.load_data,
             "Pay Order": self.pay_order,
@@ -442,9 +449,9 @@ class UnpaidOrdersWindow(BaseWindow):
         }
         for text, command in action_btn.items():
             tk.Button(
-                btn_frame, text=text, bg="green", bd=2, relief="groove",
+                btn_frame, text=text, bg="green", bd=4, relief="groove",
                 fg="white", command=command, font=("Arial", 10, "bold")
-            ).pack(side="left")
+            ).pack(side="left", anchor="s")
         # Left frame for table
         self.table_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         # Treeview for orders
@@ -462,7 +469,7 @@ class UnpaidOrdersWindow(BaseWindow):
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
         self.tree.tag_configure(
-            "totalrow", background="#c5cae9",
+            "totalrow", background="#c5cae9", foreground="blue",
             font=("Arial", 12, "bold", "underline")
         )
 
@@ -490,10 +497,11 @@ class UnpaidOrdersWindow(BaseWindow):
             ), tags=(tag,))
             total_amount += float(order["amount"])
             total_bal += float(order["balance"])
-        self.tree.insert("", "end", values=(
-            "", "", "", "", "TOTAL", f"{total_amount:,.2f}", "",
-            f"{total_bal:,.2f}"
-        ), tags=("totalrow",))
+        if orders_data:
+            self.tree.insert("", "end", values=(
+                "", "", "", "", "TOTAL", f"{total_amount:,.2f}", "",
+                f"{total_bal:,.2f}"
+            ), tags=("totalrow",))
         self.sorter.autosize_columns()
 
     def order_details(self, event=None):
@@ -516,7 +524,7 @@ class UnpaidOrdersWindow(BaseWindow):
         if verify.result != "granted":
             messagebox.showwarning(
                 "Access Denied",
-                f"Access Denied to {priv}.", parent=self.master
+                f"Authority To {priv} Denied.", parent=self.master
             )
             return
         OrderPayment(self.master, self.conn, self.user, order_id)
@@ -527,7 +535,7 @@ class UnpaidOrdersWindow(BaseWindow):
             vals = self.tree.item(item, "values")
             rows.append({
                 "No.": vals[0],
-                "Order ID": vals[1],
+                "ID": vals[1],
                 "Customer Name": vals[2],
                 "Contact": vals[3],
                 "Date Placed": vals[4],
@@ -540,8 +548,8 @@ class UnpaidOrdersWindow(BaseWindow):
     def _make_exporter(self):
         title = "Current Unpaid Orders"
         columns = [
-            "No.", "Order ID", "Customer Name", "Contact", "Date Placed",
-            "Amount", "Status", "Balance"
+            "No.", "ID", "Customer Name", "Contact", "Date Placed", "Amount",
+            "Status", "Balance"
         ]
         rows = self._collect_current_rows()
         return ReportExporter(self.master, title, columns, rows)
@@ -589,7 +597,7 @@ class EditOrdersWindow(BaseWindow):
         style = ttk.Style(self.master)
         style.theme_use("clam")
         self.columns = [
-            "No.", "Order ID", "Customer Name", "Contact", "Date Placed",
+            "No.", "ID", "Customer Name", "Contact", "Date Placed",
             "Deadline", "Amount", "Status"
         ]
         # Layout frames
@@ -602,7 +610,8 @@ class EditOrdersWindow(BaseWindow):
             self.main_frame, bg="lightgreen", bd=4, relief="ridge"
         )
         self.tree = ttk.Treeview(
-            self.table_frame, columns=self.columns, show="headings"
+            self.table_frame, columns=self.columns, show="headings",
+            selectmode="browse"
         )
         self.sorter = TreeviewSorter(self.tree, self.columns, "No.")
         self.sorter.apply_style(style)
@@ -616,25 +625,25 @@ class EditOrdersWindow(BaseWindow):
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
         self.top_frame.pack(fill="x")
         tk.Label(
-            self.top_frame, text="Current Pending Orders", bg="lightgreen",
-            fg="blue", font=("Arial", 18, "bold", "underline")
-        ).pack(side="left", padx=(0, 20))
-        l_text = "Select Order To Take Action."
+            self.top_frame, text="Pending Orders", bg="lightgreen",
+            fg="blue", font=("Arial", 20, "bold", "underline")
+        ).pack(side="left", anchor="s")
         tk.Label(
-            self.top_frame, text=l_text, fg="blue", bg="lightgreen",
-            width=30, font=("Arial", 13, "italic", "underline")
-        ).pack(side="left", padx=20)
-        self.btn_frame.pack(side="right", padx=5)
+            self.top_frame, text="Select Order To Take Action.", fg="blue",
+            bg="lightgreen", font=("Arial", 13, "italic", "underline"),
+            width=40
+        ).pack(side="left", anchor="s")
+        self.btn_frame.pack(side="right", padx=5, anchor="s")
         buttons = {
-            "Edit Order Details": self.edit_order_details,
-            "Edit Order Items": self.edit_order_items,
+            "Edit Details": self.edit_order_details,
+            "Edit Items": self.edit_order_items,
             "Delete Order": self.order_delete
         }
         for text, command in buttons.items():
             tk.Button(
-                self.btn_frame, text=text, command=command, relief="raised",
-                bd=2, bg="blue", fg="white"
-            ).pack(side="left")
+                self.btn_frame, text=text, command=command, bg="blue",
+                fg="white", bd=4, relief="raised", font=("Arial", 11, "bold")
+            ).pack(side="left", anchor="s")
         self.btn_frame.pack_forget()
         self.table_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         for col in self.columns:
@@ -667,7 +676,7 @@ class EditOrdersWindow(BaseWindow):
                 f"{order["amount"]:,}",
                 order["status"]
             ), tags=(tag,))
-        self.sorter.autosize_columns()
+        self.sorter.autosize_columns(3)
 
     def on_order_selected(self, event):
         selected = self.tree.focus()
@@ -687,7 +696,7 @@ class EditOrdersWindow(BaseWindow):
         if verify.result != "granted":
             messagebox.showwarning(
                 "Access Denied",
-                f"Access Denied to {priv}.", parent=self.master
+                f"Authority To {priv} Denied.", parent=self.master
             )
             return
         OrderItemsGui(
@@ -697,25 +706,27 @@ class EditOrdersWindow(BaseWindow):
     def order_delete(self):
         if not self.selected_order_id:
             messagebox.showwarning(
-                "No Order", "Select an order first.", parent=self.master
+                "No Order", "Select an Order First.", parent=self.master
             )
             return
         order_id = self.selected_order_id
-        # Verify user privilege
-        priv = "Delete Order"
-        verify = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
-        if verify.result != "granted":
-            messagebox.showwarning(
-                "Access Denied",
-                f"Access Denied to {priv}.", parent=self.master
-            )
-            return
         confirm = messagebox.askyesno(
             "Confirm Deletion",
             "Make Sure Order Payments Are Refunded Before Deleting.\n"
             f"You Want to DELETE Order: {order_id}?", parent=self.master
         )
         if confirm:
+            # Verify user privilege
+            priv = "Delete Order"
+            verify = VerifyPrivilegePopup(
+                self.master, self.conn, self.user, priv
+            )
+            if verify.result != "granted":
+                messagebox.showwarning(
+                    "Access Denied",
+                    f"Authority Denied To {priv}.", parent=self.master
+                )
+                return
             try:
                 success, msg = delete_order(
                     self.conn, self.selected_order_id, self.user
@@ -756,8 +767,10 @@ class EditOrdersWindow(BaseWindow):
         deadline = values[5]
         total_amount = float(values[6].replace(",", ""))
         # Verify user privilege
-        priv = "Delete Order"
-        verify = VerifyPrivilegePopup(self.master, self.conn, self.user, priv)
+        priv = "Edit Order"
+        verify = VerifyPrivilegePopup(
+            self.master, self.conn, self.user, priv
+        )
         if verify.result != "granted":
             messagebox.showwarning(
                 "Access Denied",
@@ -772,4 +785,3 @@ class EditOrdersWindow(BaseWindow):
             "total_amount": total_amount
         }
         EditOrderWindow(self.master, self.conn, order, self.user)
-

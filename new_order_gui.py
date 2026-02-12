@@ -1,7 +1,6 @@
 import re
 import tkinter as tk
 from datetime import date
-import tkinter.font as tkFont
 from tkinter import ttk, messagebox
 from base_window import BaseWindow
 from lookup_gui import ProductSearchWindow
@@ -33,15 +32,15 @@ class NewOrderWindow(BaseWindow):
         )
         self.left_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.customer_name_entry = tk.Entry(
-            self.left_frame, bd=2, relief="raised", font=("Arial", 11),
+            self.left_frame, bd=2, relief="ridge", font=("Arial", 12),
             width=20
         )
         self.contact_entry = tk.Entry(
-            self.left_frame, bd=2, relief="raised", font=("Arial", 11),
+            self.left_frame, bd=2, relief="ridge", font=("Arial", 12),
             width=11
         )
         self.deadline_entry = tk.Entry(
-            self.left_frame, bd=2, relief="raised", font=("Arial", 11),
+            self.left_frame, bd=2, relief="ridge", font=("Arial", 12),
             width=10
         )
         # Next Button
@@ -51,7 +50,8 @@ class NewOrderWindow(BaseWindow):
         )
         self.search_section = tk.Frame(self.left_frame, bg="lightblue")
         self.product_code_entry = tk.Entry(
-            self.search_section, bd=2, relief="raised", font=("Arial", 11)
+            self.search_section, width=10, bd=4, relief="raised",
+            font=("Arial", 12)
         )
         self.suggestions_listbox = tk.Listbox(
             self.search_section, bg="lightgray"
@@ -101,19 +101,24 @@ class NewOrderWindow(BaseWindow):
         self.sorter.bind_mousewheel()
 
         self.build_ui()
+        self.sorter.autosize_columns(5)
 
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
+        tk.Label(
+            self.main_frame, text="New Order", bg="lightblue", fg="blue",
+            font=("Arial", 20, "bold", "underline")
+        ).pack(side="top", pady=(5, 0))
         self.left_frame.pack(side="left", fill="y")
         # Customer Info (2 - columns: label top, entry below)
         tk.Label(
             self.left_frame, text="", bg="lightblue"
-        ).grid(row=0, column=0, columnspan=3)
+        ).grid(row=0, column=0, columnspan=2)
         tk.Label(
             self.left_frame, text="Customer Name:", bg="lightblue",
             font=("Arial", 12, "bold")
-        ).grid(row=1, column=0, pady=(5, 0), sticky="w")
-        self.customer_name_entry.grid(row=2, column=0, pady=(0, 5))
+        ).grid(row=1, column=0, columnspan=2, pady=(5, 0), sticky="s")
+        self.customer_name_entry.grid(row=2, column=0, columnspan=2, pady=(0, 5), sticky="s")
         self.customer_name_entry.focus_set()
         self.customer_name_entry.bind(
             "<Return>", lambda e: self.contact_entry.focus_set()
@@ -124,33 +129,33 @@ class NewOrderWindow(BaseWindow):
         tk.Label(
             self.left_frame, text="Contact:", bg="lightblue",
             font=("Arial", 12, "bold")
-        ).grid(row=1, column=1, pady=(5, 0), sticky="w")
-        self.contact_entry.grid(row=2, column=1, pady=(0, 5))
+        ).grid(row=3, column=0, pady=(5, 0), sticky="w")
+        self.contact_entry.grid(row=4, column=0, pady=(0, 5))
         self.contact_entry.bind(
             "<Return>", lambda e: self.deadline_entry.focus_set()
         )
         tk.Label(
             self.left_frame, text="Deadline:", bg="lightblue",
             font=("Arial", 12, "bold")
-        ).grid(row=1, column=2, pady=(5, 0), sticky="w")
-        self.deadline_entry.grid(row=2, column=2, pady=(0, 5))
+        ).grid(row=3, column=1, pady=(5, 0), sticky="w")
+        self.deadline_entry.grid(row=4, column=1, pady=(0, 5))
         self.deadline_entry.bind("<KeyRelease>", auto_format_date)
         self.deadline_entry.bind("<Return>", lambda e: self.handle_next())
-        self.next_button.grid(row=3, column=0, columnspan=3, padx=5, pady=2)
+        self.next_button.grid(row=5, column=0, columnspan=2, pady=5)
         tk.Label(
             self.left_frame, text="", bg="lightblue"
-        ).grid(row=4, column=0, columnspan=3, pady=5)
+        ).grid(row=6, column=0, columnspan=2, pady=5)
         # Product search section (initially hidden)
         self.search_section.columnconfigure(0, weight=1)
         self.search_section.columnconfigure(1, weight=1)
         tk.Label(
-            self.search_section, text="Enter Product Code:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).grid(row=0, column=0, padx=5, pady=2)
+            self.search_section, text="Product Code:", bg="lightblue",
+            font=("Arial", 12, "bold")
+        ).grid(row=0, column=0, pady=(5, 0), sticky="s")
         self.product_code_entry.bind(
             "<KeyRelease>", lambda event: to_uppercase(self.product_code_entry)
         )
-        self.product_code_entry.grid(row=1, column=0, padx=5, pady=2)
+        self.product_code_entry.grid(row=1, column=0, padx=5, sticky="n")
         self.suggestions_listbox.grid(row=2, column=0, sticky="we", padx=5)
         self.suggestions_listbox.bind(
             "<<ListboxSelect>>", self.fill_selected_code
@@ -164,21 +169,22 @@ class NewOrderWindow(BaseWindow):
         self.search_button.bind("<Return>", lambda e: self.search_product)
         tk.Label(
             self.search_section, text="Quantity:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).grid(row=0, column=1, padx=5, pady=2)
-        self.quantity_entry.grid(row=1, column=1, padx=5, pady=2)
-        self.add_button.grid(row=2, column=1, pady=5)
+            font=("Arial", 12, "bold")
+        ).grid(row=0, column=1, padx=5, pady=(5, 0))
+        self.quantity_entry.grid(row=1, column=1, padx=5, pady=(0, 5))
+        self.add_button.grid(row=2, column=1, pady=5, padx=5)
         self.submit_button.grid(row=3, column=0, columnspan=2, pady=10)
         self.submit_button.grid_remove()
         tk.Button(
-            self.left_frame, text="Look Up Products", bg="green",
-            bd=4, relief="solid", command=self.lookup_items
-        ).grid(row=7, column=0, columnspan=3)
+            self.left_frame, text="Look Up Products", bg="green", fg="white",
+            bd=4, relief="groove", font=("Arial", 10, "bold"),
+            command=self.lookup_items
+        ).grid(row=8, column=0, columnspan=2)
         self.right_frame.pack(side="right", fill="both", expand=True)
         self.button_frame.pack(fill=tk.X)
         tk.Label(
             self.button_frame, text="Order Items List.", bg="lightblue",
-            fg="blue", font=("Arial", 15, "bold", "underline")
+            fg="blue", font=("Arial", 16, "bold", "underline")
         ).pack(pady=(5, 0), anchor="center")
         self.delete_btn.pack(side=tk.RIGHT, padx=5)
         self.delete_btn.pack_forget()
@@ -227,6 +233,7 @@ class NewOrderWindow(BaseWindow):
             "Success",
             "Product Successfully Removed From Order.", parent=self.master
         )
+        self.sorter.autosize_columns(5)
 
     def capitalize_customer_name(self, event=None):
         widget = event.widget
@@ -369,7 +376,7 @@ class NewOrderWindow(BaseWindow):
         self.deadline_entry.config(state="disabled")
         self.next_button.config(state="disabled")
         self.search_section.grid(
-            row=4, column=0, columnspan=3, sticky="ew", pady=5
+            row=7, column=0, columnspan=2, sticky="ew", pady=5
         )
         self.product_code_entry.focus_set()
 
@@ -536,23 +543,3 @@ class NewOrderWindow(BaseWindow):
 
     def lookup_items(self):
         ProductSearchWindow(self.master, self.conn)
-
-    def resize_columns(self):
-        font = tkFont.Font()  # Auto-size columns
-        for col in self.columns:
-            max_width = font.measure(col)  # Start with header width
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                width = font.measure(text)
-                if width > max_width:
-                    max_width = width
-            self.tree.column(col, width=max_width)
-
-
-
-if __name__ == "__main__":
-    from connect_to_db import connect_db
-    conn = connect_db()
-    root = tk.Tk()
-    NewOrderWindow(root, conn, "Sniffy")
-    root.mainloop()

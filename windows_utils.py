@@ -1,7 +1,6 @@
-
 import tkinter as tk
 import re
-from datetime import date
+from datetime import date, datetime
 import bcrypt
 
 def to_uppercase(entry_widget):
@@ -197,3 +196,47 @@ class PasswordSecurity:
             plain_password.encode("utf-8"),
             hashed_password.encode("utf-8")
         )
+
+
+class DateEntryFormatter:
+    """Handles: -Auto-formatting date while typing (DD/MM/YYYY)
+                - Validation And Conversion to MySQL format (YYYY-MM-DD)"""
+
+    def __init__(self, entry: tk.Entry):
+        self.entry = entry
+        self.entry.bind("<KeyRelease>", self._format_date)
+        self.entry.bind("<FocusOut>", self._validate_on_focus_out)
+
+    def _format_date(self, event=None):
+        value = self.entry.get()
+        digits = "".join(c for c in value if c.isdigit())[:8]
+
+        if len(digits) <= 2:
+            return
+        formatted = digits[:2]
+
+        if len(digits) >= 4:
+            formatted += "/" + digits[2:4]
+        else:
+            formatted += "/" + digits[2:]
+
+        if len(digits) > 4:
+            formatted += "/" + digits[4:]
+
+        if formatted != value:
+            self.entry.delete(0, tk.END)
+            self.entry.insert(0, formatted)
+
+    def _validate_on_focus_out(self, event=None):
+        value = self.entry.get().strip()
+        if not value:
+            return
+        try:
+            datetime.strptime(value, "%d/%m/%Y")
+        except ValueError:
+            self.entry.delete(0, tk.END)
+
+    @staticmethod
+    def to_mysql(date_text: str) -> str:
+        """Convert DD/MM/YYYY to YYYY-MM-DD"""
+        return datetime.strptime(date_text, "%d/%m/%Y").strftime("%Y-%m-%d")

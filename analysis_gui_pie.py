@@ -2,9 +2,6 @@ import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
-import matplotlib.dates as mdates
-from dateutil import parser
-import mplcursors
 from base_window import BaseWindow
 
 class AnalysisWindow(BaseWindow):
@@ -51,18 +48,18 @@ class AnalysisWindow(BaseWindow):
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         # Title
         self.title_frame.pack(side="top", fill="x", pady=(5, 0))
+        self.control_frame.pack(side="right", padx=10)
         text = f"Pie Chart For {self.title}"
         tk.Label(
-            self.title_frame, text=text, bg="lightblue", bd=2, relief="flat",
-            font=("Arial", 16, "bold", "underline")
-        ).pack(side="left", padx=(20, 0))
+            self.title_frame, text=text, bg="lightblue", fg="blue",
+            font=("Arial", 20, "bold", "underline")
+        ).pack(side="right", anchor="sw")
         # Controls
-        self.control_frame.pack(side="right", anchor="e", padx=10)
         tk.Label(
-            self.control_frame, text="View By:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).pack(side="left", padx=(10, 0))
-        self.option_cb.pack(side="left", padx=(0, 10))
+            self.control_frame, text="View:", bg="lightblue", fg="green",
+            font=("Arial", 12, "bold")
+        ).pack(side="left", anchor="s")
+        self.option_cb.pack(side="left", anchor="s")
         # Bind controls to redraw charts
         self.option_cb.bind("<<ComboboxSelected>>",  self.update_charts)
         # Chart container
@@ -86,9 +83,9 @@ class AnalysisWindow(BaseWindow):
 
         fig_title = f"Pie Chart For {self.title} By {metric_name}."
         tk.Label(
-            self.chart_container, bg="lightblue", fg="black", text=fig_title,
-            font=("Arial", 14, "bold", "underline")
-        ).pack(padx=10)
+            self.chart_container, bg="lightblue", text=fig_title,
+            font=("Arial", 16, "bold", "underline")
+        ).pack(side="top", anchor="s")
 
         dpi = 100
         fig_w = 8

@@ -2,61 +2,72 @@ import re
 import tkinter as tk
 from tkinter import StringVar
 from tkinter import ttk
-import tkinter.font as tkFont
 from base_window import BaseWindow
 from working_sales import search_products
+from table_utils import TreeviewSorter
+
 
 class ProductSearchWindow(BaseWindow):
     def __init__(self, master, conn):
         self.window = tk.Toplevel(master)
         self.window.title("Search Products")
         self.window.configure(bg="lightblue")
-        self.center_window(self.window, 750, 400, master)
+        self.center_window(self.window, 750, 600, master)
         self.window.transient(master)
         self.window.grab_set()
 
         self.conn = conn
-        self.columns = ["No", "Product Code", "Product Name", "Quantity",
-                        "Wholesale Price", "Retail Price"]
-        self.top_frame = tk.Frame(self.window, bg="lightblue")
+        self.columns = [
+            "No", "Item Code", "Item Name", "Qty", "Wholesale P.", "Retail P."
+        ]
+        style = ttk.Style(self.window)
+        style.theme_use("clam")
+        self.main_frame = tk.Frame(
+            self.window, bg="lightblue", bd=4, relief="solid"
+        )
+        self.top_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.combo = ttk.Combobox(
             self.top_frame, values=["Name", "Code"], state="readonly",
-            width=10
+            width=6, font=("Arial", 12)
         )
         self.search_label = tk.Label(
-            self.top_frame, text="Enter Product Name To Search:", bg="lightblue",
-            font=("Arial", 10, "bold")
+            self.top_frame, text="Search Product Name:", bg="lightblue",
+            font=("Arial", 12, "bold")
         )
         self.search_var = StringVar()
         self.entry = tk.Entry(
-            self.top_frame, textvariable=self.search_var, width=20,
-            font=("Arial", 11)
+            self.top_frame, textvariable=self.search_var, width=15, bd=4,
+            relief="raised", font=("Arial", 12)
         ) # Entry
-        self.bottom_frame = tk.Frame(self.window, bg="lightblue")
+        self.bottom_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.tree = ttk.Treeview(
             self.bottom_frame, columns=self.columns, show="headings"
         )
-        # Style
-        style = ttk.Style()
-        style.configure(
-            "Treeview.Heading", font=("Arial", 11, "bold", "underline")
-        )
-        style.configure("Treeview", rowheight=30, font=("Arial", 10))
+        self.sorter = TreeviewSorter(self.tree, self.columns, "No")
+        self.sorter.apply_style(style)
+        self.sorter.attach_sorting()
+        self.sorter.bind_mousewheel()
 
         self.create_widgets()
-        self.resize_columns()
+        self.sorter.autosize_columns(10)
 
     def create_widgets(self):
         # Top Frame
-        self.top_frame.pack(fill="x", padx=10)
-        self.bottom_frame.pack(fill="both", expand=True, pady=(0, 5), padx=5)
+        self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
+        tk.Label(
+            self.main_frame, text="Search Product(Item) In Stock", fg="blue",
+            bg="lightblue", font=("Arial", 20, "bold", "underline")
+        ).pack(side="top", anchor="s", pady=(5, 0))
+        self.top_frame.pack(side="top", padx=10)
+        self.bottom_frame.pack(fill="both", expand=True)
         tk.Label(
             self.top_frame, text="Search By:", bg="lightblue",
-            font=("Arial", 10, "bold")
+            font=("Arial", 12, "bold")
         ).pack(side="left", padx=(5, 0)) # Search Label
         self.combo.current(0)
         self.combo.pack(side="left", padx=(0, 5)) # Combobox
-        self.combo.bind("<<ComboboxSelected>>", self.update_search_label) #Bind to update function
+        # Bind to update function
+        self.combo.bind("<<ComboboxSelected>>", self.update_search_label)
         self.search_label.pack(side="left", padx=(5, 0))
         self.entry.pack(side="left", padx=(0, 5))
         self.entry.bind("<KeyRelease>", self.perform_search)
@@ -100,34 +111,14 @@ class ProductSearchWindow(BaseWindow):
                 f"{row['wholesale_price']:,}",
                 f"{row['retail_price']:,}"
             ), tags=(tag,))
-        self.resize_columns()
-
-    def resize_columns(self):
-        font = tkFont.Font()  # Auto-size columns
-        for col in self.columns:
-            max_width = font.measure(col)  # Start with header width
-            for item in self.tree.get_children():
-                text = str(self.tree.set(item, col))
-                width = font.measure(text)
-                if width > max_width:
-                    max_width = width
-            self.tree.column(col, width=max_width + 5)
-
+        self.sorter.autosize_columns(10)
 
     def update_search_label(self, event=None):
         """Update search label based on selected combo option."""
         selected_option = self.combo.get()
         if selected_option == "Name":
-            label = "Enter Product Name To Search:"
+            label = "Search Product Name:"
         else:
-            label = "Enter Product Code To Search:"
+            label = "Search Product Code:"
         self.search_label.config(text=label)
 
-
-# if __name__ == "__main__":
-#     from connect_to_db import connect_db
-#     root = tk.Tk()
-#     # root.withdraw()
-#     conn = connect_db()
-#     ProductSearchWindow(root, conn)
-#     root.mainloop()

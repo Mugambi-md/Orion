@@ -5,10 +5,9 @@ from matplotlib.figure import Figure
 import matplotlib.dates as mdates
 from dateutil import parser
 import mplcursors
-from base_window import BaseWindow
 
 
-class LineAnalysisWindow(BaseWindow):
+class LineAnalysisWindow:
     def __init__(self, title, rows, metrics, date_field):
         """
         parent: Tk parent window. title: Window title (String). Rows: List of
@@ -17,7 +16,6 @@ class LineAnalysisWindow(BaseWindow):
         """
         self.master = tk.Toplevel()
         self.master.title(title)
-        # self.center_window(self.master, 1300, 700, parent)
         self.master.state("zoomed")
         self.master.configure(bg="lightblue")
         self.master.transient()
@@ -28,6 +26,8 @@ class LineAnalysisWindow(BaseWindow):
         self.date_field = date_field
         self.title = title
 
+        style = ttk.Style(self.master)
+        style.theme_use("clam")
         # Frames
         self.main_frame = tk.Frame(
             self.master, bg="lightblue", bd=4, relief="solid"
@@ -35,7 +35,7 @@ class LineAnalysisWindow(BaseWindow):
         self.title_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.control_frame = tk.Frame(self.title_frame, bg="lightblue")
         self.option_cb = ttk.Combobox(
-            self.control_frame, width=20, state="readonly",
+            self.control_frame, width=15, state="readonly", font=("Arial", 12),
             values=["Show All"] + list(metrics.keys())
         )
         self.option_cb.current(0)
@@ -50,16 +50,16 @@ class LineAnalysisWindow(BaseWindow):
         """Pack and arrange widgets."""
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
         self.title_frame.pack(side="top", fill="x", pady=(5, 0))
+        self.control_frame.pack(side="right", padx=10)
         tk.Label(
-            self.title_frame, text=self.title, bg="lightblue",
-            font=("Arial", 16, "bold", "underline")
-        ).pack(side="left", padx=(20, 0))
-        self.control_frame.pack(side="right", anchor="e", padx=10)
+            self.title_frame, text=self.title, bg="lightblue", fg="blue",
+            font=("Arial", 20, "bold", "underline"), width=60
+        ).pack(side="right", anchor="sw")
         tk.Label(
-            self.control_frame, text="View By:", bg="lightblue",
-            font=("Arial", 11, "bold")
-        ).pack(side="left", padx=(10, 0))
-        self.option_cb.pack(side="left", padx=(0, 10))
+            self.control_frame, text="View By:", bg="lightblue", fg="green",
+            font=("Arial", 12, "bold")
+        ).pack(side="left", anchor="s")
+        self.option_cb.pack(side="left", anchor="s")
         self.option_cb.bind("<<ComboboxSelected>>", self.update_chart)
         self.chart_container.pack(fill="both", expand=True)
 
@@ -94,9 +94,9 @@ class LineAnalysisWindow(BaseWindow):
             else f"Line Graph For {self.title} By {metric_choice}."
         )
         tk.Label(
-            self.chart_container, text=fig_title, bg="lightblue", fg="black",
-            font=("Arial", 14, "bold", "underline")
-        ).pack(padx=5, anchor="center")
+            self.chart_container, text=fig_title, bg="lightblue",
+            font=("Arial", 16, "bold", "underline")
+        ).pack(side="top", anchor="s")
         dpi = 100
         fig = Figure(figsize=(8, 6), dpi=dpi)
         ax = fig.add_subplot(111)
@@ -174,27 +174,3 @@ class LineAnalysisWindow(BaseWindow):
                 canvas.draw_idle()
         fig.canvas.mpl_connect("motion_notify_event", on_motion)
 
-
-if __name__ == "__main__":
-    rows = [
-        {"date": "2025-01-01", "sales": 120, "profit": 40},
-        {"date": "2025-01-02", "sales": 150, "profit": 60},
-        {"date": "2025-01-03", "sales": 90, "profit": 25},
-        {"date": "2025-01-04", "sales": 200, "profit": 80},
-        {"date": "2025-01-05", "sales": 170, "profit": 55},
-        {"date": "2025-01-06", "sales": 220, "profit": 100},
-        {"date": "2025-01-07", "sales": 180, "profit": 65},
-        {"date": "2025-01-08", "sales": 130, "profit": 50},
-        {"date": "2025-01-09", "sales": 250, "profit": 120},
-        {"date": "2025-01-10", "sales": 210, "profit": 90},
-    ]
-    metrics = {
-        "Sales Amount": lambda r: r["sales"],
-        "Profit Amount": lambda r: r["profit"],
-        "Profit Margin %": lambda r: (r["profit"] / r["sales"]) * 100 if r["sales"] else 0,
-        "Double Sales": lambda r: r["sales"] * 2,  # just to test dynamic scaling
-    }
-    root = tk.Tk()
-    root.withdraw()
-    LineAnalysisWindow("Sales & Profit Trends", rows, metrics, date_field="date")
-    root.mainloop()

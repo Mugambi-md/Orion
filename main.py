@@ -26,19 +26,18 @@ class MugambiPOSApp(BaseWindow):
         self.bg_label.place(x=0, y=0, relwidth=1, relheight=1)
         # Bind resizing
         self.master.bind("<Configure>", self.resize_background)
-        title = "SwiftGlance Sales System"
         self.title_label = tk.Label(
-            master, text=title, bd=4, relief="ridge", fg="blue",
-            bg="lightgray", font=("Arial", 20, "bold", "underline")
+            master, text="SwiftGlance Sales System", bd=4, relief="ridge",
+            fg="blue", bg="lightgray", font=("Arial", 22, "bold", "underline")
         ) # Title Label
-        self.title_label.pack(pady=(30, 10), ipadx=10, anchor="center")
-        self.date_frame = tk.Frame(master, bd=2, relief="ridge")
+        self.title_label.pack(side="top", ipadx=2, anchor="center")
+        self.date_frame = tk.Frame(master, bd=2, relief="flat")
         day = DateFormatter.get_today_formatted()
         self.date_label = tk.Label(
-            self.date_frame, text=day, fg="dodgerblue", anchor="center",
-            bd=2, relief="ridge", font=("Arial", 14, "bold", "underline")
+            self.date_frame, text=day, fg="dodgerblue", bd=4, relief="ridge",
+            font=("Arial", 16, "bold", "underline")
         )
-        self.date_label.pack(ipadx=5, anchor="center")
+        self.date_label.pack(ipadx=3, anchor="center")
         self.version_frame = tk.Frame(master, bg="gray13")
         self.version_frame.pack(fill='x', pady=(10, 0), side="bottom")
         self.version_label = tk.Label(
@@ -52,22 +51,22 @@ class MugambiPOSApp(BaseWindow):
         self.bottom_frame.pack(side="bottom", fill="x", ipady=20)
         self.login_btn = tk.Button(
             self.bottom_frame, text="LOGIN", bd=4, relief="groove",
-            font=("Arial", 14, "bold"), command=self.login
+            font=("Arial", 16, "bold"), command=self.login
         )
         self.login_btn.focus_set()
         self.login_btn.bind("<Return>", lambda e: self.login())
         self.admin_btn = tk.Button(
             self.bottom_frame, text="MAINTENANCE", bd=4, relief="groove",
-            font=("Arial", 14, "bold"), command=self.admin
+            font=("Arial", 16, "bold"), command=self.admin
         )
         self.exit_btn = tk.Button(
             self.bottom_frame, text="EXIT", bd=4, relief="groove",
-            font=("Arial", 14, "bold"), command=self.master.quit
+            font=("Arial", 16, "bold"), command=self.master.quit
         )
         self.login_btn.pack(side="left", expand=True, fill='both')
         self.admin_btn.pack(side="left", expand=True, fill='both')
         self.exit_btn.pack(side="left", expand=True, fill='both')
-        self.date_frame.pack(pady=(10, 5), padx=10, side="bottom")
+        self.date_frame.pack(pady=(0, 25), side="bottom")
 
     def resize_background(self, event):
         resized = self.original_bg.resize(

@@ -17,8 +17,8 @@ def connect_db():
         print(f"Error: {err}")
         return None
 
-# Test the connection
-if __name__ == "__main__":
-    conn = connect_db()
-    if conn:
-        conn.close()
+# # Test the connection
+# if __name__ == "__main__":
+#     conn = connect_db()
+#     if conn:
+#         conn.close()
