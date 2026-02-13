@@ -65,7 +65,7 @@ class OrdersWindow(BaseWindow):
         self.button_frame = tk.Frame(self.orders_frame, bg="lightblue")
         self.year_cb = ttk.Combobox(
             self.button_frame, textvariable=self.year_var, state="readonly",
-            width=5, font=("Arial", 11), values=self.years
+            width=5, font=("Arial", 12), values=self.years
         )
         self.year_cb.current(0)
         self.table_frame = tk.Frame(self.orders_frame, bg="lightblue")
@@ -74,6 +74,7 @@ class OrdersWindow(BaseWindow):
         )
         self.sorter = TreeviewSorter(self.tree, self.columns, "No")
         self.sorter.apply_style(style)
+        self.sorter.bind_mousewheel()
         self.sorter.attach_sorting()
 
         self.setup_ui()
@@ -129,11 +130,6 @@ class OrdersWindow(BaseWindow):
         self.tree.configure(yscrollcommand=scrollbar.set)
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.tree.bind(
-            "<MouseWheel>", lambda e: self.tree.yview_scroll(
-                -1 * (e.delta // 120), "units"
-            )
-        )
         self.tree.tag_configure("evenrow", background="#fffde7")
         self.tree.tag_configure("oddrow", background="#e0f7e9")
 
