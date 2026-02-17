@@ -219,7 +219,7 @@ class OrderPayment(BaseWindow):
 
 
 class OrderItemsGui(BaseWindow):
-    def __init__(self, parent, conn, user, order_id, call_back=None):
+    def __init__(self, parent, conn, user, order_id, back=None, state=None):
         self.master = tk.Toplevel(parent)
         self.master.title("Order Items & Delivery")
         self.master.configure(bg="lightblue")
@@ -230,7 +230,9 @@ class OrderItemsGui(BaseWindow):
         self.conn = conn
         self.user = user
         self.order_id = order_id
-        self.callback = call_back
+        self.callback = back
+        self.state = state
+        self.buttons = {} # Store all buttons
         result = fetch_order_balance_by_id(self.conn, order_id)
         # Error string returned
         if isinstance(result, dict) and "error" in result:
@@ -247,7 +249,6 @@ class OrderItemsGui(BaseWindow):
         self.balance = float(result["balance"])
         self.status = None
         self.total_amount = None
-
         (self.selected_code, self.selected_amount,
          self.name) = None, None, None
         style = ttk.Style(self.master)
@@ -259,13 +260,14 @@ class OrderItemsGui(BaseWindow):
         self.main_frame = tk.Frame(
             self.master, bg="lightblue", bd=4, relief="solid"
         )
-        self.top_frame = tk.Frame(self.main_frame, bg="lightblue", bd=2,
-                                  relief="solid")
+        self.top_frame = tk.Frame(
+            self.main_frame, bg="lightblue", bd=2, relief="solid"
+        )
         self.table_frame = tk.Frame(self.main_frame, bg="lightblue")
         self.btn_frame = tk.Frame(self.table_frame, bg="lightblue")
         self.label = tk.Label(
-            self.btn_frame, text="", bg="lightblue", fg="dodgerblue",
-            font=("Arial", 14, "italic", "underline"), width=70
+            self.btn_frame, text="", bg="lightblue", fg="blue",
+            font=("Arial", 14, "italic", "underline")
         )
         self.tree = ttk.Treeview(
             self.table_frame, columns=self.columns, show="headings"
@@ -275,9 +277,9 @@ class OrderItemsGui(BaseWindow):
         self.sorter.attach_sorting()
         self.sorter.bind_mousewheel()
 
-
         self.build_ui()
         self.load_data()
+        self.apply_btn_state()
 
     def build_ui(self):
         self.main_frame.pack(fill="both", expand=True, pady=(0, 10), padx=10)
@@ -295,10 +297,12 @@ class OrderItemsGui(BaseWindow):
             "Print Delivery": self.print_delivery_note
         }
         for text, command in btns.items():
-            tk.Button(
+            btn = tk.Button(
                 btn_frame, text=text, command=command, bd=4, relief="raised",
-                bg="blue", fg="white", font=("Arial", 10, "bold")
-            ).pack(side="left")
+                bg="blue", fg="white", font=("Arial", 10, "bold"),
+            )
+            btn.pack(side="left")
+            self.buttons[text] = btn
         self.table_frame.pack(side="left", fill="both", expand=True)
         self.btn_frame.pack(side="top", fill="x")
         action_btn = {
@@ -307,11 +311,13 @@ class OrderItemsGui(BaseWindow):
             "Delete Item": self.delete_item
         }
         for text, command in action_btn.items():
-            tk.Button(
+            btn = tk.Button(
                 self.btn_frame, text=text, command=command, bg="green",
                 fg="white", bd=2, relief="raised", font=("Arial", 9, "bold")
-            ).pack(side="left")
-        self.label.pack(side="left", padx=20, anchor="s")
+            )
+            btn.pack(side="left")
+            self.buttons[text] = btn
+        self.label.pack(side="left", anchor="sw", padx=(20, 0))
         for col in self.columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor="center", width=20)
@@ -322,6 +328,8 @@ class OrderItemsGui(BaseWindow):
         self.tree.configure(yscrollcommand=scrollbar.set)
         self.tree.pack(side=tk.LEFT, fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        self.tree.tag_configure("evenrow", background="#fffde7")
+        self.tree.tag_configure("oddrow", background="#e0f7e9")
         self.tree.tag_configure(
             "total", font=("Arial", 12, "bold", "underline"),
             background="lightgray", foreground="blue"
@@ -330,14 +338,22 @@ class OrderItemsGui(BaseWindow):
     def load_data(self):
         if self.balance > 0:
             msg_text = f"Remaining Order Balance: Ksh.{self.balance:,.2f}."
+            if self.state and self.state == "Pending":
+                msg_text += " Not Delivered"
             self.label.configure(text=msg_text, fg="red")
         else:
-            msg_text = "Order Fully Paid."
-            self.label.configure(text=msg_text, fg="dodgerblue")
+            msg_text = "Order Fully Paid,"
+            if self.state:
+                if self.state == "Delivered":
+                    msg_text = f"Order Delivered."
+                else:
+                    msg_text += f" Pending Delivery."
+            self.label.configure(text=msg_text, fg="blue")
         self.status = msg_text
         items = fetch_order_items_by_order_id(self.conn, self.order_id)
         for i, item in enumerate(items, start=1):
             name = re.sub(r"\s+", " ", str(item["product_name"])).strip()
+            tag = "evenrow" if i % 2 == 0 else "oddrow"
             self.tree.insert("", "end", values=(
                 i,
                 item["product_code"],
@@ -345,7 +361,7 @@ class OrderItemsGui(BaseWindow):
                 item["quantity"],
                 f"{item['unit_price']:,.2f}",
                 f"{item['total_price']:,.2f}"
-            ))
+            ), tags=(tag,))
         total_sum = sum(item["total_price"] for item in items)
         self.total_amount = total_sum
         if items:
@@ -353,6 +369,17 @@ class OrderItemsGui(BaseWindow):
                 "", "","", "", "TOTAL", f"{total_sum:,.2f}"
             ), tags=("total",))
         self.sorter.autosize_columns(5)
+
+    def apply_btn_state(self):
+        if self.state == "Delivered":
+            for text, btn in self.buttons.items():
+                if text == "Print Delivery":
+                    btn.config(state="normal")
+                else:
+                    btn.config(state="disabled")
+        else:
+            for btn in self.buttons.values():
+                btn.config(state="normal")
 
     def collect_treeview_data(self):
         data = []

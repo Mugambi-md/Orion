@@ -349,7 +349,9 @@ class PendingOrdersWindow(BaseWindow):
             )
             return
         refresh_t = self.create_table
-        OrderItemsGui(self.window, self.conn, self.user, order_id, refresh_t)
+        OrderItemsGui(
+            self.window, self.conn, self.user, order_id, refresh_t, "Pending"
+        )
 
     def delete_order(self):
         order_id = self.selected_order_id
@@ -699,8 +701,10 @@ class EditOrdersWindow(BaseWindow):
                 f"Authority To {priv} Denied.", parent=self.master
             )
             return
+        order_id = self.selected_order_id
+        refill = self.load_orders_table
         OrderItemsGui(
-            self.master, self.conn, self.user, self.selected_order_id
+            self.master, self.conn, self.user, order_id, refill, "Pending"
         )
 
     def order_delete(self):

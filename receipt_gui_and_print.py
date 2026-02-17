@@ -13,18 +13,22 @@ from reportlab.lib.pagesizes import A4
 from tkinter import filedialog
 
 class ReceiptViewer:
-    def __init__(self, parent, conn, receipt_no, user):
-        self.window = tk.Toplevel(parent)
+    def __init__(self, conn, receipt_no, user):
+        self.window = tk.Toplevel()
         self.window.title("Receipt Viewer")
         self.window.configure(bg="lightgray")
-        self.window.geometry("1200x600")
+        self.window.state("zoomed")
+        self.window.transient()
+        self.window.grab_set()
 
         self.conn = conn
         self.receipt_no = receipt_no
         self.user = user
         self.center_frame = tk.Frame(self.window, bg="white")
-        self.receipt_text = ScrolledText(self.center_frame, width=58, wrap=tk.WORD, bg="white", height=35,
-                                         font=("Courier New", 10))
+        self.receipt_text = ScrolledText(
+            self.center_frame, width=58, wrap=tk.WORD, bg="white", height=40,
+            font=("Courier New", 10)
+        )
 
         self.create_widgets()
         self.display_receipt()
@@ -32,10 +36,16 @@ class ReceiptViewer:
     def create_widgets(self):
         # Top Frame
         top_frame = tk.Frame(self.window, bg="white")
-        top_frame.pack(side="top", anchor="center", padx=5, pady=5)
-        tk.Button(top_frame, text="Print", command=self.print_receipt).pack(side="right", padx=5)
-        tk.Button(top_frame, text="Export", command=self.export_receipt).pack(side="right")
-        self.center_frame.pack(expand=True, anchor="center", fill="both", pady=10)
+        top_frame.pack(side="top", anchor="center", pady=(5, 0))
+        tk.Button(
+            top_frame, text="Print", fg="blue", bd=4, relief="groove",
+            font=("Arial", 9, "bold"), command=self.print_receipt
+        ).pack(side="right", padx=5)
+        tk.Button(
+            top_frame, text="Export", fg="green", bd=4, relief="groove",
+            font=("Arial", 9, "bold"), command=self.export_receipt
+        ).pack(side="right", padx=5)
+        self.center_frame.pack(expand=True, anchor="center", fill="both")
         # ScrolledText for receipt display
         self.receipt_text.pack(padx=20, pady=5)
         self.receipt_text.configure(state="disabled") # Initially disabled
@@ -45,7 +55,11 @@ class ReceiptViewer:
         try:
             sale, items = fetch_receipt_data(self.conn, self.receipt_no)
             if not sale:
-                messagebox.showerror("Not Found", f"No Sale found for receipt: {self.receipt_no}")
+                messagebox.showerror(
+                    "Not Found",
+                    f"No Sale Found For Receipt: {self.receipt_no}",
+                    parent=self.window
+                )
                 return
             # Build receipt text
             printed_on = date.today().strftime("%Y-%m-%d")
@@ -122,10 +136,12 @@ class ReceiptViewer:
             # Ask user where to save PDF
             day = date.today().strftime("%y%m%d")
             default_filename = f"Sales Receipt {day}.pdf"
-            filepath = filedialog.asksaveasfilename(defaultextension=".pdf",
-                                                    filetypes=[("PDF files", "*.pdf")],
-                                                    initialfile=default_filename,
-                                                    title="Save Receipt as PDF")
+            filepath = filedialog.asksaveasfilename(
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf")],
+                initialfile=default_filename,
+                title="Save Receipt as PDF"
+            )
             if not filepath:
                 return  # User cancelled
 

@@ -82,6 +82,7 @@ class MakeSaleWindow(BaseWindow):
          self.wholesale_price, self.retail_price) = None, None, None, None, None
         self.sorter = TreeviewSorter(self.sale_list, self.columns, "No")
         self.sorter.apply_style(style)
+        self.sorter.bind_mousewheel()
 
         self.create_widgets()
         self.check_allowed()
@@ -129,17 +130,16 @@ class MakeSaleWindow(BaseWindow):
             bd=4, relief="groove", font=("Arial", 10, "bold"),
             command=self.lookup_product
         ).pack(pady=5)
-
         btn_frame = tk.Frame(self.right_frame, bg="lightblue")
         btn_frame.pack(side="top", fill="x")
         tk.Button(
             btn_frame, text="Remove Item", bg="red", fg="white", bd=4,
             relief="ridge", font=("Arial", 10, "bold"),
             command=self.remove_selected
-        ).pack(side="right", padx=5)
+        ).pack(side="right", anchor="s")
         tk.Label(
             btn_frame, text="Sale List", bg="lightblue", fg="blue",
-            font=("Arial", 18, "bold", "underline")
+            font=("Arial", 20, "bold", "underline")
         ).pack(anchor="center")
         vsb = ttk.Scrollbar(
             self.right_frame, orient="vertical", command=self.sale_list.yview
@@ -188,7 +188,7 @@ class MakeSaleWindow(BaseWindow):
             (self.product_code, self.product_name, self.available_quantity,
              self.wholesale_price, self.retail_price) = result
             answer = messagebox.askyesno(
-                "Add", f"Add '{self.product_name}' to Sales List?",
+                "Confirm", f"Add '{self.product_name}' to Sale?",
                 parent=self.sale_win
             )
             if answer:
@@ -254,7 +254,7 @@ class MakeSaleWindow(BaseWindow):
         ) for item in self.sale_items)
         self.total_cost_var.set(f"{total_cost:,.2f}")
         another = messagebox.askyesno(
-            "Continue?", "Enter Another Item?", parent=self.sale_win
+            "Continue?", "Continue Adding Items?", parent=self.sale_win
         )
         if another:
             self.search_entry.delete(0, tk.END)

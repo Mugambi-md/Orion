@@ -1,7 +1,6 @@
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from openpyxl import Workbook
@@ -9,6 +8,8 @@ from openpyxl.styles import Font
 import platform
 import datetime
 import os
+
+
 class ExportReports:
     def export_reports_to_pdf(self, filepath, **sections):
         doc = SimpleDocTemplate(filepath, pagesize=A4)
@@ -16,7 +17,10 @@ class ExportReports:
         styles = getSampleStyleSheet()
         title_style = styles['Heading2']
         normal_style = styles['Normal']
-        elements.append(Paragraph(f"Exported on: {datetime.datetime.now().strftime('%Y/%B/%d %H:%M')}", normal_style))
+        export_date = datetime.datetime.now().strftime('%Y/%B/%d %H:%M')
+        elements.append(
+            Paragraph(f"Exported on: {export_date}", normal_style)
+        )
         elements.append(Spacer(1, 12))
         for section_name, data in sections.items():
             if not data:
